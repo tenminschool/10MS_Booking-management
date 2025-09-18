@@ -1,0 +1,198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Branch {
+  id            String   @id @default(cuid())
+  name          String
+  address       String
+  contactNumber String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  users User[]
+  slots Slot[]
+
+  @@map("branches")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  BRANCH_ADMIN
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id             String   @id @default(cuid())
+  phoneNumber    String?  @unique
+  email          String?  @unique
+  name           String
+  role           UserRole
+  branchId       String?
+  hashedPassword String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  branch              Branch?         @relation(fields: [branchId], references: [id])
+  teacherSlots        Slot[]          @relation("TeacherSlots")
+  bookings            Booking[]       @relation("StudentBookings")
+  studentAssessments  Assessment[]    @relation("StudentAssessments")
+  teacherAssessments  Assessment[]    @relation("TeacherAssessments")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  systemSettings      SystemSetting[]
+
+  // Indexes for performance
+  @@index([role])
+  @@index([branchId, role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Slot {
+  id        String   @id @default(cuid())
+  branchId  String
+  teacherId String
+  date      DateTime @db.Date
+  startTime String
+  endTime   String
+  capacity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  teacher  User      @relation("TeacherSlots", fields: [teacherId], references: [id])
+  bookings Booking[]
+
+  // Indexes for performance
+  @@index([branchId, date])
+  @@index([teacherId, date])
+  @@index([date])
+  @@map("slots")
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+model Booking {
+  id                String        @id @default(cuid())
+  studentId         String
+  slotId            String
+  status            BookingStatus @default(CONFIRMED)
+  attended          Boolean?
+  cancellationReason String?
+  bookedAt          DateTime      @default(now())
+  cancelledAt       DateTime?
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  student     User         @relation("StudentBookings", fields: [studentId], references: [id])
+  slot        Slot         @relation(fields: [slotId], references: [id])
+  assessments Assessment[]
+
+  // Indexes for performance
+  @@index([studentId])
+  @@index([slotId])
+  @@index([status])
+  @@index([bookedAt])
+  // Unique constraint: one booking per student per month
+  @@unique([studentId, slotId])
+  @@map("bookings")
+}
+
+model Assessment {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  studentId  String
+  teacherId  String
+  score      Float // IELTS score 0-9 with 0.5 increments
+  remarks    String?
+  assessedAt DateTime @default(now())
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id])
+  student User    @relation("StudentAssessments", fields: [studentId], references: [id])
+  teacher User    @relation("TeacherAssessments", fields: [teacherId], references: [id])
+
+  @@map("assessments")
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_REMINDER
+  BOOKING_CANCELLED
+  SYSTEM_ALERT
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  // Indexes for performance
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // table name (e.g., "booking", "slot", "user")
+  entityId   String   // record ID that was modified
+  action     String   // CREATE, UPDATE, DELETE
+  oldValues  Json?    // previous values (for UPDATE/DELETE)
+  newValues  Json?    // new values (for CREATE/UPDATE)
+  timestamp  DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  // Indexes for performance
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  updatedByUser User @relation(fields: [updatedBy], references: [id])
+
+  @@map("system_settings")
+}
