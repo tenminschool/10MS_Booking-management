@@ -12,19 +12,16 @@ const CardHeader = ({ children }: { children: React.ReactNode }) => (
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
 )
-const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
-)
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
-  <button 
-    className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+  <button
+    className={`px-4 py-2 rounded-md font-medium transition-colors ${variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      'bg-blue-600 text-white hover:bg-blue-700'
-    } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+        'bg-blue-600 text-white hover:bg-blue-700'
+      } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     disabled={disabled}
     onClick={onClick}
     {...props}
@@ -32,30 +29,28 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
     {children}
   </button>
 )
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
-  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
+const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
+  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
     variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    'bg-blue-100 text-blue-800'
-  }`}>
+      variant === 'outline' ? 'border border-gray-300 bg-white text-gray-800' :
+        'bg-blue-100 text-blue-800'
+    } ${className}`}>
     {children}
   </span>
 )
-import { 
-  Bell, 
-  BookOpen, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  Bell,
+  BookOpen,
+  Clock,
+  AlertCircle,
+  CheckCircle,
   Settings,
-  Trash2,
-  MarkAsRead,
   Plus,
-  Calendar,
   GraduationCap
 } from 'lucide-react'
 import { format } from 'date-fns'
-import { Notification, NotificationType } from '@/types'
+import { NotificationType } from '@/types'
+import type { Notification } from '@/types'
 
 const Notifications: React.FC = () => {
   const queryClient = useQueryClient()
@@ -64,12 +59,18 @@ const Notifications: React.FC = () => {
   // Fetch notifications
   const { data: notifications, isLoading } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => notificationsAPI.getMy(),
+    queryFn: async () => {
+      const response = await notificationsAPI.getMy()
+      return response.data
+    },
   })
 
   // Mark as read mutation
   const markAsReadMutation = useMutation({
-    mutationFn: (id: string) => notificationsAPI.markAsRead(id),
+    mutationFn: async (id: string) => {
+      const response = await notificationsAPI.markAsRead(id)
+      return response.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
@@ -77,7 +78,10 @@ const Notifications: React.FC = () => {
 
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => notificationsAPI.markAllAsRead(),
+    mutationFn: async () => {
+      const response = await notificationsAPI.markAllAsRead()
+      return response.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
@@ -108,7 +112,7 @@ const Notifications: React.FC = () => {
 
   const getNotificationBgColor = (type: NotificationType, isRead: boolean) => {
     if (isRead) return 'bg-gray-50'
-    
+
     switch (type) {
       case NotificationType.BOOKING_CONFIRMED:
         return 'bg-green-50 border-green-200'
@@ -126,9 +130,9 @@ const Notifications: React.FC = () => {
   const filterNotifications = (notifications: Notification[]) => {
     switch (filter) {
       case 'unread':
-        return notifications.filter(n => !n.isRead)
+        return notifications.filter((n: Notification) => !n.isRead)
       case 'read':
-        return notifications.filter(n => n.isRead)
+        return notifications.filter((n: Notification) => n.isRead)
       default:
         return notifications
     }
@@ -142,7 +146,7 @@ const Notifications: React.FC = () => {
     )
   }
 
-  const allNotifications = notifications?.data || []
+  const allNotifications = notifications || []
   const filteredNotifications = filterNotifications(allNotifications)
   const unreadCount = allNotifications.filter(n => !n.isRead).length
 
@@ -160,9 +164,9 @@ const Notifications: React.FC = () => {
           </h1>
           <p className="text-gray-600">Stay updated with your booking activities</p>
         </div>
-        
+
         {unreadCount > 0 && (
-          <Button 
+          <Button
             variant="outline"
             onClick={handleMarkAllAsRead}
             disabled={markAllAsReadMutation.isPending}
@@ -206,72 +210,71 @@ const Notifications: React.FC = () => {
             filteredNotifications
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               .map((notification) => (
-              <Card 
-                key={notification.id} 
-                className={`transition-all hover:shadow-md ${
-                  getNotificationBgColor(notification.type, notification.isRead)
-                }`}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 mt-1">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-gray-900 mb-1">
-                            {notification.title}
-                          </h3>
-                          <p className="text-gray-700 mb-3">
-                            {notification.message}
-                          </p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>
-                              {format(new Date(notification.createdAt), 'MMM dd, yyyy h:mm a')}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {notification.type.replace('_', ' ')}
-                            </Badge>
+                <Card
+                  key={notification.id}
+                  className={`transition-all hover:shadow-md ${getNotificationBgColor(notification.type, notification.isRead)
+                    }`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0 mt-1">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900 mb-1">
+                              {notification.title}
+                            </h3>
+                            <p className="text-gray-700 mb-3">
+                              {notification.message}
+                            </p>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              <span>
+                                {format(new Date(notification.createdAt), 'MMM dd, yyyy h:mm a')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {notification.type.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 ml-4">
+                            {!notification.isRead && (
+                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                            )}
                           </div>
                         </div>
-                        
-                        <div className="flex items-center space-x-2 ml-4">
-                          {!notification.isRead && (
-                            <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                          )}
-                        </div>
+
+                        {!notification.isRead && (
+                          <div className="mt-4 pt-4 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleMarkAsRead(notification.id)}
+                              disabled={markAsReadMutation.isPending}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Mark as Read
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      
-                      {!notification.isRead && (
-                        <div className="mt-4 pt-4 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleMarkAsRead(notification.id)}
-                            disabled={markAsReadMutation.isPending}
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Mark as Read
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              ))
           ) : (
             <Card>
               <CardContent className="text-center py-12">
                 <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {filter === 'unread' ? 'No unread notifications' : 
-                   filter === 'read' ? 'No read notifications' : 'No notifications yet'}
+                  {filter === 'unread' ? 'No unread notifications' :
+                    filter === 'read' ? 'No read notifications' : 'No notifications yet'}
                 </h3>
                 <p className="text-gray-500 mb-4">
-                  {filter === 'all' 
+                  {filter === 'all'
                     ? 'You\'ll receive notifications about your bookings and system updates here'
                     : `Switch to "${filter === 'unread' ? 'all' : 'unread'}" to see other notifications`}
                 </p>
@@ -323,28 +326,28 @@ const Notifications: React.FC = () => {
                   <CheckCircle className="w-4 h-4 text-green-600" />
                   <span className="flex-1">Booking Confirmed</span>
                   <span className="text-gray-500">
-                    {allNotifications.filter(n => n.type === NotificationType.BOOKING_CONFIRMED).length}
+                    {allNotifications.filter((n: Notification) => n.type === NotificationType.BOOKING_CONFIRMED).length}
                   </span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <Clock className="w-4 h-4 text-yellow-600" />
                   <span className="flex-1">Booking Reminder</span>
                   <span className="text-gray-500">
-                    {allNotifications.filter(n => n.type === NotificationType.BOOKING_REMINDER).length}
+                    {allNotifications.filter((n: Notification) => n.type === NotificationType.BOOKING_REMINDER).length}
                   </span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <AlertCircle className="w-4 h-4 text-red-600" />
                   <span className="flex-1">Booking Cancelled</span>
                   <span className="text-gray-500">
-                    {allNotifications.filter(n => n.type === NotificationType.BOOKING_CANCELLED).length}
+                    {allNotifications.filter((n: Notification) => n.type === NotificationType.BOOKING_CANCELLED).length}
                   </span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <Bell className="w-4 h-4 text-blue-600" />
                   <span className="flex-1">System Alert</span>
                   <span className="text-gray-500">
-                    {allNotifications.filter(n => n.type === NotificationType.SYSTEM_ALERT).length}
+                    {allNotifications.filter((n: Notification) => n.type === NotificationType.SYSTEM_ALERT).length}
                   </span>
                 </div>
               </div>

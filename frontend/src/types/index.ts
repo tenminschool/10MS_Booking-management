@@ -1,23 +1,29 @@
-export enum UserRole {
-  SUPER_ADMIN = 'super_admin',
-  BRANCH_ADMIN = 'branch_admin',
-  TEACHER = 'teacher',
-  STUDENT = 'student'
-}
+export const UserRole = {
+  SUPER_ADMIN: 'super_admin',
+  BRANCH_ADMIN: 'branch_admin',
+  TEACHER: 'teacher',
+  STUDENT: 'student'
+} as const
 
-export enum BookingStatus {
-  CONFIRMED = 'confirmed',
-  CANCELLED = 'cancelled',
-  COMPLETED = 'completed',
-  NO_SHOW = 'no_show'
-}
+export type UserRole = typeof UserRole[keyof typeof UserRole]
 
-export enum NotificationType {
-  BOOKING_CONFIRMED = 'booking_confirmed',
-  BOOKING_REMINDER = 'booking_reminder',
-  BOOKING_CANCELLED = 'booking_cancelled',
-  SYSTEM_ALERT = 'system_alert'
-}
+export const BookingStatus = {
+  CONFIRMED: 'confirmed',
+  CANCELLED: 'cancelled',
+  COMPLETED: 'completed',
+  NO_SHOW: 'no_show'
+} as const
+
+export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus]
+
+export const NotificationType = {
+  BOOKING_CONFIRMED: 'booking_confirmed',
+  BOOKING_REMINDER: 'booking_reminder',
+  BOOKING_CANCELLED: 'booking_cancelled',
+  SYSTEM_ALERT: 'system_alert'
+} as const
+
+export type NotificationType = typeof NotificationType[keyof typeof NotificationType]
 
 export interface User {
   id: string
@@ -113,4 +119,33 @@ export interface DashboardMetrics {
   noShowRate: number
   upcomingBookings: Booking[]
   recentNotifications: Notification[]
+}
+
+export interface IELTSBand {
+  score: number
+  description: string
+}
+
+export interface IELTSCriterion {
+  name: string
+  description: string
+  bands: IELTSBand[]
+}
+
+export interface IELTSBandDescriptor {
+  score: number
+  level: string
+  description: string
+}
+
+export interface IELTSScoringGuidelines {
+  title: string
+  description: string
+  bandDescriptors: IELTSBandDescriptor[]
+}
+
+export interface IELTSRubrics {
+  criteria: IELTSCriterion[]
+  scoringGuidelines: IELTSScoringGuidelines
+  assessmentTips: string[]
 }

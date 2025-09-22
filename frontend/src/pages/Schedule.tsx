@@ -11,9 +11,7 @@ const CardHeader = ({ children }: { children: React.ReactNode }) => (
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
 )
-const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
-)
+
 const CardContent = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pt-0">{children}</div>
 )
@@ -40,8 +38,8 @@ const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; v
     {children}
   </span>
 )
-const Calendar = ({ mode, selected, onSelect, className }: any) => (
-  <div className={`p-4 border rounded-lg ${className}`}>
+const Calendar = ({ className }: any) => (
+  <div className={`p-4 border rounded-lg ${className || ''}`}>
     <div className="text-center text-gray-500">Calendar Component (Mock)</div>
   </div>
 )
@@ -66,7 +64,7 @@ const DialogTitle = ({ children }: { children: React.ReactNode }) => (
 const DialogDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 mt-1">{children}</p>
 )
-const DialogTrigger = ({ children }: { children: React.ReactNode }) => <>{children}</>
+
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -80,16 +78,9 @@ import {
   GraduationCap
 } from 'lucide-react'
 import { format, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
-import { SlotFilters, Slot, UserRole } from '@/types'
+import type { SlotFilters, Slot, UserRole } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom'
 
 const Schedule: React.FC = () => {
   const { user } = useAuth()
@@ -108,28 +99,39 @@ const Schedule: React.FC = () => {
   // Fetch branches for filter
   const { data: branches } = useQuery({
     queryKey: ['branches'],
-    queryFn: () => branchesAPI.getAll(),
+    queryFn: async () => {
+      const response = await branchesAPI.getAll()
+      return response.data
+    },
   })
 
   // Fetch available slots
   const { data: slots, isLoading } = useQuery({
     queryKey: ['slots', filters],
-    queryFn: () => slotsAPI.getAvailable(filters),
+    queryFn: async () => {
+      const response = await slotsAPI.getAvailable(filters)
+      return response.data
+    },
   })
 
   // Fetch dashboard data for next booking
   const { data: dashboardData } = useQuery({
     queryKey: ['dashboard-metrics'],
-    queryFn: () => dashboardAPI.getMetrics(),
+    queryFn: async () => {
+      const response = await dashboardAPI.getMetrics()
+      return response.data
+    },
   })
 
   // Book slot mutation
   const bookSlotMutation = useMutation({
-    mutationFn: (slotId: string) => 
-      bookingsAPI.create({ 
+    mutationFn: async (slotId: string) => {
+      const response = await bookingsAPI.create({ 
         slotId, 
         studentPhoneNumber: user?.phoneNumber || '' 
-      }),
+      })
+      return response.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['slots'] })
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
@@ -195,7 +197,7 @@ const Schedule: React.FC = () => {
 
   const getSlotsByDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd')
-    return slots?.data?.filter(slot => slot.date === dateStr) || []
+    return slots?.filter((slot: any) => slot.date === dateStr) || []
   }
 
   const handleBookSlot = (slot: Slot) => {
@@ -373,7 +375,7 @@ const Schedule: React.FC = () => {
                     >
                       All Branches
                     </Button>
-                    {branches?.data?.map((branch) => (
+                    {branches?.map((branch: any) => (
                       <Button
                         key={branch.id}
                         variant={filters.branchId === branch.id ? 'default' : 'outline'}

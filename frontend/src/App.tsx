@@ -5,10 +5,10 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import Layout from '@/components/layout/Layout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
-import Schedule from '@/pages/Schedule'
+import Schedule from '@/pages/Schedule-Simple'
 import Bookings from '@/pages/Bookings'
 import Assessments from '@/pages/Assessments'
-import Notifications from '@/pages/Notifications'
+import Notifications from '@/pages/Notifications-Simple'
 
 // Create a client
 const queryClient = new QueryClient({

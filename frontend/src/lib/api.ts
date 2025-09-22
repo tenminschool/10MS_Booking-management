@@ -9,7 +9,8 @@ import type {
   SlotFilters,
   CreateBookingRequest,
   AssessmentRequest,
-  DashboardMetrics
+  DashboardMetrics,
+  IELTSRubrics
 } from '@/types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -111,6 +112,9 @@ export const assessmentsAPI = {
 
   create: (data: AssessmentRequest) =>
     api.post<Assessment>('/assessments', data),
+
+  getRubrics: () =>
+    api.get<IELTSRubrics>('/assessments/rubrics'),
 }
 
 // Notifications API

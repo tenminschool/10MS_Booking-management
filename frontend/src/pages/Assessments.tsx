@@ -63,6 +63,35 @@ const DialogTitle = ({ children }: { children: React.ReactNode }) => (
 const DialogDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 mt-1">{children}</p>
 )
+const Tabs = ({ children, defaultValue, value, onValueChange }: { children: React.ReactNode; defaultValue?: string; value?: string; onValueChange?: (value: string) => void }) => (
+  <div className="w-full">{children}</div>
+)
+const TabsList = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`flex space-x-1 bg-gray-100 p-1 rounded-lg ${className}`}>{children}</div>
+)
+const TabsTrigger = ({ children, value, className = '', onClick }: { children: React.ReactNode; value: string; className?: string; onClick?: () => void }) => (
+  <button className={`px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white hover:shadow-sm ${className}`} onClick={onClick}>
+    {children}
+  </button>
+)
+const TabsContent = ({ children, value, className = '' }: { children: React.ReactNode; value: string; className?: string }) => (
+  <div className={`mt-4 ${className}`}>{children}</div>
+)
+const Accordion = ({ children, type = 'single', collapsible = true }: { children: React.ReactNode; type?: string; collapsible?: boolean }) => (
+  <div className="space-y-2">{children}</div>
+)
+const AccordionItem = ({ children, value }: { children: React.ReactNode; value: string }) => (
+  <div className="border rounded-lg">{children}</div>
+)
+const AccordionTrigger = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <button className={`flex justify-between items-center w-full p-4 text-left hover:bg-gray-50 ${className}`}>
+    {children}
+    <span className="text-gray-400">▼</span>
+  </button>
+)
+const AccordionContent = ({ children }: { children: React.ReactNode }) => (
+  <div className="p-4 pt-0">{children}</div>
+)
 import {
   GraduationCap,
   Calendar,
@@ -78,7 +107,7 @@ import {
   Clock
 } from 'lucide-react'
 import { format } from 'date-fns'
-import type { Assessment, Booking, AssessmentRequest } from '@/types'
+import type { Assessment, Booking, AssessmentRequest, IELTSRubrics } from '@/types'
 import { BookingStatus, UserRole } from '@/types'
 
 const Assessments: React.FC = () => {
@@ -91,6 +120,7 @@ const Assessments: React.FC = () => {
     score: 0,
     remarks: ''
   })
+  const [activeRubricTab, setActiveRubricTab] = useState('scoring')
 
   const queryClient = useQueryClient()
 
@@ -138,6 +168,16 @@ const Assessments: React.FC = () => {
         booking.status === BookingStatus.COMPLETED &&
         !(booking as any).assessments?.length
       ) || []
+    },
+    enabled: isTeacher,
+  })
+
+  // Fetch IELTS rubrics for teachers
+  const { data: rubrics } = useQuery({
+    queryKey: ['ielts-rubrics'],
+    queryFn: async () => {
+      const response = await assessmentsAPI.getRubrics()
+      return response.data
     },
     enabled: isTeacher,
   })
@@ -671,24 +711,118 @@ const Assessments: React.FC = () => {
                   </div>
                 </div>
 
-                {/* IELTS Rubric Reference */}
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">IELTS Speaking Assessment Criteria</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
-                    <div>
-                      <strong>Fluency & Coherence:</strong> Flow of speech, logical sequencing
-                    </div>
-                    <div>
-                      <strong>Lexical Resource:</strong> Vocabulary range and accuracy
-                    </div>
-                    <div>
-                      <strong>Grammatical Range:</strong> Grammar variety and accuracy
-                    </div>
-                    <div>
-                      <strong>Pronunciation:</strong> Clarity and natural speech patterns
-                    </div>
+                {/* IELTS Rubrics Display */}
+                {rubrics && (
+                  <div className="border rounded-lg">
+                    <Tabs value={activeRubricTab} onValueChange={setActiveRubricTab}>
+                      <div className="p-4 border-b">
+                        <h4 className="font-medium text-gray-900 mb-3">IELTS Speaking Assessment Reference</h4>
+                        <TabsList className="grid w-full grid-cols-3">
+                          <TabsTrigger 
+                            value="scoring" 
+                            className={activeRubricTab === 'scoring' ? 'bg-white shadow-sm' : ''}
+                            onClick={() => setActiveRubricTab('scoring')}
+                          >
+                            Band Scores
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="criteria" 
+                            className={activeRubricTab === 'criteria' ? 'bg-white shadow-sm' : ''}
+                            onClick={() => setActiveRubricTab('criteria')}
+                          >
+                            Criteria
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="tips" 
+                            className={activeRubricTab === 'tips' ? 'bg-white shadow-sm' : ''}
+                            onClick={() => setActiveRubricTab('tips')}
+                          >
+                            Tips
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      <div className="p-4 max-h-64 overflow-y-auto">
+                        {activeRubricTab === 'scoring' && (
+                          <TabsContent value="scoring">
+                            <div className="space-y-3">
+                              <p className="text-sm text-gray-600 mb-4">{rubrics.scoringGuidelines.description}</p>
+                              <div className="grid gap-2">
+                                {rubrics.scoringGuidelines.bandDescriptors.slice(0, 10).map((band) => (
+                                  <div key={band.score} className="flex items-start space-x-3 p-2 rounded hover:bg-gray-50">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                      band.score >= 7 ? 'bg-green-100 text-green-700' :
+                                      band.score >= 5.5 ? 'bg-yellow-100 text-yellow-700' :
+                                      band.score >= 4 ? 'bg-orange-100 text-orange-700' :
+                                      'bg-red-100 text-red-700'
+                                    }`}>
+                                      {band.score}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="font-medium text-sm">{band.level}</div>
+                                      <div className="text-xs text-gray-600">{band.description}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </TabsContent>
+                        )}
+
+                        {activeRubricTab === 'criteria' && (
+                          <TabsContent value="criteria">
+                            <Accordion type="single" collapsible>
+                              {rubrics.criteria.map((criterion, index) => (
+                                <AccordionItem key={index} value={`criterion-${index}`}>
+                                  <AccordionTrigger className="text-left">
+                                    <div>
+                                      <div className="font-medium">{criterion.name}</div>
+                                      <div className="text-sm text-gray-600">{criterion.description}</div>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="space-y-2">
+                                      {criterion.bands.map((band) => (
+                                        <div key={band.score} className="flex items-start space-x-3 p-2 rounded hover:bg-gray-50">
+                                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                            band.score >= 7 ? 'bg-green-100 text-green-700' :
+                                            band.score >= 5.5 ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-red-100 text-red-700'
+                                          }`}>
+                                            {band.score}
+                                          </div>
+                                          <div className="flex-1 text-sm text-gray-700">
+                                            {band.description}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              ))}
+                            </Accordion>
+                          </TabsContent>
+                        )}
+
+                        {activeRubricTab === 'tips' && (
+                          <TabsContent value="tips">
+                            <div className="space-y-3">
+                              <h5 className="font-medium text-gray-900">Assessment Guidelines</h5>
+                              <ul className="space-y-2">
+                                {rubrics.assessmentTips.map((tip, index) => (
+                                  <li key={index} className="flex items-start space-x-2 text-sm text-gray-700">
+                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                                    <span>{tip}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </TabsContent>
+                        )}
+                      </div>
+                    </Tabs>
                   </div>
-                </div>
+                )}
 
                 <div className="flex space-x-2">
                   <Button

@@ -75,6 +75,106 @@ router.get('/my', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/assessments/rubrics - Get IELTS speaking rubrics
+router.get('/rubrics', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+
+    // Only teachers and admins can access rubrics
+    if (!['TEACHER', 'BRANCH_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Access denied. Only teachers and administrators can view rubrics.'
+      });
+    }
+
+    const rubrics = {
+      criteria: [
+        {
+          name: 'Fluency and Coherence',
+          description: 'The ability to speak at length without noticeable effort or loss of coherence',
+          bands: [
+            { score: 9, description: 'Speaks fluently with only very occasional repetition or self-correction. Develops topics coherently and appropriately.' },
+            { score: 8, description: 'Speaks fluently with only occasional repetition or self-correction. Develops topics coherently and appropriately.' },
+            { score: 7, description: 'Speaks at length without noticeable effort or loss of coherence. May demonstrate language-related hesitation at times.' },
+            { score: 6, description: 'Is willing to speak at length, though may lose coherence at times due to occasional repetition, self-correction or hesitation.' },
+            { score: 5, description: 'Usually maintains flow of speech but uses repetition, self-correction and/or slow speech to keep going.' },
+            { score: 4, description: 'Cannot respond without noticeable pauses and may speak slowly, with frequent repetition and self-correction.' }
+          ]
+        },
+        {
+          name: 'Lexical Resource',
+          description: 'The range of vocabulary and the accuracy and appropriateness of its use',
+          bands: [
+            { score: 9, description: 'Uses vocabulary with full flexibility and precise usage in all topics. Uses idiomatic language naturally and accurately.' },
+            { score: 8, description: 'Uses a wide range of vocabulary fluently and flexibly to convey precise meanings. Uses less common and idiomatic vocabulary skillfully.' },
+            { score: 7, description: 'Uses vocabulary resource flexibly to discuss a variety of topics. Uses some less common and idiomatic vocabulary.' },
+            { score: 6, description: 'Has a wide enough vocabulary to discuss topics at length and make meaning clear despite inappropriacies.' },
+            { score: 5, description: 'Manages to talk about familiar and unfamiliar topics but uses vocabulary with limited flexibility.' },
+            { score: 4, description: 'Is able to talk about familiar topics but can only convey basic meaning on unfamiliar topics.' }
+          ]
+        },
+        {
+          name: 'Grammatical Range and Accuracy',
+          description: 'The range and accurate use of grammar',
+          bands: [
+            { score: 9, description: 'Uses a full range of structures naturally and appropriately. Produces consistently accurate structures apart from slips.' },
+            { score: 8, description: 'Uses a wide range of structures flexibly. Produces a majority of error-free sentences with only very occasional inappropriacies.' },
+            { score: 7, description: 'Uses a range of complex structures with some flexibility. Frequently produces error-free sentences.' },
+            { score: 6, description: 'Uses a mix of simple and complex structures, but with limited flexibility. May make frequent mistakes.' },
+            { score: 5, description: 'Produces basic sentence forms with reasonable accuracy. Uses a limited range of more complex structures.' },
+            { score: 4, description: 'Produces basic sentence forms and some correct simple sentences but subordinate structures are rare.' }
+          ]
+        },
+        {
+          name: 'Pronunciation',
+          description: 'The ability to produce comprehensible speech to fulfill the speaking test requirements',
+          bands: [
+            { score: 9, description: 'Uses a full range of pronunciation features with precision and subtlety. Sustains flexible use of features.' },
+            { score: 8, description: 'Uses a wide range of pronunciation features. Sustains flexible use of features, with only occasional lapses.' },
+            { score: 7, description: 'Shows all the positive features of Band 6 and some, but not all, of the positive features of Band 8.' },
+            { score: 6, description: 'Uses a range of pronunciation features with mixed control. Shows some effective use of features.' },
+            { score: 5, description: 'Shows all the positive features of Band 4 and some, but not all, of the positive features of Band 6.' },
+            { score: 4, description: 'Uses a limited range of pronunciation features. Attempts to control features but lapses are frequent.' }
+          ]
+        }
+      ],
+      scoringGuidelines: {
+        title: 'IELTS Speaking Band Score Guidelines',
+        description: 'The overall speaking score is calculated as the average of the four criteria scores, rounded to the nearest 0.5.',
+        bandDescriptors: [
+          { score: 9, level: 'Expert User', description: 'Has fully operational command of the language' },
+          { score: 8, level: 'Very Good User', description: 'Has fully operational command with only occasional unsystematic inaccuracies' },
+          { score: 7, level: 'Good User', description: 'Has operational command with occasional inaccuracies, inappropriacies and misunderstandings' },
+          { score: 6, level: 'Competent User', description: 'Has generally effective command despite some inaccuracies, inappropriacies and misunderstandings' },
+          { score: 5, level: 'Modest User', description: 'Has partial command and copes with overall meaning in most situations' },
+          { score: 4, level: 'Limited User', description: 'Basic competence is limited to familiar situations' },
+          { score: 3, level: 'Extremely Limited User', description: 'Conveys and understands only general meaning in very familiar situations' },
+          { score: 2, level: 'Intermittent User', description: 'No real communication is possible except for the most basic information' },
+          { score: 1, level: 'Non User', description: 'Essentially has no ability to use the language' },
+          { score: 0, level: 'Did not attempt', description: 'No assessable information provided' }
+        ]
+      },
+      assessmentTips: [
+        'Listen carefully to the candidate\'s overall performance across all four criteria',
+        'Consider the candidate\'s ability to communicate effectively, not just accuracy',
+        'Use the full range of scores (0-9) with 0.5 increments as appropriate',
+        'Provide specific, constructive feedback in your remarks',
+        'Focus on what the candidate can do, as well as areas for improvement'
+      ]
+    };
+
+    res.json(rubrics);
+
+  } catch (error) {
+    console.error('Error fetching rubrics:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch IELTS rubrics'
+    });
+  }
+});
+
 // GET /api/assessments/:id - Get single assessment
 router.get('/:id', authenticate, async (req, res) => {
   try {

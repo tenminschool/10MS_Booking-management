@@ -73,7 +73,7 @@
   - Implement role-based content rendering for shared URLs
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 10. Build assessment recording system with IELTS scoring and cross-branch access
+- [x] 10. Build assessment recording system with IELTS scoring and cross-branch access
   - Create assessment recording interface with IELTS score input (0-9, 0.5 increments)
   - Implement IELTS rubrics display for teacher reference during scoring
   - Build assessment history view for teachers and students with role-based access across branches
