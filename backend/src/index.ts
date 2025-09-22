@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import authRoutes from './routes/auth';
+import userRoutes from './routes/users';
+import branchRoutes from './routes/branches';
+import importRoutes from './routes/import';
 import prisma from './lib/prisma';
 
 const app = express();
@@ -44,12 +47,18 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       auth: '/api/auth',
+      users: '/api/users',
+      branches: '/api/branches',
+      import: '/api/import',
     }
   });
 });
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/import', importRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

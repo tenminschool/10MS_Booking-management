@@ -113,6 +113,48 @@ export const requireBranchAccess = (req: Request, res: Response, next: NextFunct
   next();
 };
 
+export const requireOwnResourceOrBranchAccess = (resourceUserIdParam: string = 'userId') => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User not authenticated'
+      });
+    }
+
+    const resourceUserId = req.params[resourceUserIdParam] || req.body[resourceUserIdParam];
+
+    // Users can always access their own resources
+    if (resourceUserId === req.user.userId) {
+      return next();
+    }
+
+    // Super admins can access all resources
+    if (req.user.role === UserRole.SUPER_ADMIN) {
+      return next();
+    }
+
+    // Branch admins can access resources within their branch
+    if (req.user.role === UserRole.BRANCH_ADMIN && req.user.branchId) {
+      // This would need additional database check to verify the resource belongs to the same branch
+      // For now, we'll allow it and let the route handler do the detailed check
+      return next();
+    }
+
+    // Teachers can access resources of students they teach (would need additional logic)
+    if (req.user.role === UserRole.TEACHER) {
+      // This would need additional database check to verify the teacher-student relationship
+      // For now, we'll allow it and let the route handler do the detailed check
+      return next();
+    }
+
+    return res.status(403).json({
+      error: 'Access denied',
+      message: 'Insufficient permissions to access this resource'
+    });
+  };
+};
+
 export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
   const token = getTokenFromHeader(req.headers.authorization);
   

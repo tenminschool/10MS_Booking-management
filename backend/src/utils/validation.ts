@@ -156,6 +156,18 @@ export const otpVerificationSchema = z.object({
   otp: z.string().length(6, 'OTP must be 6 digits'),
 });
 
+// Import validation schemas
+export const bulkImportSchema = z.object({
+  branchId: z.string().cuid('Invalid branch ID').optional(),
+});
+
+export const userFiltersSchema = z.object({
+  branchId: z.string().cuid().optional(),
+  role: z.nativeEnum(UserRole).optional(),
+  search: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
 // Validation helper function
 export const validateRequest = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
   const result = schema.safeParse(data);

@@ -36,7 +36,11 @@ class SMSService {
     // Production SMS sending
     try {
       if (!this.config.apiUrl || !this.config.apiKey) {
-        throw new Error('SMS service not configured');
+        console.warn('SMS service not configured - missing API URL or API key');
+        return {
+          success: false,
+          error: 'SMS service not configured',
+        };
       }
 
       // Generic SMS API call - will be customized based on your Bangladesh SMS provider

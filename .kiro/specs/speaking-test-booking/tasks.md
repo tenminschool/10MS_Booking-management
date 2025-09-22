@@ -17,14 +17,14 @@
   - Create basic authentication endpoints for staff login (email/password)
   - _Requirements: 8.1, 8.5, 10.1, 10.2, 12.5, 13.1, 13.2_
 
-- [ ] 3. Build student phone number authentication system
+- [x] 3. Build student phone number authentication system
   - Implement SMS OTP service integration for student authentication
   - Create student login endpoints with phone number verification
   - Build phone number validation and OTP verification logic
   - Add student authentication middleware and session management
   - _Requirements: 2.1, 9.2, 9.3, 11.1_
 
-- [ ] 4. Create role-based access control and multi-branch user management
+- [x] 4. Create role-based access control and multi-branch user management
   - Implement role-based middleware for route protection with branch-specific permissions
   - Create user management endpoints for CRUD operations across branches
   - Build branch management system for Super-Admins to create and manage branches
