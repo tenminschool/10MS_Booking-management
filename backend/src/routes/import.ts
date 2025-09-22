@@ -214,6 +214,7 @@ router.get('/template',
 router.post('/preview', 
   authenticate, 
   requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  auditLog('import_preview'),
   upload.single('file'),
   async (req, res) => {
     try {

@@ -12,8 +12,14 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  Users,
+  Upload,
+  BarChart3,
+  Sliders,
+  Building
 } from 'lucide-react'
+import { UserRole } from '@/types'
 import { useState } from 'react'
 
 const Layout: React.FC = () => {
@@ -27,13 +33,39 @@ const Layout: React.FC = () => {
     navigate('/login')
   }
 
-  const navigation = [
+  // Base navigation for all users
+  const baseNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Schedule', href: '/schedule', icon: Calendar },
     { name: 'Bookings', href: '/bookings', icon: BookOpen },
     { name: 'Assessments', href: '/assessments', icon: GraduationCap },
     { name: 'Notifications', href: '/notifications', icon: Bell },
   ]
+
+  // Admin navigation for branch admins and super admins
+  const adminNavigation = [
+    { name: 'Slot Management', href: '/admin/slots', icon: Sliders },
+    { name: 'Student Import', href: '/admin/import', icon: Upload },
+    { name: 'User Management', href: '/admin/users', icon: Users },
+    { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
+  ]
+
+  // Super admin only navigation
+  const superAdminNavigation = [
+    { name: 'Branch Management', href: '/admin/branches', icon: Building },
+    { name: 'System Settings', href: '/admin/settings', icon: Settings },
+  ]
+
+  // Combine navigation based on user role
+  let navigation = baseNavigation
+  
+  if (user?.role === UserRole.BRANCH_ADMIN || user?.role === UserRole.SUPER_ADMIN) {
+    navigation = [...navigation, ...adminNavigation]
+  }
+  
+  if (user?.role === UserRole.SUPER_ADMIN) {
+    navigation = [...navigation, ...superAdminNavigation]
+  }
 
   const isActive = (path: string) => location.pathname === path
 

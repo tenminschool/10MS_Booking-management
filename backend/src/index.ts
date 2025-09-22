@@ -10,6 +10,8 @@ import bookingRoutes from './routes/bookings';
 import notificationRoutes from './routes/notifications';
 import assessmentRoutes from './routes/assessments';
 import dashboardRoutes from './routes/dashboard';
+import reportRoutes from './routes/reports';
+import systemRoutes from './routes/system';
 import prisma from './lib/prisma';
 import { schedulerService } from './services/scheduler';
 
@@ -61,6 +63,8 @@ app.get('/', (req, res) => {
       notifications: '/api/notifications',
       assessments: '/api/assessments',
       dashboard: '/api/dashboard',
+      reports: '/api/reports',
+      system: '/api/system',
     }
   });
 });
@@ -75,6 +79,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/system', systemRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

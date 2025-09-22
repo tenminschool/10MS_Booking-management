@@ -197,7 +197,16 @@ router.get('/metrics', authenticate, async (req, res) => {
 
     } else {
       // Super admin metrics - system-wide
-      const [totalBookings, upcomingBookings, recentNotifications, systemStats] = await Promise.all([
+      const [
+        totalBookings, 
+        upcomingBookings, 
+        recentNotifications, 
+        systemStats,
+        branchPerformance,
+        recentActivity,
+        attendanceData,
+        utilizationData
+      ] = await Promise.all([
         prisma.booking.count(),
         prisma.booking.findMany({
           where: {
@@ -224,24 +233,130 @@ router.get('/metrics', authenticate, async (req, res) => {
           take: 5
         }),
         Promise.all([
+          prisma.branch.count(),
           prisma.branch.count({ where: { isActive: true } }),
           prisma.user.count({ where: { role: UserRole.TEACHER, isActive: true } }),
           prisma.user.count({ where: { role: UserRole.STUDENT, isActive: true } })
-        ])
+        ]),
+        // Branch performance data
+        prisma.branch.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            _count: {
+              select: {
+                users: {
+                  where: { isActive: true }
+                },
+                slots: true
+              }
+            },
+            slots: {
+              select: {
+                capacity: true,
+                bookings: {
+                  where: {
+                    status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] }
+                  },
+                  select: { id: true, attended: true, status: true }
+                }
+              }
+            }
+          }
+        }),
+        // Recent activity
+        prisma.booking.findMany({
+          take: 10,
+          orderBy: { bookedAt: 'desc' },
+          include: {
+            student: { select: { name: true } },
+            slot: {
+              include: {
+                teacher: { select: { name: true } },
+                branch: { select: { name: true } }
+              }
+            }
+          }
+        }),
+        // Attendance data for overall calculation
+        prisma.booking.findMany({
+          where: {
+            status: { in: ['COMPLETED', 'NO_SHOW'] }
+          },
+          select: { attended: true }
+        }),
+        // Utilization data
+        prisma.slot.findMany({
+          select: {
+            capacity: true,
+            bookings: {
+              where: {
+                status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] }
+              },
+              select: { id: true }
+            }
+          }
+        })
       ]);
 
-      const [totalBranches, totalTeachers, totalStudents] = systemStats;
+      const [totalBranches, activeBranches, totalTeachers, totalStudents] = systemStats;
+
+      // Calculate overall attendance rate
+      const attendedCount = attendanceData.filter(b => b.attended === true).length;
+      const totalCompleted = attendanceData.length;
+      const overallAttendanceRate = totalCompleted > 0 ? (attendedCount / totalCompleted) * 100 : 0;
+
+      // Calculate overall utilization rate
+      const totalCapacity = utilizationData.reduce((sum, slot) => sum + slot.capacity, 0);
+      const totalBooked = utilizationData.reduce((sum, slot) => sum + slot.bookings.length, 0);
+      const overallUtilizationRate = totalCapacity > 0 ? (totalBooked / totalCapacity) * 100 : 0;
+
+      // Process branch performance
+      const branchMetrics = branchPerformance.map(branch => {
+        const branchCapacity = branch.slots.reduce((sum, slot) => sum + slot.capacity, 0);
+        const branchBookings = branch.slots.reduce((sum, slot) => sum + slot.bookings.length, 0);
+        const branchAttended = branch.slots.reduce((sum, slot) => 
+          sum + slot.bookings.filter(booking => booking.attended === true).length, 0
+        );
+        const branchCompleted = branch.slots.reduce((sum, slot) => 
+          sum + slot.bookings.filter(booking => booking.status === 'COMPLETED' || booking.status === 'NO_SHOW').length, 0
+        );
+
+        return {
+          id: branch.id,
+          name: branch.name,
+          bookings: branchBookings,
+          students: branch._count.users,
+          utilizationRate: branchCapacity > 0 ? (branchBookings / branchCapacity) * 100 : 0,
+          attendanceRate: branchCompleted > 0 ? (branchAttended / branchCompleted) * 100 : 0
+        };
+      });
+
+      // Process recent activity
+      const activityData = recentActivity.map(booking => ({
+        type: booking.status === 'CANCELLED' ? 'cancellation' : 'booking',
+        description: booking.status === 'CANCELLED' 
+          ? `${booking.student?.name} cancelled booking`
+          : `${booking.student?.name} booked session with ${booking.slot.teacher?.name}`,
+        branchName: booking.slot.branch?.name,
+        timestamp: booking.bookedAt
+      }));
 
       metrics = {
         totalBookings,
-        attendanceRate: 0,
-        utilizationRate: 0,
-        noShowRate: 0,
+        attendanceRate: overallAttendanceRate,
+        utilizationRate: overallUtilizationRate,
+        noShowRate: totalCompleted > 0 ? ((totalCompleted - attendedCount) / totalCompleted) * 100 : 0,
         upcomingBookings,
         recentNotifications,
         totalBranches,
+        activeBranches,
         totalTeachers,
-        totalStudents
+        totalStudents,
+        branchPerformance: branchMetrics,
+        recentActivity: activityData,
+        systemAlerts: [] // Mock system alerts - would come from monitoring system
       };
     }
 

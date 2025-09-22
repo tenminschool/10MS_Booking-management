@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { authenticate } from '../middleware/auth';
+import { auditLog } from '../middleware/audit';
 import { notificationService } from '../services/notification';
 import { NotificationType } from '@prisma/client';
 
@@ -250,7 +251,7 @@ router.put('/:id/read', authenticate, async (req, res) => {
 });
 
 // DELETE /api/notifications/:id - Delete notification
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, auditLog('notification_delete'), async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user!;
@@ -287,7 +288,7 @@ router.delete('/:id', authenticate, async (req, res) => {
 });
 
 // POST /api/notifications/send - Send notification to users (Admin only)
-router.post('/send', authenticate, async (req, res) => {
+router.post('/send', authenticate, auditLog('notification_send'), async (req, res) => {
   try {
     const data = sendNotificationSchema.parse(req.body);
     const user = req.user!;
@@ -379,7 +380,7 @@ router.get('/admin/templates', authenticate, async (req, res) => {
 });
 
 // PUT /api/notifications/templates - Update notification template (Super Admin only)
-router.put('/admin/templates', authenticate, async (req, res) => {
+router.put('/admin/templates', authenticate, auditLog('notification_template_update'), async (req, res) => {
   try {
     const data = updateTemplateSchema.parse(req.body);
     const user = req.user!;

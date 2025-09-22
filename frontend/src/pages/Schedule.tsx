@@ -12,8 +12,8 @@ const CardTitle = ({ children, className = '' }: { children: React.ReactNode; cl
   <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
 )
 
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
@@ -78,7 +78,8 @@ import {
   GraduationCap
 } from 'lucide-react'
 import { format, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
-import type { SlotFilters, Slot, UserRole } from '@/types'
+import type { SlotFilters, Slot } from '@/types'
+import { UserRole } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Link } from 'react-router-dom'
 

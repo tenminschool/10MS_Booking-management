@@ -7,8 +7,8 @@ import { dashboardAPI, notificationsAPI, slotsAPI, bookingsAPI } from '@/lib/api
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
 )
-const CardHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pb-4">{children}</div>
+const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pb-4 ${className}`}>{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
@@ -33,12 +33,12 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
     {children}
   </button>
 )
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
+const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
     variant === 'destructive' ? 'bg-red-100 text-red-800' :
     'bg-blue-100 text-blue-800'
-  }`}>
+  } ${className}`}>
     {children}
   </span>
 )
@@ -54,7 +54,13 @@ import {
   AlertCircle,
   Users,
   CheckCircle,
-  FileText
+  FileText,
+  Sliders,
+  Upload,
+  BarChart3,
+  Building,
+  XCircle,
+  AlertTriangle
 } from 'lucide-react'
 import { format, isToday, isTomorrow } from 'date-fns'
 import { UserRole, type SlotFilters } from '@/types'
@@ -113,6 +119,627 @@ const Dashboard: React.FC = () => {
   const todayBookings = teacherBookings?.data?.filter((booking: any) => 
     booking.slot && isToday(new Date(booking.slot.date))
   ) || []
+
+  // Render branch admin dashboard
+  if (user?.role === UserRole.BRANCH_ADMIN) {
+    return (
+      <div className="space-y-6">
+        {/* Welcome Header */}
+        <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Welcome back, {user?.name}!
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Branch overview and key metrics for {dashboardData?.branchName || 'your branch'}
+              </p>
+            </div>
+            <Link to="/admin/slots">
+              <Button className="bg-red-600 hover:bg-red-700">
+                <Sliders className="w-4 h-4 mr-2" />
+                Manage Slots
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* PRIMARY CONTENT - 2/3 width */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Today's Sessions Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Calendar className="w-5 h-5" />
+                  <span>Today's Sessions</span>
+                </CardTitle>
+                <CardDescription>
+                  Overview of all sessions in your branch today
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.upcomingBookings?.length ? (
+                  <div className="space-y-4">
+                    {dashboardData.upcomingBookings.slice(0, 8).map((booking) => (
+                      <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            <span className="font-medium">
+                              {booking.slot?.startTime} - {booking.slot?.endTime}
+                            </span>
+                            <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                              {booking.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-1">
+                              <User className="w-4 h-4" />
+                              <span>{booking.slot?.teacher?.name}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Users className="w-4 h-4" />
+                              <span>{booking.student?.name}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Link to={`/bookings?booking=${booking.id}`}>
+                          <Button variant="outline" size="sm">
+                            View Details
+                          </Button>
+                        </Link>
+                      </div>
+                    ))}
+                    <Link to="/bookings">
+                      <Button variant="outline" className="w-full">
+                        View All Sessions
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No sessions scheduled for today</p>
+                    <Link to="/admin/slots">
+                      <Button>Create Slots</Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Admin Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <Link to="/admin/slots">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Sliders className="w-6 h-6" />
+                      <span>Manage Slots</span>
+                    </Button>
+                  </Link>
+                  <Link to="/admin/import">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Upload className="w-6 h-6" />
+                      <span>Import Students</span>
+                    </Button>
+                  </Link>
+                  <Link to="/admin/users">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Users className="w-6 h-6" />
+                      <span>Manage Users</span>
+                    </Button>
+                  </Link>
+                  <Link to="/admin/reports">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <BarChart3 className="w-6 h-6" />
+                      <span>View Reports</span>
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SECONDARY CONTENT - 1/3 width */}
+          <div className="space-y-6">
+            {/* Quick Stats */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
+                  <p className="text-xs text-muted-foreground">This month</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Branch average</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Utilization</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {dashboardData?.utilizationRate ? `${Math.round(dashboardData.utilizationRate)}%` : '0%'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Slot efficiency</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5" />
+                  <span>Notifications</span>
+                  {unreadNotifications.length > 0 && (
+                    <Badge variant="destructive" className="ml-2">
+                      {unreadNotifications.length}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.recentNotifications?.length ? (
+                  <div className="space-y-3">
+                    {dashboardData.recentNotifications.slice(0, 3).map((notification: any) => (
+                      <div 
+                        key={notification.id} 
+                        className={`p-3 rounded-lg border text-sm ${
+                          !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start space-x-2">
+                          <div className={`p-1 rounded-full ${
+                            notification.type === 'booking_confirmed' ? 'bg-green-100' :
+                            notification.type === 'booking_reminder' ? 'bg-yellow-100' :
+                            notification.type === 'booking_cancelled' ? 'bg-red-100' :
+                            'bg-blue-100'
+                          }`}>
+                            {notification.type === 'booking_confirmed' ? (
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                            ) : notification.type === 'booking_reminder' ? (
+                              <Clock className="w-3 h-3 text-yellow-600" />
+                            ) : notification.type === 'booking_cancelled' ? (
+                              <AlertCircle className="w-3 h-3 text-red-600" />
+                            ) : (
+                              <Bell className="w-3 h-3 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium">{notification.title}</p>
+                            <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Link to="/notifications">
+                      <Button variant="outline" size="sm" className="w-full">
+                        View All
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render super admin dashboard
+  if (user?.role === UserRole.SUPER_ADMIN) {
+    return (
+      <div className="space-y-6">
+        {/* Welcome Header */}
+        <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                System Overview - Welcome, {user?.name}!
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Cross-branch metrics and system-wide analytics
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <Link to="/admin/branches">
+                <Button className="bg-red-600 hover:bg-red-700">
+                  <Building className="w-4 h-4 mr-2" />
+                  Manage Branches
+                </Button>
+              </Link>
+              <Link to="/admin/settings">
+                <Button variant="outline">
+                  <Sliders className="w-4 h-4 mr-2" />
+                  System Settings
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* System-wide Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Branches</CardTitle>
+              <Building className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.totalBranches || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {dashboardData?.activeBranches || 0} active
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">System Bookings</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                This month across all branches
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Overall Attendance</CardTitle>
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
+              </div>
+              <p className="text-xs text-muted-foreground">System average</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">System Utilization</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.utilizationRate ? `${Math.round(dashboardData.utilizationRate)}%` : '0%'}
+              </div>
+              <p className="text-xs text-muted-foreground">Slot efficiency</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* PRIMARY CONTENT - 2/3 width */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Branch Performance Comparison */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BarChart3 className="w-5 h-5" />
+                  <span>Branch Performance</span>
+                </CardTitle>
+                <CardDescription>
+                  Comparative metrics across all branches
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.branchPerformance?.length ? (
+                  <div className="space-y-4">
+                    {dashboardData.branchPerformance.map((branch: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Building className="w-4 h-4 text-gray-500" />
+                            <span className="font-medium">{branch.name}</span>
+                            <Badge variant={branch.utilizationRate > 80 ? 'success' : branch.utilizationRate > 60 ? 'warning' : 'destructive'}>
+                              {Math.round(branch.utilizationRate)}% utilization
+                            </Badge>
+                          </div>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-1">
+                              <BookOpen className="w-4 h-4" />
+                              <span>{branch.bookings} bookings</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Users className="w-4 h-4" />
+                              <span>{branch.students} students</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <GraduationCap className="w-4 h-4" />
+                              <span>{Math.round(branch.attendanceRate || 0)}% attendance</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Link to={`/admin/reports?branch=${branch.id}`}>
+                          <Button variant="outline" size="sm">
+                            View Details
+                          </Button>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No branch performance data available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* System-wide Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5" />
+                  <span>Recent System Activity</span>
+                </CardTitle>
+                <CardDescription>
+                  Latest bookings and activities across all branches
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.recentActivity?.length ? (
+                  <div className="space-y-4">
+                    {dashboardData.recentActivity.slice(0, 8).map((activity: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <div className={`p-1 rounded-full ${
+                              activity.type === 'booking' ? 'bg-green-100' :
+                              activity.type === 'cancellation' ? 'bg-red-100' :
+                              activity.type === 'assessment' ? 'bg-blue-100' :
+                              'bg-gray-100'
+                            }`}>
+                              {activity.type === 'booking' ? (
+                                <CheckCircle className="w-3 h-3 text-green-600" />
+                              ) : activity.type === 'cancellation' ? (
+                                <XCircle className="w-3 h-3 text-red-600" />
+                              ) : activity.type === 'assessment' ? (
+                                <FileText className="w-3 h-3 text-blue-600" />
+                              ) : (
+                                <AlertCircle className="w-3 h-3 text-gray-600" />
+                              )}
+                            </div>
+                            <span className="font-medium">{activity.description}</span>
+                          </div>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-1">
+                              <Building className="w-4 h-4" />
+                              <span>{activity.branchName}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4" />
+                              <span>{format(new Date(activity.timestamp), 'MMM dd, h:mm a')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Link to="/admin/reports">
+                      <Button variant="outline" className="w-full">
+                        View All Activity
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No recent activity</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Admin Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">System Administration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Link to="/admin/branches">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Building className="w-6 h-6" />
+                      <span>Branches</span>
+                    </Button>
+                  </Link>
+                  <Link to="/admin/users">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Users className="w-6 h-6" />
+                      <span>All Users</span>
+                    </Button>
+                  </Link>
+                  <Link to="/admin/reports">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <BarChart3 className="w-6 h-6" />
+                      <span>System Reports</span>
+                    </Button>
+                  </Link>
+                  <Link to="/admin/settings">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Sliders className="w-6 h-6" />
+                      <span>Settings</span>
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SECONDARY CONTENT - 1/3 width */}
+          <div className="space-y-6">
+            {/* System Health */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CheckCircle className="w-5 h-5" />
+                  <span>System Health</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Database</span>
+                    <Badge variant="success">Healthy</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">SMS Service</span>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Notifications</span>
+                    <Badge variant="success">Running</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Audit Logs</span>
+                    <Badge variant="success">Recording</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* System Alerts */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span>System Alerts</span>
+                  {dashboardData?.systemAlerts?.length > 0 && (
+                    <Badge variant="warning">
+                      {dashboardData.systemAlerts.length}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.systemAlerts?.length ? (
+                  <div className="space-y-3">
+                    {dashboardData.systemAlerts.slice(0, 3).map((alert: any, index: number) => (
+                      <div key={index} className="p-3 rounded-lg border border-yellow-200 bg-yellow-50">
+                        <div className="flex items-start space-x-2">
+                          <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-yellow-800">{alert.title}</p>
+                            <p className="text-xs text-yellow-700 mt-1">{alert.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No system alerts</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5" />
+                  <span>Notifications</span>
+                  {unreadNotifications.length > 0 && (
+                    <Badge variant="destructive" className="ml-2">
+                      {unreadNotifications.length}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.recentNotifications?.length ? (
+                  <div className="space-y-3">
+                    {dashboardData.recentNotifications.slice(0, 3).map((notification: any) => (
+                      <div 
+                        key={notification.id} 
+                        className={`p-3 rounded-lg border text-sm ${
+                          !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start space-x-2">
+                          <div className={`p-1 rounded-full ${
+                            notification.type === 'system_alert' ? 'bg-red-100' :
+                            notification.type === 'booking_confirmed' ? 'bg-green-100' :
+                            'bg-blue-100'
+                          }`}>
+                            {notification.type === 'system_alert' ? (
+                              <AlertTriangle className="w-3 h-3 text-red-600" />
+                            ) : notification.type === 'booking_confirmed' ? (
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                            ) : (
+                              <Bell className="w-3 h-3 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium">{notification.title}</p>
+                            <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Link to="/notifications">
+                      <Button variant="outline" size="sm" className="w-full">
+                        View All
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Render teacher-specific dashboard
   if (user?.role === UserRole.TEACHER) {

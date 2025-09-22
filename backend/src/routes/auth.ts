@@ -13,7 +13,7 @@ import otpService from '../services/otp';
 const router = Router();
 
 // Staff login (email + password)
-router.post('/staff/login', async (req, res) => {
+router.post('/staff/login', auditLog('staff_login'), async (req, res) => {
   try {
     const { email, password } = validateRequest(loginSchema, req.body);
 

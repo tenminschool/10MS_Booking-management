@@ -70,6 +70,15 @@ export const branchesAPI = {
 
   getById: (id: string) =>
     api.get<Branch>(`/branches/${id}`),
+
+  create: (data: any) =>
+    api.post<Branch>('/branches', data),
+
+  update: (id: string, data: any) =>
+    api.put<Branch>(`/branches/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/branches/${id}`),
 }
 
 // Slots API
@@ -79,6 +88,18 @@ export const slotsAPI = {
 
   getById: (id: string) =>
     api.get<Slot>(`/slots/${id}`),
+
+  create: (data: any) =>
+    api.post<Slot>('/slots', data),
+
+  update: (id: string, data: any) =>
+    api.put<Slot>(`/slots/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/slots/${id}`),
+
+  bulkCreate: (data: { slots: any[] }) =>
+    api.post('/slots/bulk', data),
 }
 
 // Bookings API
@@ -133,6 +154,91 @@ export const notificationsAPI = {
 export const dashboardAPI = {
   getMetrics: () =>
     api.get<DashboardMetrics>('/dashboard/metrics'),
+}
+
+// Users API (Admin)
+export const usersAPI = {
+  getAll: (params?: any) =>
+    api.get<{ users: User[]; pagination: any }>('/users', { params }),
+
+  getByBranch: (branchId: string, params?: any) =>
+    api.get<{ users: User[]; pagination: any }>(`/users/branch/${branchId}`, { params }),
+
+  getById: (id: string) =>
+    api.get<{ user: User }>(`/users/${id}`),
+
+  create: (data: any) =>
+    api.post<{ user: User }>('/users', data),
+
+  update: (id: string, data: any) =>
+    api.put<{ user: User }>(`/users/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/users/${id}`),
+}
+
+// Slots API (Admin)
+export const slotsAdminAPI = {
+  create: (data: any) =>
+    api.post<{ slot: Slot }>('/slots', data),
+
+  update: (id: string, data: any) =>
+    api.put<{ slot: Slot }>(`/slots/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/slots/${id}`),
+
+  bulkCreate: (data: { slots: any[] }) =>
+    api.post('/slots/bulk', data),
+}
+
+// Import API
+export const importAPI = {
+  importStudents: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/import/students', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
+
+  downloadTemplate: () =>
+    api.get('/import/template', { responseType: 'blob' }),
+}
+
+// Reports API
+export const reportsAPI = {
+  getReports: (params: any) =>
+    api.get('/reports', { params }),
+
+  exportReports: (params: any) =>
+    api.get('/reports/export', { params, responseType: 'blob' }),
+
+  getDashboardMetrics: (params?: any) =>
+    api.get('/reports/dashboard', { params }),
+
+  getAttendanceReport: (params: any) =>
+    api.get('/reports/attendance', { params }),
+
+  getUtilizationReport: (params: any) =>
+    api.get('/reports/utilization', { params }),
+}
+
+// System API (Super Admin)
+export const systemAPI = {
+  getSettings: () =>
+    api.get('/system/settings'),
+
+  updateSettings: (data: any) =>
+    api.put('/system/settings', data),
+
+  getAuditLogs: (params?: any) =>
+    api.get('/system/audit-logs', { params }),
+
+  getSystemMetrics: () =>
+    api.get('/system/metrics'),
 }
 
 export default api
