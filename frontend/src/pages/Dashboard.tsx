@@ -1,0 +1,645 @@
+import React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import { dashboardAPI, notificationsAPI, slotsAPI, bookingsAPI } from '@/lib/api'
+// Mock UI components - replace with actual shadcn/ui components when available
+const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+)
+const CardHeader = ({ children }: { children: React.ReactNode }) => (
+  <div className="p-6 pb-4">{children}</div>
+)
+const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+)
+const CardDescription = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-sm text-gray-600 mt-1">{children}</p>
+)
+const CardContent = ({ children }: { children: React.ReactNode }) => (
+  <div className="p-6 pt-0">{children}</div>
+)
+const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
+  <button 
+    className={`px-4 py-2 rounded-md font-medium transition-colors ${
+      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
+      'bg-blue-600 text-white hover:bg-blue-700'
+    } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+    disabled={disabled}
+    onClick={onClick}
+    {...props}
+  >
+    {children}
+  </button>
+)
+const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
+  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
+    variant === 'destructive' ? 'bg-red-100 text-red-800' :
+    'bg-blue-100 text-blue-800'
+  }`}>
+    {children}
+  </span>
+)
+import { 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  User, 
+  Bell, 
+  BookOpen, 
+  GraduationCap,
+  Plus,
+  AlertCircle,
+  Users,
+  CheckCircle,
+  FileText
+} from 'lucide-react'
+import { format, isToday, isTomorrow } from 'date-fns'
+import { UserRole, type SlotFilters } from '@/types'
+
+const Dashboard: React.FC = () => {
+  const { user } = useAuth()
+
+  const { data: metrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ['dashboard-metrics'],
+    queryFn: () => dashboardAPI.getMetrics(),
+  })
+
+  const { data: notifications } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => notificationsAPI.getMy(),
+  })
+
+  // Teacher-specific data queries
+  const teacherFilters: SlotFilters = {
+    teacherId: user?.role === UserRole.TEACHER ? user.id : undefined,
+    view: 'weekly'
+  }
+
+  const { data: teacherSlots } = useQuery({
+    queryKey: ['teacher-slots', teacherFilters],
+    queryFn: () => slotsAPI.getAvailable(teacherFilters),
+    enabled: user?.role === UserRole.TEACHER
+  })
+
+  const { data: teacherBookings } = useQuery({
+    queryKey: ['teacher-bookings'],
+    queryFn: () => bookingsAPI.getMyBookings(),
+    enabled: user?.role === UserRole.TEACHER
+  })
+
+  if (metricsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+
+  const dashboardData = metrics?.data
+  const unreadNotifications = notifications?.data?.filter((n: any) => !n.isRead) || []
+
+  // Teacher-specific data processing
+  const todaySlots = teacherSlots?.data?.filter((slot: any) => 
+    isToday(new Date(slot.date))
+  ) || []
+  
+  const tomorrowSlots = teacherSlots?.data?.filter((slot: any) => 
+    isTomorrow(new Date(slot.date))
+  ) || []
+
+  const todayBookings = teacherBookings?.data?.filter((booking: any) => 
+    booking.slot && isToday(new Date(booking.slot.date))
+  ) || []
+
+  // Render teacher-specific dashboard
+  if (user?.role === UserRole.TEACHER) {
+    return (
+      <div className="space-y-6">
+        {/* Welcome Header */}
+        <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Welcome back, {user?.name}!
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {todaySlots.length > 0 
+                  ? `You have ${todaySlots.length} session${todaySlots.length > 1 ? 's' : ''} today`
+                  : "No sessions scheduled for today"}
+              </p>
+            </div>
+            <Link to="/schedule">
+              <Button className="bg-red-600 hover:bg-red-700">
+                <Calendar className="w-4 h-4 mr-2" />
+                View Schedule
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* PRIMARY CONTENT - 2/3 width */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Today's Sessions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5" />
+                  <span>Today's Sessions</span>
+                </CardTitle>
+                <CardDescription>
+                  Your scheduled speaking tests for today
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {todaySlots.length > 0 ? (
+                  <div className="space-y-4">
+                    {todaySlots.map((slot: any) => (
+                      <div key={slot.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            <span className="font-medium">
+                              {slot.startTime} - {slot.endTime}
+                            </span>
+                            <Badge variant="outline">
+                              {slot.bookedCount}/{slot.capacity} students
+                            </Badge>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <MapPin className="w-4 h-4" />
+                            <span>{slot.branch?.name}</span>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Link to={`/bookings?slot=${slot.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Users className="w-4 h-4 mr-2" />
+                              View Students
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No sessions scheduled for today</p>
+                    <Link to="/schedule">
+                      <Button variant="outline">View Full Schedule</Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Tomorrow's Preview */}
+            {tomorrowSlots.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Calendar className="w-5 h-5" />
+                    <span>Tomorrow's Sessions</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Preview of your upcoming sessions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {tomorrowSlots.slice(0, 3).map((slot: any) => (
+                      <div key={slot.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2 text-sm">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            <span className="font-medium">
+                              {slot.startTime} - {slot.endTime}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <Users className="w-4 h-4" />
+                            <span>{slot.bookedCount} students booked</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {tomorrowSlots.length > 3 && (
+                      <p className="text-sm text-gray-500 text-center">
+                        +{tomorrowSlots.length - 3} more sessions
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <Link to="/bookings">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <Users className="w-6 h-6" />
+                      <span>My Sessions</span>
+                    </Button>
+                  </Link>
+                  <Link to="/assessments">
+                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                      <FileText className="w-6 h-6" />
+                      <span>Record Scores</span>
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SECONDARY CONTENT - 1/3 width */}
+          <div className="space-y-6">
+            {/* Quick Stats */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Today's Sessions</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todaySlots.length}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Students Today</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {todaySlots.reduce((sum: number, slot: any) => sum + slot.bookedCount, 0)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">This Week</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{teacherSlots?.data?.length || 0}</div>
+                  <p className="text-xs text-muted-foreground">Total slots</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5" />
+                  <span>Notifications</span>
+                  {unreadNotifications.length > 0 && (
+                    <Badge variant="destructive" className="ml-2">
+                      {unreadNotifications.length}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.recentNotifications?.length ? (
+                  <div className="space-y-3">
+                    {dashboardData.recentNotifications.slice(0, 3).map((notification: any) => (
+                      <div 
+                        key={notification.id} 
+                        className={`p-3 rounded-lg border text-sm ${
+                          !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start space-x-2">
+                          <div className={`p-1 rounded-full ${
+                            notification.type === 'booking_confirmed' ? 'bg-green-100' :
+                            notification.type === 'booking_reminder' ? 'bg-yellow-100' :
+                            notification.type === 'booking_cancelled' ? 'bg-red-100' :
+                            'bg-blue-100'
+                          }`}>
+                            {notification.type === 'booking_confirmed' ? (
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                            ) : notification.type === 'booking_reminder' ? (
+                              <Clock className="w-3 h-3 text-yellow-600" />
+                            ) : notification.type === 'booking_cancelled' ? (
+                              <AlertCircle className="w-3 h-3 text-red-600" />
+                            ) : (
+                              <Bell className="w-3 h-3 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium">{notification.title}</p>
+                            <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Link to="/notifications">
+                      <Button variant="outline" size="sm" className="w-full">
+                        View All
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Header */}
+      <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {user?.name}!
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {user?.role === UserRole.STUDENT 
+                ? "Ready for your next speaking test?" 
+                : "Here's your dashboard overview"}
+            </p>
+          </div>
+          {user?.role === UserRole.STUDENT && (
+            <Link to="/schedule">
+              <Button className="bg-red-600 hover:bg-red-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Book Now
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* PRIMARY CONTENT - 2/3 width */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Upcoming Bookings - Primary Content */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5" />
+                <span>Upcoming Bookings</span>
+              </CardTitle>
+              <CardDescription>
+                Your next scheduled speaking tests
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {dashboardData?.upcomingBookings?.length ? (
+                <div className="space-y-4">
+                  {dashboardData.upcomingBookings.slice(0, 5).map((booking) => (
+                    <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">
+                            {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd, yyyy')}
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {booking.slot?.startTime} - {booking.slot?.endTime}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <div className="flex items-center space-x-1">
+                            <User className="w-4 h-4" />
+                            <span>{booking.slot?.teacher?.name}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <MapPin className="w-4 h-4" />
+                            <span>{booking.slot?.branch?.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                        {booking.status}
+                      </Badge>
+                    </div>
+                  ))}
+                  <Link to="/bookings">
+                    <Button variant="outline" className="w-full">
+                      View All Bookings
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-4">No upcoming bookings</p>
+                  <Link to="/schedule">
+                    <Button>Book Your First Test</Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Book Section - Primary Content */}
+          {user?.role === UserRole.STUDENT && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Plus className="w-5 h-5" />
+                  <span>Quick Book</span>
+                </CardTitle>
+                <CardDescription>
+                  Find and book your next speaking test
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Link to="/schedule">
+                      <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                        <Calendar className="w-6 h-6" />
+                        <span>Browse Slots</span>
+                      </Button>
+                    </Link>
+                    <Link to="/schedule?view=today">
+                      <Button variant="outline" className="w-full h-20 flex-col space-y-2">
+                        <Clock className="w-6 h-6" />
+                        <span>Today's Slots</span>
+                      </Button>
+                    </Link>
+                  </div>
+                  <Link to="/schedule">
+                    <Button className="w-full bg-red-600 hover:bg-red-700">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Book New Test
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* SECONDARY CONTENT - 1/3 width */}
+        <div className="space-y-6">
+          {/* Quick Stats */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Utilization</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {dashboardData?.utilizationRate ? `${Math.round(dashboardData.utilizationRate)}%` : '0%'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Notifications */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Bell className="w-5 h-5" />
+                <span>Notifications</span>
+                {unreadNotifications.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {unreadNotifications.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dashboardData?.recentNotifications?.length ? (
+                <div className="space-y-3">
+                  {dashboardData.recentNotifications.slice(0, 3).map((notification) => (
+                    <div 
+                      key={notification.id} 
+                      className={`p-3 rounded-lg border text-sm ${
+                        !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-2">
+                        <div className={`p-1 rounded-full ${
+                          notification.type === 'booking_confirmed' ? 'bg-green-100' :
+                          notification.type === 'booking_reminder' ? 'bg-yellow-100' :
+                          notification.type === 'booking_cancelled' ? 'bg-red-100' :
+                          'bg-blue-100'
+                        }`}>
+                          {notification.type === 'booking_confirmed' ? (
+                            <BookOpen className="w-3 h-3 text-green-600" />
+                          ) : notification.type === 'booking_reminder' ? (
+                            <Clock className="w-3 h-3 text-yellow-600" />
+                          ) : notification.type === 'booking_cancelled' ? (
+                            <AlertCircle className="w-3 h-3 text-red-600" />
+                          ) : (
+                            <Bell className="w-3 h-3 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">{notification.title}</p>
+                          <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <Link to="/notifications">
+                    <Button variant="outline" size="sm" className="w-full">
+                      View All
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No notifications</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          {user?.role === UserRole.STUDENT && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Link to="/bookings">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      My Bookings
+                    </Button>
+                  </Link>
+                  <Link to="/assessments">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      My Scores
+                    </Button>
+                  </Link>
+                  <Link to="/notifications">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Bell className="w-4 h-4 mr-2" />
+                      Notifications
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+
+    </div>
+  )
+}
+
+export default Dashboard

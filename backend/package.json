@@ -10,7 +10,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx src/prisma/seed.ts"
+    "db:seed": "tsx src/prisma/seed.ts",
+    "test:slots": "tsx src/test-slots-simple.ts",
+    "verify:task5": "tsx src/verify-task5.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
@@ -24,7 +26,7 @@
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "prisma": "^5.7.1",
-    "zod": "^3.22.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",

@@ -5,7 +5,13 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import branchRoutes from './routes/branches';
 import importRoutes from './routes/import';
+import slotRoutes from './routes/slots';
+import bookingRoutes from './routes/bookings';
+import notificationRoutes from './routes/notifications';
+import assessmentRoutes from './routes/assessments';
+import dashboardRoutes from './routes/dashboard';
 import prisma from './lib/prisma';
+import { schedulerService } from './services/scheduler';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -50,6 +56,11 @@ app.get('/', (req, res) => {
       users: '/api/users',
       branches: '/api/branches',
       import: '/api/import',
+      slots: '/api/slots',
+      bookings: '/api/bookings',
+      notifications: '/api/notifications',
+      assessments: '/api/assessments',
+      dashboard: '/api/dashboard',
     }
   });
 });
@@ -59,6 +70,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/slots', slotRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/assessments', assessmentRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -82,12 +98,14 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
+  schedulerService.stop();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
+  schedulerService.stop();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -97,6 +115,10 @@ app.listen(PORT, () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
   console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Start scheduler service
+  schedulerService.start();
+  console.log(`⏰ Notification scheduler started`);
 });
 
 export default app;

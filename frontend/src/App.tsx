@@ -1,60 +1,104 @@
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import Layout from '@/components/layout/Layout'
+import Login from '@/pages/Login'
+import Dashboard from '@/pages/Dashboard'
+import Schedule from '@/pages/Schedule'
+import Bookings from '@/pages/Bookings'
+import Assessments from '@/pages/Assessments'
+import Notifications from '@/pages/Notifications'
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
+
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  return <>{children}</>
+}
+
+// Public Route Component (redirect if authenticated)
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <>{children}</>
+}
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center space-y-8">
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold text-primary">
-              10 Minute School
-            </h1>
-            <h2 className="text-2xl font-semibold">
-              Speaking Test Booking System
-            </h2>
-            <p className="text-muted-foreground">
-              A comprehensive booking management system for English Learning Centers
-            </p>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <div className="min-h-screen bg-background text-foreground">
+            <Routes>
+              {/* Public Routes */}
+              <Route 
+                path="/login" 
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                } 
+              />
+              
+              {/* Protected Routes */}
+              <Route 
+                path="/" 
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="schedule" element={<Schedule />} />
+                <Route path="bookings" element={<Bookings />} />
+                <Route path="assessments" element={<Assessments />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
+
+              {/* Catch all route */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
           </div>
-          
-          <div className="space-y-4">
-            <div className="flex justify-center gap-4">
-              <Button onClick={() => setCount((count) => count + 1)}>
-                Count is {count}
-              </Button>
-              <Button variant="outline">
-                Secondary Button
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-              <div className="p-4 border rounded-lg">
-                <h3 className="font-semibold text-primary">Multi-Branch</h3>
-                <p className="text-sm text-muted-foreground">Book across different branches</p>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <h3 className="font-semibold text-primary">Real-time</h3>
-                <p className="text-sm text-muted-foreground">Live booking updates</p>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <h3 className="font-semibold text-primary">IELTS Scoring</h3>
-                <p className="text-sm text-muted-foreground">Assessment with rubrics</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="text-sm text-muted-foreground">
-            <p>✅ Frontend: React + TypeScript + Vite</p>
-            <p>✅ UI: Shadcn/ui + Tailwind CSS</p>
-            <p>✅ Backend: Express.js + Prisma + PostgreSQL</p>
-            <p>✅ 10 Minute School Branding Applied</p>
-          </div>
-        </div>
-      </div>
-    </div>
+        </Router>
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }
 
