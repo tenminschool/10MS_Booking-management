@@ -174,7 +174,7 @@ export async function runMobileResponsivenessTests(): Promise<void> {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runMobileResponsivenessTests().catch(console.error);
 }
 

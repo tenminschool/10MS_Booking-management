@@ -14,7 +14,7 @@ import type {
   IELTSRubrics
 } from '@/types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -59,148 +59,148 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   loginStudent: (phoneNumber: string, otp: string) =>
-    api.post('/auth/student/login', { phoneNumber, otp }),
+    api.post('/api/auth/student/login', { phoneNumber, otp }),
 
   loginStaff: (email: string, password: string) =>
-    api.post('/auth/staff/login', { email, password }),
+    api.post('/api/auth/staff/login', { email, password }),
 
   sendOTP: (phoneNumber: string) =>
-    api.post('/auth/student/send-otp', { phoneNumber }),
+    api.post('/api/auth/student/send-otp', { phoneNumber }),
 
   getCurrentUser: () =>
-    api.get<User>('/auth/me'),
+    api.get<User>('/api/auth/me'),
 
   logout: () =>
-    api.post('/auth/logout'),
+    api.post('/api/auth/logout'),
 }
 
 // Branches API
 export const branchesAPI = {
   getAll: () =>
-    api.get<Branch[]>('/branches'),
+    api.get<Branch[]>('/api/branches'),
 
   getById: (id: string) =>
-    api.get<Branch>(`/branches/${id}`),
+    api.get<Branch>(`/api/branches/${id}`),
 
   create: (data: any) =>
-    api.post<Branch>('/branches', data),
+    api.post<Branch>('/api/branches', data),
 
   update: (id: string, data: any) =>
-    api.put<Branch>(`/branches/${id}`, data),
+    api.put<Branch>(`/api/branches/${id}`, data),
 
   delete: (id: string) =>
-    api.delete(`/branches/${id}`),
+    api.delete(`/api/branches/${id}`),
 }
 
 // Slots API
 export const slotsAPI = {
   getAvailable: (filters: SlotFilters) =>
-    api.get<Slot[]>('/slots', { params: filters }),
+    api.get<Slot[]>('/api/slots', { params: filters }),
 
   getById: (id: string) =>
-    api.get<Slot>(`/slots/${id}`),
+    api.get<Slot>(`/api/slots/${id}`),
 
   create: (data: any) =>
-    api.post<Slot>('/slots', data),
+    api.post<Slot>('/api/slots', data),
 
   update: (id: string, data: any) =>
-    api.put<Slot>(`/slots/${id}`, data),
+    api.put<Slot>(`/api/slots/${id}`, data),
 
   delete: (id: string) =>
-    api.delete(`/slots/${id}`),
+    api.delete(`/api/slots/${id}`),
 
   bulkCreate: (data: { slots: any[] }) =>
-    api.post('/slots/bulk', data),
+    api.post('/api/slots/bulk', data),
 }
 
 // Bookings API
 export const bookingsAPI = {
   create: (data: CreateBookingRequest) =>
-    api.post<Booking>('/bookings', data),
+    api.post<Booking>('/api/bookings', data),
 
   getMyBookings: () =>
-    api.get<Booking[]>('/bookings/my'),
+    api.get<Booking[]>('/api/bookings/my'),
 
   cancel: (id: string, reason?: string) =>
-    api.put(`/bookings/${id}/cancel`, { reason }),
+    api.put(`/api/bookings/${id}/cancel`, { reason }),
 
   reschedule: (id: string, newSlotId: string) =>
-    api.put(`/bookings/${id}/reschedule`, { newSlotId }),
+    api.put(`/api/bookings/${id}/reschedule`, { newSlotId }),
 
   getById: (id: string) =>
-    api.get<Booking>(`/bookings/${id}`),
+    api.get<Booking>(`/api/bookings/${id}`),
 
   markAttendance: (id: string, attended: boolean) =>
-    api.put(`/bookings/${id}/attendance`, { attended }),
+    api.put(`/api/bookings/${id}/attendance`, { attended }),
 }
 
 // Assessments API
 export const assessmentsAPI = {
   getMyAssessments: () =>
-    api.get<Assessment[]>('/assessments/my'),
+    api.get<Assessment[]>('/api/assessments/my'),
 
   getById: (id: string) =>
-    api.get<Assessment>(`/assessments/${id}`),
+    api.get<Assessment>(`/api/assessments/${id}`),
 
   create: (data: AssessmentRequest) =>
-    api.post<Assessment>('/assessments', data),
+    api.post<Assessment>('/api/assessments', data),
 
   getRubrics: () =>
-    api.get<IELTSRubrics>('/assessments/rubrics'),
+    api.get<IELTSRubrics>('/api/assessments/rubrics'),
 }
 
 // Notifications API
 export const notificationsAPI = {
   getMy: () =>
-    api.get<Notification[]>('/notifications/my'),
+    api.get<Notification[]>('/api/notifications/my'),
 
   markAsRead: (id: string) =>
-    api.put(`/notifications/${id}/read`),
+    api.put(`/api/notifications/${id}/read`),
 
   markAllAsRead: () =>
-    api.put('/notifications/mark-all-read'),
+    api.put('/api/notifications/mark-all-read'),
 }
 
 // Dashboard API
 export const dashboardAPI = {
   getMetrics: () =>
-    api.get<DashboardMetrics>('/dashboard/metrics'),
+    api.get<DashboardMetrics>('/api/dashboard/metrics'),
 }
 
 // Users API (Admin)
 export const usersAPI = {
   getAll: (params?: any) =>
-    api.get<{ users: User[]; pagination: any }>('/users', { params }),
+    api.get<{ users: User[]; pagination: any }>('/api/users', { params }),
 
   getByBranch: (branchId: string, params?: any) =>
-    api.get<{ users: User[]; pagination: any }>(`/users/branch/${branchId}`, { params }),
+    api.get<{ users: User[]; pagination: any }>(`/api/users/branch/${branchId}`, { params }),
 
   getById: (id: string) =>
-    api.get<{ user: User }>(`/users/${id}`),
+    api.get<{ user: User }>(`/api/users/${id}`),
 
   create: (data: any) =>
-    api.post<{ user: User }>('/users', data),
+    api.post<{ user: User }>('/api/users', data),
 
   update: (id: string, data: any) =>
-    api.put<{ user: User }>(`/users/${id}`, data),
+    api.put<{ user: User }>(`/api/users/${id}`, data),
 
   delete: (id: string) =>
-    api.delete(`/users/${id}`),
+    api.delete(`/api/users/${id}`),
 }
 
 // Slots API (Admin)
 export const slotsAdminAPI = {
   create: (data: any) =>
-    api.post<{ slot: Slot }>('/slots', data),
+    api.post<{ slot: Slot }>('/api/slots', data),
 
   update: (id: string, data: any) =>
-    api.put<{ slot: Slot }>(`/slots/${id}`, data),
+    api.put<{ slot: Slot }>(`/api/slots/${id}`, data),
 
   delete: (id: string) =>
-    api.delete(`/slots/${id}`),
+    api.delete(`/api/slots/${id}`),
 
   bulkCreate: (data: { slots: any[] }) =>
-    api.post('/slots/bulk', data),
+    api.post('/api/slots/bulk', data),
 }
 
 // Import API
@@ -208,7 +208,7 @@ export const importAPI = {
   importStudents: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.post('/import/students', formData, {
+    return api.post('/api/import/students', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -216,49 +216,49 @@ export const importAPI = {
   },
 
   downloadTemplate: () =>
-    api.get('/import/template', { responseType: 'blob' }),
+    api.get('/api/import/template', { responseType: 'blob' }),
 }
 
 // Reports API
 export const reportsAPI = {
   getReports: (params: any) =>
-    api.get('/reports', { params }),
+    api.get('/api/reports', { params }),
 
   exportReports: (params: any) =>
-    api.get('/reports/export', { params, responseType: 'blob' }),
+    api.get('/api/reports/export', { params, responseType: 'blob' }),
 
   getDashboardMetrics: (params?: any) =>
-    api.get('/reports/dashboard', { params }),
+    api.get('/api/reports/dashboard', { params }),
 
   getAttendanceReport: (params: any) =>
-    api.get('/reports/attendance', { params }),
+    api.get('/api/reports/attendance', { params }),
 
   getUtilizationReport: (params: any) =>
-    api.get('/reports/utilization', { params }),
+    api.get('/api/reports/utilization', { params }),
 
   getAnalytics: (params?: any) =>
-    api.get('/reports/analytics', { params }),
+    api.get('/api/reports/analytics', { params }),
 
   getRealTimeMetrics: (params?: any) =>
-    api.get('/reports/real-time', { params }),
+    api.get('/api/reports/real-time', { params }),
 
   getNoShowAnalysis: (params?: any) =>
-    api.get('/reports/no-show-analysis', { params }),
+    api.get('/api/reports/no-show-analysis', { params }),
 }
 
 // System API (Super Admin)
 export const systemAPI = {
   getSettings: () =>
-    api.get('/system/settings'),
+    api.get('/api/system/settings'),
 
   updateSettings: (data: any) =>
-    api.put('/system/settings', data),
+    api.put('/api/system/settings', data),
 
   getAuditLogs: (params?: any) =>
-    api.get('/system/audit-logs', { params }),
+    api.get('/api/system/audit-logs', { params }),
 
   getSystemMetrics: () =>
-    api.get('/system/metrics'),
+    api.get('/api/system/metrics'),
 }
 
 export default api

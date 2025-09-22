@@ -24,6 +24,7 @@
     "test:notifications": "tsx src/tests/integration-notifications.test.ts",
     "test:audit": "tsx src/tests/integration-audit.test.ts",
     "test:mobile": "tsx src/tests/integration-mobile-isolation.test.ts",
+    "test:cleanup": "tsx -e \"import { testDataManager } from './src/tests/setup'; testDataManager.cleanup().then(() => console.log('Test cleanup completed')).catch(console.error)\"",
     "health:check": "curl -f http://localhost:3001/health || exit 1",
     "logs:view": "tail -f /var/log/speaking-test-booking/combined.log",
     "logs:error": "tail -f /var/log/speaking-test-booking/error.log"
