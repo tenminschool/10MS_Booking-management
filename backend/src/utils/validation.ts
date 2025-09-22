@@ -236,6 +236,9 @@ export const cancelBookingSchema = z.object({
     .min(5, 'Cancellation reason must be at least 5 characters')
     .max(500, 'Cancellation reason must be less than 500 characters')
     .optional(),
+  adminOverride: z.boolean()
+    .default(false)
+    .optional(),
 });
 
 // Assessment validation schemas

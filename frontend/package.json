@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:prod": "NODE_ENV=production npm run build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "serve": "vite preview --port 3000 --host",
+    "test:mobile": "npm run build && npm run serve"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

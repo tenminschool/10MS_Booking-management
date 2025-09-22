@@ -12,6 +12,7 @@ import assessmentRoutes from './routes/assessments';
 import dashboardRoutes from './routes/dashboard';
 import reportRoutes from './routes/reports';
 import systemRoutes from './routes/system';
+import healthRoutes from './routes/health';
 import prisma from './lib/prisma';
 import { schedulerService } from './services/scheduler';
 import { globalErrorHandler } from './middleware/errorHandler';
@@ -32,25 +33,8 @@ app.set('trust proxy', true);
 // Global rate limiting
 app.use('/api', validateRateLimit(1000, 15 * 60 * 1000)); // 1000 requests per 15 minutes
 
-// Health check endpoint
-app.get('/health', async (req, res) => {
-  try {
-    // Check database connection
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ 
-      status: 'OK', 
-      message: 'Speaking Test Booking API is running',
-      database: 'Connected',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(503).json({ 
-      status: 'ERROR', 
-      message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
+// Health check routes
+app.use('/health', healthRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
@@ -59,6 +43,9 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      healthDetailed: '/health/detailed',
+      healthReady: '/health/ready',
+      healthLive: '/health/live',
       auth: '/api/auth',
       users: '/api/users',
       branches: '/api/branches',

@@ -315,13 +315,103 @@ export const businessRules = {
     }
   },
 
-  // Check monthly booking limit
-  validateMonthlyLimit: (hasMonthlyBooking: boolean): void => {
-    if (hasMonthlyBooking) {
-      throw new BusinessRuleError(
-        'Student already has a booking this month across all branches',
-        'MONTHLY_BOOKING_LIMIT'
-      );
+  // Check monthly booking limit with bypass support
+  validateMonthlyLimit: async (hasMonthlyBooking: boolean, studentId?: string): Promise<void> => {
+    if (!hasMonthlyBooking) return;
+
+    // Check for monthly bypass if studentId provided
+    if (studentId) {
+      try {
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+        
+        const bypassSetting = await prisma.systemSetting.findUnique({
+          where: { key: `monthly_bypass_${studentId}` }
+        });
+
+        if (bypassSetting) {
+          const bypassData = JSON.parse(bypassSetting.value);
+          if (new Date() < new Date(bypassData.expiresAt)) {
+            console.log(`📋 Monthly limit bypass active for student ${studentId}`);
+            return; // Bypass is active
+          } else {
+            // Clean up expired bypass
+            await prisma.systemSetting.delete({
+              where: { key: `monthly_bypass_${studentId}` }
+            });
+          }
+        }
+        
+        await prisma.$disconnect();
+      } catch (error) {
+        console.error('Error checking monthly bypass:', error);
+      }
+    }
+
+    throw new BusinessRuleError(
+      'Student already has a booking this month across all branches',
+      'MONTHLY_BOOKING_LIMIT'
+    );
+  },
+
+  // Check cross-branch booking rules
+  validateCrossBranchBooking: async (studentBranchId: string, slotBranchId: string): Promise<void> => {
+    if (studentBranchId === slotBranchId) return; // Same branch, no issue
+
+    try {
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+      
+      const systemSettings = await prisma.systemSetting.findUnique({
+        where: { key: 'system_config' }
+      });
+
+      let allowCrossBranch = true;
+      if (systemSettings?.value) {
+        try {
+          const settings = JSON.parse(systemSettings.value);
+          allowCrossBranch = settings.bookingRules?.allowCrossBranchBooking ?? true;
+        } catch (error) {
+          console.error('Error parsing system settings:', error);
+        }
+      }
+
+      await prisma.$disconnect();
+
+      if (!allowCrossBranch) {
+        throw new BusinessRuleError(
+          'Cross-branch booking is currently disabled',
+          'CROSS_BRANCH_DISABLED'
+        );
+      }
+    } catch (error) {
+      if (error instanceof BusinessRuleError) throw error;
+      console.error('Error checking cross-branch rules:', error);
+    }
+  },
+
+  // Check if slot is blocked
+  validateSlotNotBlocked: async (slotId: string): Promise<void> => {
+    try {
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+      
+      const blockedSlot = await prisma.systemSetting.findUnique({
+        where: { key: `blocked_slot_${slotId}` }
+      });
+
+      await prisma.$disconnect();
+
+      if (blockedSlot) {
+        const blockData = JSON.parse(blockedSlot.value);
+        throw new BusinessRuleError(
+          `Slot is blocked: ${blockData.reason}`,
+          'SLOT_BLOCKED'
+        );
+      }
+    } catch (error) {
+      if (error instanceof BusinessRuleError) throw error;
+      console.error('Error checking slot block status:', error);
     }
   },
 

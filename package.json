@@ -13,7 +13,20 @@
     "dev:backend": "cd backend && npm run dev",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build"
+    "build:backend": "cd backend && npm run build",
+    "build:prod": "NODE_ENV=production npm run build",
+    "start": "cd backend && npm run start:prod",
+    "deploy": "./deployment/deploy.sh",
+    "deploy:rollback": "./deployment/deploy.sh rollback",
+    "setup:prod": "sudo ./deployment/setup-production.sh",
+    "security:harden": "sudo ./deployment/security-hardening.sh",
+    "db:backup": "./deployment/database-maintenance.sh backup",
+    "db:maintenance": "./deployment/database-maintenance.sh full",
+    "health:check": "curl -f http://localhost:3001/health",
+    "monitor:start": "node deployment/monitoring.js",
+    "logs:app": "tail -f /var/log/speaking-test-booking/combined.log",
+    "logs:error": "tail -f /var/log/speaking-test-booking/error.log",
+    "logs:monitor": "tail -f /var/log/speaking-test-booking/monitor.log"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
