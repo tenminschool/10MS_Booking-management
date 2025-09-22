@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { parseApiError, logError } from '@/lib/errorHandling'
 import type {
   User,
   Branch,
@@ -32,15 +33,25 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle auth errors
+// Enhanced error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Parse and log the error
+    const apiError = parseApiError(error)
+    logError(apiError, { 
+      url: error.config?.url,
+      method: error.config?.method,
+      data: error.config?.data 
+    })
+
+    // Handle authentication errors
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
     }
+
     return Promise.reject(error)
   }
 )
@@ -224,6 +235,15 @@ export const reportsAPI = {
 
   getUtilizationReport: (params: any) =>
     api.get('/reports/utilization', { params }),
+
+  getAnalytics: (params?: any) =>
+    api.get('/reports/analytics', { params }),
+
+  getRealTimeMetrics: (params?: any) =>
+    api.get('/reports/real-time', { params }),
+
+  getNoShowAnalysis: (params?: any) =>
+    api.get('/reports/no-show-analysis', { params }),
 }
 
 // System API (Super Admin)

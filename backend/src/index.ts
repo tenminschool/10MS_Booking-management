@@ -14,6 +14,8 @@ import reportRoutes from './routes/reports';
 import systemRoutes from './routes/system';
 import prisma from './lib/prisma';
 import { schedulerService } from './services/scheduler';
+import { globalErrorHandler } from './middleware/errorHandler';
+import { validateRateLimit } from './middleware/validation';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,11 +23,14 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Trust proxy for accurate IP addresses
 app.set('trust proxy', true);
+
+// Global rate limiting
+app.use('/api', validateRateLimit(1000, 15 * 60 * 1000)); // 1000 requests per 15 minutes
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -91,15 +96,7 @@ app.use('*', (req, res) => {
 });
 
 // Global error handler
-app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Global error handler:', error);
-  
-  res.status(error.status || 500).json({
-    error: error.name || 'Internal Server Error',
-    message: error.message || 'Something went wrong',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-  });
-});
+app.use(globalErrorHandler);
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
