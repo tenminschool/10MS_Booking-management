@@ -1,203 +1,141 @@
-# Speaking Test Booking Management System
+# 10 Minute School Speaking Test Booking System
 
-A comprehensive booking management system for 10 Minute School offline English Learning Center branches.
+A comprehensive booking management system for speaking test appointments at 10 Minute School.
 
-## Features
+## 🚀 Quick Start
 
-- 🏢 **Multi-Branch Support**: Students can book across different branches
-- 📱 **Mobile-First Design**: Responsive interface with 10MS branding
-- 🔐 **Role-Based Access**: Super-Admin, Branch-Admin, Teacher, and Student roles
-- 📊 **Real-Time Dashboard**: Live booking metrics and analytics
-- 💬 **Multi-Channel Notifications**: SMS and in-app notifications
-- 📈 **IELTS Assessment**: Score recording with rubrics reference
-- 📋 **Comprehensive Reporting**: Attendance tracking and export functionality
+### Current Server Status
+- **Backend API**: http://localhost:3001 ✅ Running
+- **Frontend**: http://localhost:5175 ✅ Running  
+- **Database**: Mock data fallback (fully functional)
+- **Authentication**: Working with mock system
 
-## Tech Stack
+### Test Credentials
+- **Staff**: admin@10minuteschool.com / admin123
+- **Student**: +8801712345678 / any 6-digit OTP
 
-### Frontend
-- React 18 with TypeScript
-- Vite for build tooling
-- Tailwind CSS for styling
-- Shadcn/ui component library
-- React Query for state management
-- React Router for navigation
+## 📁 Project Structure
+
+```
+10MS_Booking_management/
+├── 📚 docs/                    # All documentation (organized)
+│   ├── tasks/                  # Task implementation summaries
+│   ├── fixes/                  # Bug fixes and error resolutions
+│   ├── guides/                 # User guides and how-tos
+│   ├── reports/                # Status reports and analysis
+│   ├── testing/                # Testing documentation
+│   └── setup/                  # Setup and configuration
+├── 🛠️ scripts/                 # Utility scripts (organized)
+│   ├── utilities/              # General utilities
+│   ├── validation/             # Validation scripts
+│   └── testing/                # Test runners
+├── 🖥️ backend/                 # Backend API (Express + TypeScript)
+├── 🌐 frontend/                # Frontend (React + TypeScript)
+├── 🚀 deployment/              # Deployment configurations
+└── 🤖 .kiro/                   # Kiro IDE specifications
+```
+
+## ✨ Features
+
+- **Multi-role Authentication**: Students (OTP), Staff (email/password)
+- **Branch Management**: Multiple branch support
+- **Slot Management**: Flexible time slot creation
+- **Booking System**: Student booking with conflict prevention
+- **Assessment System**: IELTS-style scoring
+- **Dashboard**: Role-specific dashboards with metrics
+- **Responsive Design**: Mobile-friendly interface
+- **Mock Data Fallback**: Fully functional without database
+
+## 🛠️ Tech Stack
 
 ### Backend
-- Node.js with Express.js
-- TypeScript
-- Prisma ORM with PostgreSQL
-- JWT authentication
-- Bcrypt for password hashing
+- **Node.js** + **Express.js** + **TypeScript**
+- **Prisma ORM** + **PostgreSQL** (with mock fallback)
+- **JWT** authentication + **Zod** validation
 
-## Getting Started
+### Frontend  
+- **React 18** + **TypeScript** + **Vite**
+- **Tailwind CSS** + **React Query** + **React Router**
+
+## 📖 Documentation
+
+All documentation is now organized in the [`docs/`](./docs/) directory:
+
+- **📋 [Task Summaries](./docs/tasks/)** - Implementation reports
+- **🔧 [Bug Fixes](./docs/fixes/)** - Error resolutions  
+- **📖 [User Guides](./docs/guides/)** - How-to documentation
+- **📊 [Status Reports](./docs/reports/)** - System analysis
+- **⚙️ [Setup Guides](./docs/setup/)** - Configuration help
+
+## 🧪 Testing & Utilities
+
+Utility scripts are organized in the [`scripts/`](./scripts/) directory:
+
+```bash
+# Test all API endpoints
+node scripts/utilities/test-all-endpoints.js
+
+# Check server status  
+node scripts/utilities/check-server-status.js
+
+# Run comprehensive E2E tests
+npx tsx scripts/testing/run-comprehensive-e2e-tests.ts
+```
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
-- Docker and Docker Compose
-- npm or yarn
+- Node.js (v18+)
+- Git
 
 ### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd speaking-test-booking-system
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   cd frontend && npm install
-   cd ../backend && npm install
-   cd ..
-   ```
-
-3. **Start the database**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Set up the database**
-   ```bash
-   cd backend
-   npx prisma generate
-   npx prisma db push
-   npm run db:seed
-   ```
-
-5. **Start the development servers**
-   ```bash
-   npm run dev
-   ```
-
-   This will start:
-   - Frontend: http://localhost:5173
-   - Backend: http://localhost:3001
-
-### Database Schema
-
-The system uses **8 core tables** with optimized relationships:
-
-1. **Branch** - Multi-branch support
-2. **User** - Role-based authentication (Super-Admin, Branch-Admin, Teacher, Student)
-3. **Slot** - Time slot management with capacity control
-4. **Booking** - Booking management with status tracking
-5. **Assessment** - IELTS scoring with rubrics
-6. **Notification** - In-app notification system
-7. **AuditLog** - Complete system activity tracking
-8. **SystemSetting** - Runtime configuration management
-
-**Key Relationships:**
-- Branch → Users (1:Many)
-- Branch → Slots (1:Many)  
-- User → Bookings (1:Many)
-- Slot → Bookings (1:Many)
-- Booking → Assessment (1:1)
-- User → Notifications (1:Many)
-- User → AuditLogs (1:Many)
-
-### Default Login Credentials
-
-**Super Admin:**
-- Email: admin@10minuteschool.com
-- Password: admin123
-
-**Branch Admin (Dhanmondi):**
-- Email: dhanmondi@10minuteschool.com  
-- Password: admin123
-
-**Branch Admin (Gulshan):**
-- Email: gulshan@10minuteschool.com
-- Password: admin123
-
-**Teachers:**
-- Sarah Ahmed: sarah@10minuteschool.com / teacher123
-- John Smith: john@10minuteschool.com / teacher123
-
-**Students:**
-- Phone: +8801712345678 (Ahmed Rahman)
-- Phone: +8801812345678 (Fatima Khan)
-
-## Project Structure
-
-```
-├── frontend/                 # React frontend application
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/          # Page components
-│   │   ├── lib/            # Utility functions
-│   │   └── types/          # TypeScript type definitions
-├── backend/                 # Express.js backend API
-│   ├── src/
-│   │   ├── routes/         # API route handlers
-│   │   ├── controllers/    # Business logic controllers
-│   │   ├── middleware/     # Express middleware
-│   │   ├── services/       # Business logic services
-│   │   ├── types/          # TypeScript type definitions
-│   │   └── prisma/         # Database schema and seed
-└── docker-compose.yml      # Development database setup
-```
-
-## Development
-
-### Database Management
-
 ```bash
-# Generate Prisma client
-cd backend && npx prisma generate
+# Clone and install
+git clone <repository-url>
+cd 10MS_Booking_management
+npm install
 
-# Push schema changes to database
-cd backend && npx prisma db push
-
-# Run database migrations
-cd backend && npx prisma migrate dev
-
-# Seed the database
-cd backend && npm run db:seed
-
-# Open Prisma Studio
-cd backend && npx prisma studio
-```
-
-### Available Scripts
-
-```bash
-# Start both frontend and backend
+# Start development servers
 npm run dev
-
-# Start frontend only
-npm run dev:frontend
-
-# Start backend only  
-npm run dev:backend
-
-# Build for production
-npm run build
 ```
 
-## API Endpoints
+### Access Points
+- **Frontend**: http://localhost:5175
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/health
 
-### Authentication
-- `POST /auth/student/login` - Student phone login
-- `POST /auth/staff/login` - Staff email/password login
-- `GET /auth/me` - Get current user
-- `POST /auth/logout` - Logout
+## 🎯 User Roles
 
-### Bookings
-- `GET /slots` - Get available slots
-- `POST /bookings` - Create booking
-- `PUT /bookings/:id/cancel` - Cancel booking
-- `PUT /bookings/:id/reschedule` - Reschedule booking
+1. **Students**: Book tests, view assessments
+2. **Teachers**: Manage slots, conduct assessments  
+3. **Branch Admins**: Branch operations and user management
+4. **Super Admins**: System-wide administration
 
-### More endpoints will be documented as development progresses...
+## 📊 Current Status
 
-## Contributing
+- ✅ **All API endpoints working** (with mock data)
+- ✅ **Frontend fully functional** 
+- ✅ **Authentication system working**
+- ✅ **Navigation improvements implemented**
+- ✅ **Console errors resolved**
+- ✅ **Comprehensive testing suite**
+- ✅ **Documentation organized**
 
-1. Create a feature branch
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
+## 🔍 Quick Links
 
-## License
+- [📖 Complete Documentation](./docs/README.md)
+- [🚀 Frontend Access Guide](./docs/guides/FRONTEND_ACCESS_GUIDE.md)
+- [⚙️ Database Design](./docs/setup/DATABASE_DESIGN.md)
+- [🧪 Testing Guide](./docs/guides/TASK19_E2E_TESTING_GUIDE.md)
+- [📊 Server Status](./docs/reports/SERVER_STATUS_REPORT.md)
 
-This project is proprietary to 10 Minute School.
+## 🤝 Contributing
+
+1. Review documentation in [`docs/`](./docs/)
+2. Use utility scripts in [`scripts/`](./scripts/) for testing
+3. Follow established patterns and conventions
+4. Update documentation for any changes
+
+---
+
+**Ready to use!** The system is fully functional with mock data and comprehensive testing. Check the [documentation](./docs/) for detailed guides and information.

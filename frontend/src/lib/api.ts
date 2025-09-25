@@ -59,13 +59,13 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   loginStudent: (phoneNumber: string, otp: string) =>
-    api.post('/api/auth/student/login', { phoneNumber, otp }),
+    api.post('/api/auth/student/verify-otp', { phoneNumber, otp }),
 
   loginStaff: (email: string, password: string) =>
     api.post('/api/auth/staff/login', { email, password }),
 
   sendOTP: (phoneNumber: string) =>
-    api.post('/api/auth/student/send-otp', { phoneNumber }),
+    api.post('/api/auth/student/request-otp', { phoneNumber }),
 
   getCurrentUser: () =>
     api.get<User>('/api/auth/me'),

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { slotsAPI, branchesAPI, usersAPI } from '@/lib/api'
 import { UserRole, type Slot, type User, type Branch } from '@/types'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { 
   Calendar, 
   Clock, 
@@ -162,8 +163,15 @@ const AdminSlots: React.FC = () => {
     )
   }
 
+  const breadcrumbItems = [
+    { label: 'Admin', href: '/admin' },
+    { label: 'Slot Management', current: true }
+  ]
+
   return (
     <div className="space-y-6">
+      <Breadcrumb items={breadcrumbItems} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>

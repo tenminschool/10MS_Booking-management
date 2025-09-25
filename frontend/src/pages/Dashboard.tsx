@@ -105,7 +105,7 @@ const Dashboard: React.FC = () => {
   }
 
   const dashboardData = metrics?.data
-  const unreadNotifications = notifications?.data?.filter((n: any) => !n.isRead) || []
+  const unreadNotifications = (notifications?.data?.notifications || notifications?.data || []).filter((n: any) => !n.isRead) || []
 
   // Teacher-specific data processing
   const todaySlots = teacherSlots?.data?.filter((slot: any) => 

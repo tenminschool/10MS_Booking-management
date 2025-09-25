@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { assessmentsAPI, dashboardAPI, bookingsAPI } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
@@ -218,8 +219,14 @@ const Assessments: React.FC = () => {
     ? allAssessments.sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0].score
     : 0
 
+  const breadcrumbItems = [
+    { label: 'Assessments', current: true }
+  ]
+
   return (
     <div className="space-y-6">
+      <Breadcrumb items={breadcrumbItems} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>

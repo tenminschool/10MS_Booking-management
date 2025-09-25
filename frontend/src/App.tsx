@@ -10,7 +10,7 @@ import Dashboard from '@/pages/Dashboard'
 import Schedule from '@/pages/Schedule-Simple'
 import Bookings from '@/pages/Bookings'
 import Assessments from '@/pages/Assessments'
-import Notifications from '@/pages/Notifications-Simple'
+import Profile from '@/pages/Profile'
 // Admin pages
 import AdminSlots from '@/pages/admin/AdminSlots'
 import AdminBranches from '@/pages/admin/AdminBranches'
@@ -132,7 +132,7 @@ function App() {
                     <Route path="schedule" element={<Schedule />} />
                     <Route path="bookings" element={<Bookings />} />
                     <Route path="assessments" element={<Assessments />} />
-                    <Route path="notifications" element={<Notifications />} />
+                    <Route path="profile" element={<Profile />} />
 
                     {/* Admin Routes */}
                     <Route path="admin/slots" element={

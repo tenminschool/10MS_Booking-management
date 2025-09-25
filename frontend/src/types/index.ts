@@ -32,6 +32,7 @@ export interface User {
   name: string
   role: UserRole
   branchId?: string
+  branch?: Branch
   isActive: boolean
   createdAt: string
 }

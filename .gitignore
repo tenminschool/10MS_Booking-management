@@ -109,3 +109,14 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
+# Generated test reports and artifacts
+**/TASK*_TEST_REPORT_*.json
+**/E2E_TEST_REPORT_*.json
+**/test-report-*.json
+
+# Development documentation artifacts (should be in docs/)
+backend/TASK*_IMPLEMENTATION_SUMMARY.md
+backend/FIXED_ERRORS_SUMMARY.md
+frontend/TASK*_IMPLEMENTATION_SUMMARY.md
+frontend/FIXED_ERRORS_SUMMARY.md

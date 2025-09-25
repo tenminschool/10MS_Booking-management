@@ -2,6 +2,7 @@ import express from 'express';
 import prisma from '../lib/prisma';
 import { authenticate } from '../middleware/auth';
 import { UserRole } from '@prisma/client';
+import mockDashboard from '../lib/mock-dashboard';
 
 const router = express.Router();
 
@@ -11,7 +12,12 @@ router.get('/metrics', authenticate, async (req, res) => {
     const user = req.user!;
     let metrics: any = {};
 
-    if (user.role === UserRole.STUDENT) {
+    // Try database first, fallback to mock data
+    try {
+      // Test database connection
+      await prisma.$queryRaw`SELECT 1`;
+
+      if (user.role === UserRole.STUDENT) {
       // Student metrics
       const [totalBookings, upcomingBookings, recentNotifications, attendanceData] = await Promise.all([
         prisma.booking.count({
@@ -361,6 +367,18 @@ router.get('/metrics', authenticate, async (req, res) => {
     }
 
     res.json(metrics);
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock dashboard data:', dbError);
+      
+      // Use mock dashboard data
+      const mockMetrics = mockDashboard.getMetrics(user.role, user.userId);
+      res.json({
+        ...mockMetrics,
+        _mock: true,
+        _message: 'Using mock data (database unavailable)'
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching dashboard metrics:', error);

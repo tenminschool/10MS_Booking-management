@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { branchesAPI } from '@/lib/api'
 import { UserRole, type Branch } from '@/types'
 import { format } from 'date-fns'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { 
   MapPin, 
   Plus, 
@@ -145,8 +146,15 @@ const AdminBranches: React.FC = () => {
     )
   }
 
+  const breadcrumbItems = [
+    { label: 'Admin', href: '/admin' },
+    { label: 'Branch Management', current: true }
+  ]
+
   return (
     <div className="space-y-6">
+      <Breadcrumb items={breadcrumbItems} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>

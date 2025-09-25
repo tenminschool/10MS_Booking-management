@@ -7,52 +7,120 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
+// Mock branches data
+const mockBranches = [
+  {
+    id: 'mock-branch-1',
+    name: 'Dhanmondi Branch',
+    address: '27 Dhanmondi R/A, Dhaka 1205',
+    contactNumber: '+880-2-9661301',
+    isActive: true,
+    createdAt: new Date('2024-01-15'),
+    updatedAt: new Date('2024-01-15'),
+    _count: { users: 45, slots: 120 }
+  },
+  {
+    id: 'mock-branch-2',
+    name: 'Gulshan Branch',
+    address: '98 Gulshan Avenue, Dhaka 1212',
+    contactNumber: '+880-2-9885566',
+    isActive: true,
+    createdAt: new Date('2024-02-01'),
+    updatedAt: new Date('2024-02-01'),
+    _count: { users: 38, slots: 95 }
+  },
+  {
+    id: 'mock-branch-3',
+    name: 'Uttara Branch',
+    address: '15 Uttara Sector 7, Dhaka 1230',
+    contactNumber: '+880-2-8958877',
+    isActive: true,
+    createdAt: new Date('2024-03-10'),
+    updatedAt: new Date('2024-03-10'),
+    _count: { users: 32, slots: 80 }
+  }
+];
+
 // Get all branches
-router.get('/', 
-  authenticate, 
+router.get('/',
+  authenticate,
   async (req, res) => {
     try {
-      const { page, limit, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
+      const { page = 1, limit = 10, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
       const { search } = req.query;
 
-      const skip = (page - 1) * limit;
-      
-      // Build where clause
-      const where: any = {};
-      if (search) {
-        where.OR = [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { address: { contains: search as string, mode: 'insensitive' } }
-        ];
-      }
+      // Try database first, fallback to mock data
+      try {
+        await prisma.$queryRaw`SELECT 1`;
 
-      const [branches, total] = await Promise.all([
-        prisma.branch.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
-          include: {
-            _count: {
-              select: {
-                users: true,
-                slots: true
+        const skip = (page - 1) * limit;
+
+        // Build where clause
+        const where: any = {};
+        if (search) {
+          where.OR = [
+            { name: { contains: search as string, mode: 'insensitive' } },
+            { address: { contains: search as string, mode: 'insensitive' } }
+          ];
+        }
+
+        const [branches, total] = await Promise.all([
+          prisma.branch.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
+            include: {
+              _count: {
+                select: {
+                  users: true,
+                  slots: true
+                }
               }
             }
-          }
-        }),
-        prisma.branch.count({ where })
-      ]);
+          }),
+          prisma.branch.count({ where })
+        ]);
 
-      res.json({
-        branches,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit)
+        res.json({
+          branches,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit)
+          }
+        });
+
+      } catch (dbError) {
+        console.warn('Database unavailable, using mock branches data:', dbError);
+
+        // Filter mock data based on search
+        let filteredBranches = mockBranches;
+        if (search) {
+          const searchTerm = (search as string).toLowerCase();
+          filteredBranches = mockBranches.filter(branch =>
+            branch.name.toLowerCase().includes(searchTerm) ||
+            branch.address.toLowerCase().includes(searchTerm)
+          );
         }
-      });
+
+        // Apply pagination
+        const skip = (page - 1) * limit;
+        const paginatedBranches = filteredBranches.slice(skip, skip + limit);
+
+        res.json({
+          branches: paginatedBranches,
+          pagination: {
+            page,
+            limit,
+            total: filteredBranches.length,
+            pages: Math.ceil(filteredBranches.length / limit)
+          },
+          _mock: true,
+          _message: 'Using mock data (database unavailable)'
+        });
+      }
 
     } catch (error) {
       console.error('Get branches error:', error);
@@ -65,8 +133,8 @@ router.get('/',
 );
 
 // Get single branch
-router.get('/:id', 
-  authenticate, 
+router.get('/:id',
+  authenticate,
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -125,8 +193,8 @@ router.get('/:id',
 );
 
 // Create branch (Super-Admin only)
-router.post('/', 
-  authenticate, 
+router.post('/',
+  authenticate,
   requireRole([UserRole.SUPER_ADMIN]),
   auditLog('branch_create'),
   async (req, res) => {
@@ -135,11 +203,11 @@ router.post('/',
 
       // Check if branch with same name already exists
       const existingBranch = await prisma.branch.findFirst({
-        where: { 
-          name: { 
-            equals: branchData.name, 
-            mode: 'insensitive' 
-          } 
+        where: {
+          name: {
+            equals: branchData.name,
+            mode: 'insensitive'
+          }
         }
       });
 
@@ -179,8 +247,8 @@ router.post('/',
 );
 
 // Update branch (Super-Admin only)
-router.put('/:id', 
-  authenticate, 
+router.put('/:id',
+  authenticate,
   requireRole([UserRole.SUPER_ADMIN]),
   auditLog('branch_update'),
   async (req, res) => {
@@ -249,8 +317,8 @@ router.put('/:id',
 );
 
 // Delete branch (Super-Admin only)
-router.delete('/:id', 
-  authenticate, 
+router.delete('/:id',
+  authenticate,
   requireRole([UserRole.SUPER_ADMIN]),
   auditLog('branch_delete'),
   async (req, res) => {
@@ -313,8 +381,8 @@ router.delete('/:id',
 );
 
 // Get branch statistics (for dashboard)
-router.get('/:id/stats', 
-  authenticate, 
+router.get('/:id/stats',
+  authenticate,
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -356,18 +424,18 @@ router.get('/:id/stats',
         prisma.user.count({ where: { branchId: id, role: UserRole.TEACHER, isActive: true } }),
         prisma.user.count({ where: { branchId: id, role: UserRole.STUDENT, isActive: true } }),
         prisma.slot.count({ where: { branchId: id } }),
-        prisma.booking.count({ 
-          where: { 
-            slot: { branchId: id } 
-          } 
+        prisma.booking.count({
+          where: {
+            slot: { branchId: id }
+          }
         }),
-        prisma.booking.count({ 
-          where: { 
-            slot: { 
+        prisma.booking.count({
+          where: {
+            slot: {
               branchId: id,
               date: new Date().toISOString().split('T')[0]
-            } 
-          } 
+            }
+          }
         })
       ]);
 

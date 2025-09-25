@@ -9,6 +9,7 @@ import prisma from '../lib/prisma';
 import { UserRole } from '@prisma/client';
 import smsService from '../services/sms';
 import otpService from '../services/otp';
+import mockAuth from '../lib/mock-auth';
 
 const router = Router();
 
@@ -24,59 +25,73 @@ router.post('/staff/login', auditLog('staff_login'), async (req, res) => {
       });
     }
 
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { branch: true }
-    });
-
-    if (!user || !user.hashedPassword) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Invalid email or password'
+    // Try database first, fallback to mock auth
+    try {
+      // Find user by email
+      const user = await prisma.user.findUnique({
+        where: { email },
+        include: { branch: true }
       });
-    }
 
-    // Verify password
-    const isValidPassword = await comparePassword(password, user.hashedPassword);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Invalid email or password'
-      });
-    }
+      if (!user || !user.hashedPassword) {
+        return res.status(401).json({
+          error: 'Authentication failed',
+          message: 'Invalid email or password'
+        });
+      }
 
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({
-        error: 'Account disabled',
-        message: 'Your account has been disabled. Please contact administrator.'
-      });
-    }
+      // Verify password
+      const isValidPassword = await comparePassword(password, user.hashedPassword);
+      if (!isValidPassword) {
+        return res.status(401).json({
+          error: 'Authentication failed',
+          message: 'Invalid email or password'
+        });
+      }
 
-    // Generate JWT token
-    const token = generateToken({
-      userId: user.id,
-      role: user.role,
-      branchId: user.branchId || undefined,
-      email: user.email || undefined,
-    });
+      // Check if user is active
+      if (!user.isActive) {
+        return res.status(401).json({
+          error: 'Account disabled',
+          message: 'Your account has been disabled. Please contact administrator.'
+        });
+      }
 
-    res.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+      // Generate JWT token
+      const token = generateToken({
+        userId: user.id,
         role: user.role,
-        branchId: user.branchId,
-        branch: user.branch ? {
-          id: user.branch.id,
-          name: user.branch.name
-        } : null
-      },
-      token,
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-    });
+        branchId: user.branchId || undefined,
+        email: user.email || undefined,
+      });
+
+      res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          branchId: user.branchId,
+          branch: user.branch ? {
+            id: user.branch.id,
+            name: user.branch.name
+          } : null
+        },
+        token,
+        expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+      });
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock authentication:', dbError);
+      
+      // Use mock authentication
+      const mockResult = await mockAuth.loginStaff(email, password);
+      res.json({
+        ...mockResult,
+        _mock: true,
+        message: 'Using mock authentication (database unavailable)'
+      });
+    }
 
   } catch (error) {
     console.error('Staff login error:', error);
@@ -92,64 +107,79 @@ router.post('/student/request-otp', phoneValidationMiddleware, otpRateLimitMiddl
   try {
     const { phoneNumber } = validateRequest(otpRequestSchema, req.body);
 
-    // Check if student exists
-    const student = await prisma.user.findUnique({
-      where: { phoneNumber },
-    });
-
-    if (!student || student.role !== UserRole.STUDENT) {
-      return res.status(404).json({
-        error: 'Student not found',
-        message: 'No student account found with this phone number'
+    // Try database first, fallback to mock auth
+    try {
+      // Check if student exists
+      const student = await prisma.user.findUnique({
+        where: { phoneNumber },
       });
-    }
 
-    if (!student.isActive) {
-      return res.status(401).json({
-        error: 'Account disabled',
-        message: 'Your account has been disabled. Please contact administrator.'
-      });
-    }
-
-    // Check if there's already a valid OTP
-    const hasValidOTP = await otpService.hasValidOTP(phoneNumber);
-    if (hasValidOTP) {
-      const remainingTime = await otpService.getRemainingTime(phoneNumber);
-      return res.status(429).json({
-        error: 'OTP already sent',
-        message: `Please wait ${Math.ceil(remainingTime / 60)} minutes before requesting a new OTP`,
-        remainingTime
-      });
-    }
-
-    // Generate and store OTP
-    const otp = otpService.generateOTP();
-    await otpService.storeOTP(phoneNumber, otp);
-
-    // Send SMS
-    const smsResult = await smsService.sendOTP(phoneNumber, otp);
-    
-    if (!smsResult.success) {
-      console.error('SMS sending failed:', smsResult.error);
-      // Don't fail the request if SMS fails in development
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(500).json({
-          error: 'SMS sending failed',
-          message: 'Unable to send OTP. Please try again later.'
+      if (!student || student.role !== UserRole.STUDENT) {
+        return res.status(404).json({
+          error: 'Student not found',
+          message: 'No student account found with this phone number'
         });
       }
-    }
 
-    res.json({
-      message: 'OTP sent successfully',
-      phoneNumber,
-      expiresIn: 300, // 5 minutes in seconds
-      // In development, include OTP for testing
-      ...(process.env.NODE_ENV === 'development' && { 
-        otp,
-        smsStatus: smsResult.success ? 'sent' : 'failed'
-      })
-    });
+      if (!student.isActive) {
+        return res.status(401).json({
+          error: 'Account disabled',
+          message: 'Your account has been disabled. Please contact administrator.'
+        });
+      }
+
+      // Check if there's already a valid OTP
+      const hasValidOTP = await otpService.hasValidOTP(phoneNumber);
+      if (hasValidOTP) {
+        const remainingTime = await otpService.getRemainingTime(phoneNumber);
+        return res.status(429).json({
+          error: 'OTP already sent',
+          message: `Please wait ${Math.ceil(remainingTime / 60)} minutes before requesting a new OTP`,
+          remainingTime
+        });
+      }
+
+      // Generate and store OTP
+      const otp = otpService.generateOTP();
+      await otpService.storeOTP(phoneNumber, otp);
+
+      // Send SMS
+      const smsResult = await smsService.sendOTP(phoneNumber, otp);
+      
+      if (!smsResult.success) {
+        console.error('SMS sending failed:', smsResult.error);
+        // Don't fail the request if SMS fails in development
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(500).json({
+            error: 'SMS sending failed',
+            message: 'Unable to send OTP. Please try again later.'
+          });
+        }
+      }
+
+      res.json({
+        message: 'OTP sent successfully',
+        phoneNumber,
+        expiresIn: 300, // 5 minutes in seconds
+        // In development, include OTP for testing
+        ...(process.env.NODE_ENV === 'development' && { 
+          otp,
+          smsStatus: smsResult.success ? 'sent' : 'failed'
+        })
+      });
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock authentication:', dbError);
+      
+      // Use mock authentication
+      const mockResult = await mockAuth.requestOTP(phoneNumber);
+      res.json({
+        ...mockResult,
+        _mock: true,
+        otp: '123456', // Mock OTP for testing
+        message: 'Mock OTP sent (database unavailable). Use 123456 as OTP.'
+      });
+    }
 
   } catch (error) {
     console.error('OTP request error:', error);
@@ -165,62 +195,76 @@ router.post('/student/verify-otp', phoneValidationMiddleware, auditLog('student_
   try {
     const { phoneNumber, otp } = validateRequest(otpVerificationSchema, req.body);
 
-    // Find student by phone number
-    const student = await prisma.user.findUnique({
-      where: { phoneNumber },
-    });
-
-    if (!student || student.role !== UserRole.STUDENT) {
-      return res.status(404).json({
-        error: 'Student not found',
-        message: 'No student account found with this phone number'
+    // Try database first, fallback to mock auth
+    try {
+      // Find student by phone number
+      const student = await prisma.user.findUnique({
+        where: { phoneNumber },
       });
-    }
 
-    if (!student.isActive) {
-      return res.status(401).json({
-        error: 'Account disabled',
-        message: 'Your account has been disabled. Please contact administrator.'
-      });
-    }
+      if (!student || student.role !== UserRole.STUDENT) {
+        return res.status(404).json({
+          error: 'Student not found',
+          message: 'No student account found with this phone number'
+        });
+      }
 
-    // Verify OTP
-    const otpVerification = await otpService.verifyOTP(phoneNumber, otp);
-    
-    if (!otpVerification.success) {
-      return res.status(401).json({
-        error: 'OTP verification failed',
-        message: otpVerification.error
-      });
-    }
+      if (!student.isActive) {
+        return res.status(401).json({
+          error: 'Account disabled',
+          message: 'Your account has been disabled. Please contact administrator.'
+        });
+      }
 
-    // Generate JWT token
-    const token = generateToken({
-      userId: student.id,
-      role: student.role,
-      phoneNumber: student.phoneNumber || undefined,
-    });
+      // Verify OTP
+      const otpVerification = await otpService.verifyOTP(phoneNumber, otp);
+      
+      if (!otpVerification.success) {
+        return res.status(401).json({
+          error: 'OTP verification failed',
+          message: otpVerification.error
+        });
+      }
 
-    // Create in-app notification for successful login
-    await prisma.notification.create({
-      data: {
+      // Generate JWT token
+      const token = generateToken({
         userId: student.id,
-        title: 'Login Successful',
-        message: 'You have successfully logged into your 10 Minute School account.',
-        type: 'SYSTEM_ALERT',
-      },
-    });
-
-    res.json({
-      user: {
-        id: student.id,
-        name: student.name,
-        phoneNumber: student.phoneNumber,
         role: student.role,
-      },
-      token,
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-    });
+        phoneNumber: student.phoneNumber || undefined,
+      });
+
+      // Create in-app notification for successful login
+      await prisma.notification.create({
+        data: {
+          userId: student.id,
+          title: 'Login Successful',
+          message: 'You have successfully logged into your 10 Minute School account.',
+          type: 'SYSTEM_ALERT',
+        },
+      });
+
+      res.json({
+        user: {
+          id: student.id,
+          name: student.name,
+          phoneNumber: student.phoneNumber,
+          role: student.role,
+        },
+        token,
+        expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+      });
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock authentication:', dbError);
+      
+      // Use mock authentication
+      const mockResult = await mockAuth.verifyOTP(phoneNumber, otp);
+      res.json({
+        ...mockResult,
+        _mock: true,
+        message: 'Using mock authentication (database unavailable)'
+      });
+    }
 
   } catch (error) {
     console.error('OTP verification error:', error);
@@ -241,28 +285,62 @@ router.get('/me', authenticate, async (req, res) => {
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      include: { 
-        branch: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            contactNumber: true
+    // Try database first, fallback to mock data
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        include: { 
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              contactNumber: true
+            }
           }
         }
-      }
-    });
+      });
 
-    if (!user) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'User account not found'
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+          message: 'User account not found'
+        });
+      }
+
+      res.json({ user });
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock user data:', dbError);
+      
+      // Create mock user based on JWT payload
+      const mockUser = {
+        id: req.user.userId,
+        name: req.user.role === 'SUPER_ADMIN' ? 'Super Admin' : 
+              req.user.role === 'BRANCH_ADMIN' ? 'Branch Admin' :
+              req.user.role === 'TEACHER' ? 'Teacher' :
+              req.user.role === 'STUDENT' ? 'Student' : 'User',
+        email: req.user.email || null,
+        phoneNumber: req.user.phoneNumber || null,
+        role: req.user.role,
+        branchId: req.user.branchId || null,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01'),
+        branch: req.user.branchId ? {
+          id: req.user.branchId,
+          name: 'Mock Branch',
+          address: 'Mock Address',
+          contactNumber: '+880-2-1234567'
+        } : null
+      };
+
+      res.json({ 
+        user: mockUser,
+        _mock: true,
+        _message: 'Using mock data (database unavailable)'
       });
     }
-
-    res.json({ user });
 
   } catch (error) {
     console.error('Get current user error:', error);

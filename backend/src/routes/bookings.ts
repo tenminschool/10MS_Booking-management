@@ -32,6 +32,46 @@ import {
 
 const router = express.Router();
 
+// Mock bookings data for when database is unavailable
+const mockBookings = [
+  {
+    id: 'mock-booking-1',
+    studentId: 'mock-student-1-id',
+    slotId: 'mock-slot-1',
+    status: 'CONFIRMED',
+    bookedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    attended: null,
+    slot: {
+      id: 'mock-slot-1',
+      date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      startTime: '14:00',
+      endTime: '14:30',
+      capacity: 1,
+      branch: { id: 'mock-branch-1', name: 'Dhanmondi Branch' },
+      teacher: { id: 'mock-teacher-1', name: 'Sarah Ahmed' }
+    },
+    student: { id: 'mock-student-1-id', name: 'Ahmed Rahman' }
+  },
+  {
+    id: 'mock-booking-2',
+    studentId: 'mock-student-1-id',
+    slotId: 'mock-slot-2',
+    status: 'COMPLETED',
+    bookedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    attended: true,
+    slot: {
+      id: 'mock-slot-2',
+      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+      startTime: '10:00',
+      endTime: '10:30',
+      capacity: 1,
+      branch: { id: 'mock-branch-1', name: 'Dhanmondi Branch' },
+      teacher: { id: 'mock-teacher-2', name: 'Ahmed Khan' }
+    },
+    student: { id: 'mock-student-1-id', name: 'Ahmed Rahman' }
+  }
+];
+
 // Helper function to check if cancellation is within 24 hours
 function isCancellationWithin24Hours(slotDate: Date, slotStartTime: string): boolean {
   const slotDateTime = new Date(`${slotDate.toISOString().split('T')[0]}T${slotStartTime}:00`);
@@ -140,6 +180,46 @@ async function getAvailableSlots(filters: any = {}) {
     };
   }).filter(slot => slot.isAvailable);
 }
+
+// GET /api/bookings/my - Get current user's bookings
+router.get('/my', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const user = req.user!;
+
+  // Try database first, fallback to mock data
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+
+    const bookings = await prisma.booking.findMany({
+      where: { studentId: user.userId },
+      include: {
+        slot: {
+          include: {
+            branch: { select: { id: true, name: true } },
+            teacher: { select: { id: true, name: true } }
+          }
+        },
+        student: { select: { id: true, name: true } }
+      },
+      orderBy: { bookedAt: 'desc' }
+    });
+
+    res.json(bookings);
+
+  } catch (dbError) {
+    console.warn('Database unavailable, using mock bookings:', dbError);
+    
+    // Filter mock bookings by user role
+    const userBookings = user.role === 'STUDENT' 
+      ? mockBookings.filter(booking => booking.studentId === user.userId)
+      : mockBookings; // Admin users see all bookings
+
+    res.json({
+      bookings: userBookings,
+      _mock: true,
+      _message: 'Using mock data (database unavailable)'
+    });
+  }
+}));
 
 // GET /api/bookings - Get bookings with filtering
 router.get('/', authenticate, validateQuery(enhancedBookingFiltersSchema), asyncHandler(async (req: Request, res: Response) => {

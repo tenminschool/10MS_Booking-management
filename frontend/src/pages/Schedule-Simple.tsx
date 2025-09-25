@@ -1,9 +1,15 @@
 import React from 'react'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 
 const Schedule: React.FC = () => {
+  const breadcrumbItems = [
+    { label: 'Schedule', current: true }
+  ]
+
   return (
     <div className="p-6">
       <div className="max-w-4xl mx-auto">
+        <Breadcrumb items={breadcrumbItems} />
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Schedule</h1>
         
         <div className="bg-white rounded-lg shadow p-6">

@@ -39,6 +39,72 @@ const updateTemplateSchema = z.object({
   })
 });
 
+// Mock notifications for when database is unavailable
+const mockNotifications = [
+  {
+    id: 'mock-notif-1',
+    userId: 'mock-user-id',
+    title: 'Welcome to 10 Minute School',
+    message: 'Your account has been successfully created. You can now book speaking tests.',
+    type: 'SYSTEM_ALERT',
+    isRead: false,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+  },
+  {
+    id: 'mock-notif-2',
+    userId: 'mock-user-id',
+    title: 'System Notice',
+    message: 'Database connection is currently unavailable. Using mock data for demonstration.',
+    type: 'SYSTEM_ALERT',
+    isRead: false,
+    createdAt: new Date(Date.now() - 30 * 60 * 1000) // 30 minutes ago
+  }
+];
+
+// GET /api/notifications/my - Get user notifications (alias for frontend compatibility)
+router.get('/my', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+
+    // Try database first, fallback to mock data
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      
+      const notifications = await prisma.notification.findMany({
+        where: { userId: user.userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50
+      });
+
+      const unreadCount = await prisma.notification.count({
+        where: { userId: user.userId, isRead: false }
+      });
+
+      res.json({
+        notifications,
+        unreadCount
+      });
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock notifications:', dbError);
+      
+      res.json({
+        notifications: mockNotifications,
+        unreadCount: mockNotifications.filter(n => !n.isRead).length,
+        _mock: true,
+        _message: 'Using mock data (database unavailable)'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch notifications'
+    });
+  }
+});
+
 // GET /api/notifications - Get user notifications
 router.get('/', authenticate, async (req, res) => {
   try {

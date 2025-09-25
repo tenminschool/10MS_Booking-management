@@ -38,7 +38,7 @@ app.use('/health', healthRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: '10 Minute School Speaking Test Booking API',
     version: '1.0.0',
     endpoints: {
@@ -105,7 +105,7 @@ app.listen(PORT, () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
   console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   // Start scheduler service
   schedulerService.start();
   console.log(`⏰ Notification scheduler started`);

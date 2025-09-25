@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { bookingsAPI, dashboardAPI } from '@/lib/api'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
 // Mock UI components - replace with actual shadcn/ui components when available
 interface CardProps {
   children: React.ReactNode
@@ -223,8 +224,14 @@ const Bookings: React.FC = () => {
   const filteredBookings = filterBookings(allBookings)
   const upcomingBookings = (dashboardData as any)?.upcomingBookings || []
 
+  const breadcrumbItems = [
+    { label: 'Bookings', current: true }
+  ]
+
   return (
     <div className="space-y-6">
+      <Breadcrumb items={breadcrumbItems} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
