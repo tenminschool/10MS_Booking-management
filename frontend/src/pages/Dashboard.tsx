@@ -8,24 +8,24 @@ const Card = ({ children, className = '' }: { children: React.ReactNode; classNa
   <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`p-6 pb-4 ${className}`}>{children}</div>
+  <div className={`p-4 sm:p-6 pb-3 sm:pb-4 ${className}`}>{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-base sm:text-lg font-semibold ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-xs sm:text-sm text-gray-600 mt-1">{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-4 sm:p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
-    className={`px-4 py-2 rounded-md font-medium transition-colors ${
+    className={`px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
       variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       'bg-blue-600 text-white hover:bg-blue-700'
-    } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+    } ${size === 'sm' ? 'px-2 sm:px-3 py-1 text-xs sm:text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     disabled={disabled}
     onClick={onClick}
     {...props}
@@ -60,7 +60,8 @@ import {
   BarChart3,
   Building,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from 'lucide-react'
 import { format, isToday, isTomorrow } from 'date-fns'
 import { UserRole, type SlotFilters } from '@/types'
@@ -124,28 +125,79 @@ const Dashboard: React.FC = () => {
   if (user?.role === UserRole.BRANCH_ADMIN) {
     return (
       <div className="space-y-6">
-        {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Welcome back, {user?.name}!
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Branch overview and key metrics for {dashboardData?.branchName || 'your branch'}
-              </p>
-            </div>
-            <Link to="/admin/slots">
-              <Button className="bg-red-600 hover:bg-red-700">
-                <Sliders className="w-4 h-4 mr-2" />
-                Manage Slots
-              </Button>
-            </Link>
+        {/* Welcome Header - Simplified */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {user?.name}!
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Branch overview for {dashboardData?.branchName || 'your branch'}
+            </p>
           </div>
+          <Link to="/admin/slots">
+            <Button className="bg-red-600 hover:bg-red-700">
+              <Sliders className="w-4 h-4 mr-2" />
+              Manage Slots
+            </Button>
+          </Link>
+        </div>
+
+        {/* Stats Cards - Horizontal Layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
+              <p className="text-xs text-muted-foreground">This month</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
+              </div>
+              <p className="text-xs text-muted-foreground">Overall</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.averageScore ? dashboardData.averageScore.toFixed(1) : '0.0'}
+              </div>
+              <p className="text-xs text-muted-foreground">Out of 10</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Utilization</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.utilizationRate ? `${Math.round(dashboardData.utilizationRate)}%` : '0%'}
+              </div>
+              <p className="text-xs text-muted-foreground">Slot usage</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* PRIMARY CONTENT - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
             {/* Today's Sessions Overview */}
@@ -216,7 +268,7 @@ const Dashboard: React.FC = () => {
                 <CardTitle className="text-sm">Admin Actions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <Link to="/admin/slots">
                     <Button variant="outline" className="w-full h-20 flex-col space-y-2">
                       <Sliders className="w-6 h-6" />
@@ -391,7 +443,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* System-wide Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Branches</CardTitle>
@@ -446,7 +498,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* PRIMARY CONTENT - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
             {/* Branch Performance Comparison */}
@@ -575,7 +627,7 @@ const Dashboard: React.FC = () => {
                 <CardTitle className="text-sm">System Administration</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   <Link to="/admin/branches">
                     <Button variant="outline" className="w-full h-20 flex-col space-y-2">
                       <Building className="w-6 h-6" />
@@ -768,7 +820,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* PRIMARY CONTENT - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
             {/* Today's Sessions */}
@@ -871,7 +923,7 @@ const Dashboard: React.FC = () => {
                 <CardTitle className="text-sm">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <Link to="/bookings">
                     <Button variant="outline" className="w-full h-20 flex-col space-y-2">
                       <Users className="w-6 h-6" />
@@ -999,28 +1051,70 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Welcome back, {user?.name}!
-            </h1>
-            <p className="text-gray-600 mt-1">
-              {user?.role === UserRole.STUDENT 
-                ? "Ready for your next speaking test?" 
-                : "Here's your dashboard overview"}
-            </p>
-          </div>
-          {user?.role === UserRole.STUDENT && (
-            <Link to="/schedule">
-              <Button className="bg-red-600 hover:bg-red-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Book Now
-              </Button>
-            </Link>
-          )}
-        </div>
+      {/* Welcome Header - Simplified */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Welcome back, {user?.name}!
+        </h1>
+        {user?.role === UserRole.STUDENT && (
+          <Link to="/schedule">
+            <Button className="bg-red-600 hover:bg-red-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Book Now
+            </Button>
+          </Link>
+        )}
+      </div>
+
+      {/* Stats Cards - Horizontal Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
+            <p className="text-xs text-muted-foreground">This month</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
+            </div>
+            <p className="text-xs text-muted-foreground">Overall</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboardData?.averageScore ? dashboardData.averageScore.toFixed(1) : '0.0'}
+            </div>
+            <p className="text-xs text-muted-foreground">Out of 10</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming Tests</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardData?.upcomingBookings?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">Scheduled</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
@@ -1101,7 +1195,7 @@ const Dashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <Link to="/schedule">
                       <Button variant="outline" className="w-full h-20 flex-col space-y-2">
                         <Calendar className="w-6 h-6" />
@@ -1129,42 +1223,6 @@ const Dashboard: React.FC = () => {
 
         {/* SECONDARY CONTENT - 1/3 width */}
         <div className="space-y-6">
-          {/* Quick Stats */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Utilization</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {dashboardData?.utilizationRate ? `${Math.round(dashboardData.utilizationRate)}%` : '0%'}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Recent Notifications */}
           <Card>

@@ -1,0 +1,513 @@
+import express from 'express';
+import { z } from 'zod';
+import { supabase } from '../lib/supabase';
+import { authenticate, requireRole } from '../middleware/auth';
+import { auditLog } from '../middleware/audit';
+import { notificationService } from '../services/notification';
+import { asyncHandler, NotFoundError, ValidationError, AuthorizationError } from '../middleware/errorHandler';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation';
+
+// Define types locally since we removed Prisma
+type NotificationType = 'BOOKING_CONFIRMED' | 'BOOKING_REMINDER' | 'BOOKING_CANCELLED' | 'SYSTEM_ALERT' | 'ANNOUNCEMENT' | 'REMINDER' | 'URGENT' | 'MAINTENANCE';
+type NotificationStatus = 'DRAFT' | 'SCHEDULED' | 'SENT' | 'FAILED';
+type UserRole = 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'TEACHER' | 'STUDENT';
+
+const router = express.Router();
+
+// Validation schemas
+const createNotificationSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
+  message: z.string().min(1, 'Message is required').max(1000, 'Message too long'),
+  type: z.nativeEnum(NotificationType),
+  tags: z.array(z.string()).optional().default([]),
+  scheduledAt: z.string().datetime().optional(),
+  actionUrl: z.string().url().optional(),
+  targetUsers: z.object({
+    userIds: z.array(z.string()).optional(),
+    roles: z.array(z.nativeEnum(UserRole)).optional(),
+    branchIds: z.array(z.string()).optional(),
+    allUsers: z.boolean().optional()
+  }),
+  metadata: z.record(z.any()).optional()
+});
+
+const updateNotificationSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  message: z.string().min(1).max(1000).optional(),
+  type: z.nativeEnum(NotificationType).optional(),
+  tags: z.array(z.string()).optional(),
+  scheduledAt: z.string().datetime().optional(),
+  actionUrl: z.string().url().optional(),
+  metadata: z.record(z.any()).optional()
+});
+
+const notificationFiltersSchema = z.object({
+  type: z.nativeEnum(NotificationType).optional(),
+  status: z.nativeEnum(NotificationStatus).optional(),
+  tags: z.string().optional(),
+  userId: z.string().optional(),
+  createdBy: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  page: z.string().transform(val => parseInt(val)).optional(),
+  limit: z.string().transform(val => parseInt(val)).optional()
+});
+
+const markAsReadSchema = z.object({
+  notificationIds: z.array(z.string()).optional(),
+  markAll: z.boolean().optional()
+});
+
+// Helper function to get target user IDs based on criteria
+async function getTargetUserIds(criteria: any, user: any): Promise<string[]> {
+  let query = supabase.from('users').select('id').eq('is_active', true);
+
+  // Role-based filtering for branch admins
+  if (user.role === 'BRANCH_ADMIN') {
+    query = query.eq('branch_id', user.branchId);
+  }
+
+  // Apply additional filters
+  if (criteria.roles && criteria.roles.length > 0) {
+    query = query.in('role', criteria.roles);
+  }
+
+  if (criteria.branchIds && criteria.branchIds.length > 0) {
+    if (user.role === 'SUPER_ADMIN') {
+      query = query.in('branch_id', criteria.branchIds);
+    } else if (user.role === 'BRANCH_ADMIN') {
+      // Branch admins can only target their own branch
+      query = query.eq('branch_id', user.branchId);
+    }
+  }
+
+  if (criteria.userIds && criteria.userIds.length > 0) {
+    query = query.in('id', criteria.userIds);
+  }
+
+  const { data: users, error } = await query;
+
+  if (error) {
+    console.error('Error fetching target users:', error);
+    return [];
+  }
+
+  return users?.map(u => u.id) || [];
+}
+
+// GET /api/admin/notifications - Get all notifications with admin filters
+router.get('/', 
+  authenticate, 
+  requireRole(['SUPER_ADMIN', 'BRANCH_ADMIN']), 
+  validateQuery(notificationFiltersSchema),
+  asyncHandler(async (req, res) => {
+    const filters = req.query;
+    const user = req.user!;
+    const page = filters.page || 1;
+    const limit = Math.min(filters.limit || 20, 100);
+    const skip = (page - 1) * limit;
+
+    // Build query
+    let query = supabase
+      .from('notifications')
+      .select(`
+        *,
+        user:users(id, name, role, branch_id),
+        created_by_user:users!created_by(id, name, role)
+      `)
+      .order('created_at', { ascending: false })
+      .range(skip, skip + limit - 1);
+
+    // Apply filters
+    if (filters.type) {
+      query = query.eq('type', filters.type);
+    }
+
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+
+    if (filters.tags) {
+      query = query.contains('tags', [filters.tags]);
+    }
+
+    if (filters.userId) {
+      query = query.eq('user_id', filters.userId);
+    }
+
+    if (filters.createdBy) {
+      query = query.eq('created_by', filters.createdBy);
+    }
+
+    if (filters.startDate) {
+      query = query.gte('created_at', filters.startDate);
+    }
+
+    if (filters.endDate) {
+      query = query.lte('created_at', filters.endDate);
+    }
+
+    // Branch admin can only see notifications for their branch users
+    if (user.role === 'BRANCH_ADMIN') {
+      const { data: branchUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('branch_id', user.branchId);
+      
+      if (branchUsers) {
+        query = query.in('user_id', branchUsers.map(u => u.id));
+      }
+    }
+
+    const { data: notifications, error, count } = await query;
+
+    if (error) {
+      throw new ValidationError(`Failed to fetch notifications: ${error.message}`);
+    }
+
+    res.json({
+      notifications: notifications || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        pages: Math.ceil((count || 0) / limit)
+      }
+    });
+  })
+);
+
+// GET /api/admin/notifications/:id - Get single notification
+router.get('/:id', 
+  authenticate, 
+  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  validateParams(z.object({ id: z.string() })),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const user = req.user!;
+
+    const notification = await prisma.notification.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, name: true, role: true, branchId: true }
+        },
+        createdByUser: {
+          select: { id: true, name: true, role: true }
+        }
+      }
+    });
+
+    if (!notification) {
+      throw new NotFoundError('Notification not found');
+    }
+
+    // Branch admin can only access notifications for their branch users
+    if (user.role === UserRole.BRANCH_ADMIN) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: notification.userId },
+        select: { branchId: true }
+      });
+
+      if (!targetUser || targetUser.branchId !== user.branchId) {
+        throw new AuthorizationError('Access denied');
+      }
+    }
+
+    res.json(notification);
+  })
+);
+
+// POST /api/admin/notifications - Create notification
+router.post('/', 
+  authenticate, 
+  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  validateBody(createNotificationSchema),
+  auditLog('notification'),
+  asyncHandler(async (req, res) => {
+    const data = req.body;
+    const user = req.user!;
+
+    // Get target user IDs
+    const targetUserIds = await getTargetUserIds(data.targetUsers, user);
+
+    if (targetUserIds.length === 0) {
+      throw new ValidationError('No users found matching the criteria');
+    }
+
+    // Create notifications for all target users
+    const notifications = await Promise.all(
+      targetUserIds.map(userId => 
+        prisma.notification.create({
+          data: {
+            userId,
+            title: data.title,
+            message: data.message,
+            type: data.type,
+            tags: data.tags,
+            scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+            actionUrl: data.actionUrl,
+            metadata: data.metadata,
+            createdBy: user.userId,
+            status: data.scheduledAt ? NotificationStatus.SCHEDULED : NotificationStatus.SENT,
+            sentAt: data.scheduledAt ? null : new Date()
+          }
+        })
+      )
+    );
+
+    // Send notifications immediately if not scheduled
+    if (!data.scheduledAt) {
+      for (const notification of notifications) {
+        try {
+          await notificationService.sendNotification(
+            notification.userId,
+            notification.type,
+            {
+              message: notification.message,
+              title: notification.title,
+              actionUrl: notification.actionUrl
+            }
+          );
+        } catch (error) {
+          console.error(`Failed to send notification ${notification.id}:`, error);
+          // Update status to failed
+          await prisma.notification.update({
+            where: { id: notification.id },
+            data: { status: NotificationStatus.FAILED }
+          });
+        }
+      }
+    }
+
+    res.status(201).json({
+      message: 'Notifications created successfully',
+      notifications: notifications.map(n => ({
+        id: n.id,
+        userId: n.userId,
+        status: n.status
+      })),
+      totalCreated: notifications.length
+    });
+  })
+);
+
+// PUT /api/admin/notifications/:id - Update notification
+router.put('/:id', 
+  authenticate, 
+  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  validateParams(z.object({ id: z.string() })),
+  validateBody(updateNotificationSchema),
+  auditLog('notification'),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const data = req.body;
+    const user = req.user!;
+
+    // Check if notification exists and user has access
+    const existingNotification = await prisma.notification.findUnique({
+      where: { id },
+      include: {
+        user: { select: { branchId: true } }
+      }
+    });
+
+    if (!existingNotification) {
+      throw new NotFoundError('Notification not found');
+    }
+
+    // Branch admin can only update notifications for their branch users
+    if (user.role === UserRole.BRANCH_ADMIN) {
+      if (existingNotification.user.branchId !== user.branchId) {
+        throw new AuthorizationError('Access denied');
+      }
+    }
+
+    const updateData: any = { ...data };
+    if (data.scheduledAt) {
+      updateData.scheduledAt = new Date(data.scheduledAt);
+    }
+
+    const notification = await prisma.notification.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: {
+          select: { id: true, name: true, role: true, branchId: true }
+        },
+        createdByUser: {
+          select: { id: true, name: true, role: true }
+        }
+      }
+    });
+
+    res.json({
+      message: 'Notification updated successfully',
+      notification
+    });
+  })
+);
+
+// DELETE /api/admin/notifications/:id - Delete notification
+router.delete('/:id', 
+  authenticate, 
+  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  validateParams(z.object({ id: z.string() })),
+  auditLog('notification'),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const user = req.user!;
+
+    // Check if notification exists and user has access
+    const existingNotification = await prisma.notification.findUnique({
+      where: { id },
+      include: {
+        user: { select: { branchId: true } }
+      }
+    });
+
+    if (!existingNotification) {
+      throw new NotFoundError('Notification not found');
+    }
+
+    // Branch admin can only delete notifications for their branch users
+    if (user.role === UserRole.BRANCH_ADMIN) {
+      if (existingNotification.user.branchId !== user.branchId) {
+        throw new AuthorizationError('Access denied');
+      }
+    }
+
+    await prisma.notification.delete({
+      where: { id }
+    });
+
+    res.json({
+      message: 'Notification deleted successfully'
+    });
+  })
+);
+
+// POST /api/admin/notifications/:id/send - Send scheduled notification
+router.post('/:id/send', 
+  authenticate, 
+  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  validateParams(z.object({ id: z.string() })),
+  auditLog('notification'),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const user = req.user!;
+
+    const notification = await prisma.notification.findUnique({
+      where: { id },
+      include: {
+        user: { select: { branchId: true } }
+      }
+    });
+
+    if (!notification) {
+      throw new NotFoundError('Notification not found');
+    }
+
+    // Branch admin can only send notifications for their branch users
+    if (user.role === UserRole.BRANCH_ADMIN) {
+      if (notification.user.branchId !== user.branchId) {
+        throw new AuthorizationError('Access denied');
+      }
+    }
+
+    if (notification.status !== NotificationStatus.SCHEDULED) {
+      throw new ValidationError('Only scheduled notifications can be sent');
+    }
+
+    try {
+      await notificationService.sendNotification(
+        notification.userId,
+        notification.type,
+        {
+          message: notification.message,
+          title: notification.title,
+          actionUrl: notification.actionUrl
+        }
+      );
+
+      const updatedNotification = await prisma.notification.update({
+        where: { id },
+        data: {
+          status: NotificationStatus.SENT,
+          sentAt: new Date()
+        }
+      });
+
+      res.json({
+        message: 'Notification sent successfully',
+        notification: updatedNotification
+      });
+    } catch (error) {
+      await prisma.notification.update({
+        where: { id },
+        data: { status: NotificationStatus.FAILED }
+      });
+
+      throw new ValidationError(`Failed to send notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  })
+);
+
+// GET /api/admin/notifications/stats - Get notification statistics
+router.get('/stats', 
+  authenticate, 
+  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+
+    // Build base where clause
+    let where: any = {};
+    if (user.role === UserRole.BRANCH_ADMIN) {
+      const branchUserIds = await prisma.user.findMany({
+        where: { branchId: user.branchId },
+        select: { id: true }
+      });
+      where.userId = { in: branchUserIds.map(u => u.id) };
+    }
+
+    const [
+      totalNotifications,
+      unreadNotifications,
+      sentToday,
+      scheduledNotifications,
+      notificationsByType
+    ] = await Promise.all([
+      prisma.notification.count({ where }),
+      prisma.notification.count({ where: { ...where, isRead: false } }),
+      prisma.notification.count({
+        where: {
+          ...where,
+          sentAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0))
+          }
+        }
+      }),
+      prisma.notification.count({
+        where: { ...where, status: NotificationStatus.SCHEDULED }
+      }),
+      prisma.notification.groupBy({
+        by: ['type'],
+        where,
+        _count: { type: true }
+      })
+    ]);
+
+    res.json({
+      totalNotifications,
+      unreadNotifications,
+      sentToday,
+      scheduledNotifications,
+      notificationsByType: notificationsByType.reduce((acc, item) => {
+        acc[item.type] = item._count.type;
+        return acc;
+      }, {} as Record<string, number>)
+    });
+  })
+);
+
+export default router;

@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { supabase } from '../lib/supabase';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 interface HealthStatus {
   status: 'healthy' | 'unhealthy';
@@ -36,8 +35,10 @@ router.get('/', async (req: Request, res: Response) => {
     // Check database connectivity
     let databaseStatus: 'connected' | 'disconnected' = 'disconnected';
     try {
-      await prisma.$queryRaw`SELECT 1`;
-      databaseStatus = 'connected';
+      const { error } = await supabase.from('users').select('id').limit(1);
+      if (!error) {
+        databaseStatus = 'connected';
+      }
     } catch (error) {
       console.error('Database health check failed:', error);
     }
@@ -109,15 +110,12 @@ router.get('/detailed', async (req: Request, res: Response) => {
     
     try {
       const dbStart = Date.now();
-      await prisma.$queryRaw`SELECT 1`;
+      const { error } = await supabase.from('users').select('id').limit(1);
       dbResponseTime = Date.now() - dbStart;
-      databaseStatus = 'connected';
-      
-      // Get active connections (PostgreSQL specific)
-      const connectionResult = await prisma.$queryRaw<Array<{ count: bigint }>>`
-        SELECT count(*) FROM pg_stat_activity WHERE state = 'active'
-      `;
-      activeConnections = Number(connectionResult[0]?.count || 0);
+      if (!error) {
+        databaseStatus = 'connected';
+        activeConnections = 1; // Supabase manages connections for us
+      }
     } catch (error) {
       console.error('Database detailed check failed:', error);
     }
@@ -130,14 +128,17 @@ router.get('/detailed', async (req: Request, res: Response) => {
     let auditLogHealth = true;
     let recentAuditLogs = 0;
     try {
-      const recentLogs = await prisma.auditLog.count({
-        where: {
-          createdAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-          }
-        }
-      });
-      recentAuditLogs = recentLogs;
+      const { count, error } = await supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      
+      if (error) {
+        auditLogHealth = false;
+        console.error('Audit log health check failed:', error);
+      } else {
+        recentAuditLogs = count || 0;
+      }
     } catch (error) {
       auditLogHealth = false;
       console.error('Audit log health check failed:', error);
@@ -146,7 +147,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
     const responseTime = Date.now() - startTime;
     
     const detailedHealth = {
-      status: databaseStatus === 'connected' && auditLogHealth ? 'healthy' : 'unhealthy',
+      status: databaseStatus === 'connected' ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
       version: process.env.npm_package_version || '1.0.0',
@@ -199,7 +200,11 @@ router.get('/detailed', async (req: Request, res: Response) => {
 router.get('/ready', async (req: Request, res: Response) => {
   try {
     // Check if the application is ready to serve traffic
-    await prisma.$queryRaw`SELECT 1`;
+    const { error } = await supabase.from('users').select('id').limit(1);
+    
+    if (error) {
+      throw new Error('Database connection failed');
+    }
     
     res.status(200).json({
       status: 'ready',

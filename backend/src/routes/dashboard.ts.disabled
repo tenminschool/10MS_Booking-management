@@ -1,8 +1,10 @@
 import express from 'express';
-import prisma from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 import { authenticate } from '../middleware/auth';
-import { UserRole } from '@prisma/client';
 import mockDashboard from '../lib/mock-dashboard';
+
+// Define types locally since we removed Prisma
+type UserRole = 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'TEACHER' | 'STUDENT';
 
 const router = express.Router();
 

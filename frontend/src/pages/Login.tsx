@@ -36,7 +36,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Input = ({ className = '', ...props }: any) => (
   <input 
-    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+    className={`w-full py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
     {...props}
   />
 )
@@ -65,7 +65,7 @@ const TabsContent = ({ children, value, className = '' }: any) => (
     {children}
   </div>
 )
-import { Phone, Mail, Lock, Send } from 'lucide-react'
+import { Phone, Mail, Lock, Send, Eye, EyeOff } from 'lucide-react'
 
 const Login: React.FC = () => {
   const navigate = useNavigate()
@@ -79,6 +79,7 @@ const Login: React.FC = () => {
   // Staff login state
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -132,15 +133,15 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-2 sm:p-4">
+      <div className="w-full max-w-md mx-auto">
         {/* Logo and Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">10MS</span>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <span className="text-white font-bold text-lg sm:text-xl">10MS</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="text-gray-600 mt-2">Sign in to your speaking test account</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Welcome Back</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">Sign in to your speaking test account</p>
         </div>
 
         <Card>
@@ -152,9 +153,9 @@ const Login: React.FC = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="student" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="student">Student</TabsTrigger>
-                <TabsTrigger value="staff">Staff</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 text-sm sm:text-base">
+                <TabsTrigger value="student" className="text-xs sm:text-sm">Student</TabsTrigger>
+                <TabsTrigger value="staff" className="text-xs sm:text-sm">Staff</TabsTrigger>
               </TabsList>
               
               {/* Student Login */}
@@ -162,24 +163,24 @@ const Login: React.FC = () => {
                 {!isOtpSent ? (
                   <form onSubmit={handleSendOtp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="phone"
-                          type="tel"
-                          placeholder="+880 1234 567890"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
+                      <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
+                        Phone Number
+                        <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      </Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+880 1234 567890"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="px-3 h-10 sm:h-11 text-sm sm:text-base"
+                        required
+                      />
                     </div>
                     
                     <Button 
                       type="submit" 
-                      className="w-full bg-red-600 hover:bg-red-700"
+                      className="w-full bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
                       disabled={sendOtpMutation.isPending}
                     >
                       {sendOtpMutation.isPending ? (
@@ -199,7 +200,7 @@ const Login: React.FC = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="otp">Enter OTP</Label>
+                      <Label htmlFor="otp" className="text-sm font-medium">Enter OTP</Label>
                       <Input
                         id="otp"
                         type="text"
@@ -207,11 +208,12 @@ const Login: React.FC = () => {
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
                         maxLength={6}
+                        className="px-3 h-10 sm:h-11 text-sm sm:text-base text-center tracking-widest"
                         required
                       />
                     </div>
                     
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -219,13 +221,13 @@ const Login: React.FC = () => {
                           setIsOtpSent(false)
                           setOtp('')
                         }}
-                        className="flex-1"
+                        className="flex-1 h-10 sm:h-11 text-sm sm:text-base"
                       >
                         Back
                       </Button>
                       <Button 
                         type="submit" 
-                        className="flex-1 bg-red-600 hover:bg-red-700"
+                        className="flex-1 bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
                         disabled={studentLoginMutation.isPending}
                       >
                         {studentLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
@@ -239,40 +241,49 @@ const Login: React.FC = () => {
               <TabsContent value="staff" className="space-y-4">
                 <form onSubmit={handleStaffLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="your.email@10minuteschool.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
+                      Email
+                      <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@10minuteschool.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="px-3 h-10 sm:h-11 text-sm sm:text-base"
+                      required
+                    />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="text-sm font-medium flex items-center gap-2">
+                      Password
+                      <Lock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    </Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="password"
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         placeholder="Enter your password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10"
+                        className="px-3 pr-10 h-10 sm:h-11 text-sm sm:text-base"
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   
                   <Button 
                     type="submit" 
-                    className="w-full bg-red-600 hover:bg-red-700"
+                    className="w-full bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
                     disabled={staffLoginMutation.isPending}
                   >
                     {staffLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
@@ -284,7 +295,7 @@ const Login: React.FC = () => {
             {/* Error Messages */}
             {(sendOtpMutation.error || studentLoginMutation.error || staffLoginMutation.error) && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700">
+                <p className="text-xs sm:text-sm text-red-700">
                   {sendOtpMutation.error?.message || 
                    studentLoginMutation.error?.message || 
                    staffLoginMutation.error?.message || 
@@ -295,10 +306,57 @@ const Login: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Dummy Credentials for Testing */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-sm text-gray-700">Test Credentials</CardTitle>
+            <CardDescription className="text-xs">
+              Use these credentials to test different user roles
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Super Admin */}
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <div className="text-xs font-semibold text-red-800 mb-1">Super Admin</div>
+              <div className="text-xs text-red-700 space-y-1">
+                <div><strong>Email:</strong> admin@10minuteschool.com</div>
+                <div><strong>Password:</strong> admin123</div>
+              </div>
+            </div>
+
+            {/* Branch Admin */}
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-xs font-semibold text-blue-800 mb-1">Branch Admin</div>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div><strong>Email:</strong> dhanmondi@10minuteschool.com</div>
+                <div><strong>Password:</strong> admin123</div>
+              </div>
+            </div>
+
+            {/* Teacher */}
+            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-xs font-semibold text-green-800 mb-1">Teacher</div>
+              <div className="text-xs text-green-700 space-y-1">
+                <div><strong>Email:</strong> sarah@10minuteschool.com</div>
+                <div><strong>Password:</strong> teacher123</div>
+              </div>
+            </div>
+
+            {/* Student */}
+            <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="text-xs font-semibold text-purple-800 mb-1">Student</div>
+              <div className="text-xs text-purple-700 space-y-1">
+                <div><strong>Phone:</strong> +8801712345678</div>
+                <div><strong>OTP:</strong> 123456 (any 6-digit number)</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-600">
+        <div className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-gray-600">
           <p>Need help? Contact support at</p>
-          <p className="font-medium">support@10minuteschool.com</p>
+          <p className="font-medium break-all sm:break-normal">support@10minuteschool.com</p>
         </div>
       </div>
     </div>

@@ -73,9 +73,8 @@ const parseCSV = (buffer: Buffer): Promise<StudentImportRow[]> => {
     
     stream
       .pipe(csvParser({
-        skipEmptyLines: true,
-        headers: ['name', 'phoneNumber', 'email'], // Expected column order
-      }))
+        headers: ['name', 'phoneNumber', 'email'] // Expected column order
+      } as any))
       .on('data', (data) => {
         rowNumber++;
         results.push({
@@ -410,7 +409,10 @@ router.post('/students',
           });
 
           createdStudents.push(createdUser);
-          validationResult.created.push(createdUser);
+          validationResult.created.push({
+            ...createdUser,
+            phoneNumber: createdUser.phoneNumber || ''
+          });
         } catch (error) {
           console.error(`Failed to create student ${student.name}:`, error);
           validationResult.errors.push({

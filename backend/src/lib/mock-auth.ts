@@ -69,7 +69,7 @@ export const mockAuth = {
     const token = generateToken({
       userId: user.id,
       role: user.role as any,
-      branchId: user.branchId,
+      branchId: user.branchId || undefined,
       email: user.email,
     });
 

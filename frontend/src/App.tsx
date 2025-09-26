@@ -7,7 +7,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import Layout from '@/components/layout/Layout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
-import Schedule from '@/pages/Schedule-Simple'
+import Schedule from '@/pages/Schedule'
 import Bookings from '@/pages/Bookings'
 import Assessments from '@/pages/Assessments'
 import Profile from '@/pages/Profile'
@@ -134,16 +134,13 @@ function App() {
                     <Route path="assessments" element={<Assessments />} />
                     <Route path="profile" element={<Profile />} />
 
-                    {/* Admin Routes */}
+                    {/* Admin Routes - Professional URL Structure */}
+                    <Route path="admin" element={<Navigate to="/admin/slots" replace />} />
                     <Route path="admin/slots" element={
                       <AdminRoute>
                         <AdminSlots />
                       </AdminRoute>
                     } />
-                    {/* TODO: Add these admin routes when pages are implemented */}
-                    {/* <Route path="admin/import" element={<AdminRoute><AdminImport /></AdminRoute>} /> */}
-                    {/* <Route path="admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} /> */}
-                    {/* <Route path="admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} /> */}
                     <Route path="admin/branches" element={
                       <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
                         <AdminBranches />
@@ -154,6 +151,11 @@ function App() {
                         <AdminSettings />
                       </AdminRoute>
                     } />
+                    
+                    {/* Future Admin Routes - TODO: Implement these pages */}
+                    {/* <Route path="admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} /> */}
+                    {/* <Route path="admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} /> */}
+                    {/* <Route path="admin/import" element={<AdminRoute><AdminImport /></AdminRoute>} /> */}
                   </Route>
 
                   {/* Catch all route */}

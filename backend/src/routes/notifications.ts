@@ -10,7 +10,7 @@ const router = express.Router();
 
 // Validation schemas
 const notificationFiltersSchema = z.object({
-  type: z.enum(['BOOKING_CONFIRMED', 'BOOKING_REMINDER', 'BOOKING_CANCELLED', 'SYSTEM_ALERT']).optional(),
+  type: z.enum(['BOOKING_CONFIRMED', 'BOOKING_REMINDER', 'BOOKING_CANCELLED', 'SYSTEM_ALERT', 'ANNOUNCEMENT', 'REMINDER', 'URGENT', 'MAINTENANCE']).optional(),
   isRead: z.string().transform(val => val === 'true').optional(),
   limit: z.string().transform(val => parseInt(val)).optional(),
   offset: z.string().transform(val => parseInt(val)).optional()
@@ -23,7 +23,7 @@ const markReadSchema = z.object({
 
 const sendNotificationSchema = z.object({
   userIds: z.array(z.string()).min(1, 'At least one user ID is required'),
-  type: z.enum(['BOOKING_CONFIRMED', 'BOOKING_REMINDER', 'BOOKING_CANCELLED', 'SYSTEM_ALERT']),
+  type: z.enum(['BOOKING_CONFIRMED', 'BOOKING_REMINDER', 'BOOKING_CANCELLED', 'SYSTEM_ALERT', 'ANNOUNCEMENT', 'REMINDER', 'URGENT', 'MAINTENANCE']),
   message: z.string().min(1, 'Message is required'),
   title: z.string().optional(),
   smsOnly: z.boolean().optional(),
@@ -31,7 +31,7 @@ const sendNotificationSchema = z.object({
 });
 
 const updateTemplateSchema = z.object({
-  type: z.enum(['BOOKING_CONFIRMED', 'BOOKING_REMINDER', 'BOOKING_CANCELLED', 'SYSTEM_ALERT']),
+  type: z.enum(['BOOKING_CONFIRMED', 'BOOKING_REMINDER', 'BOOKING_CANCELLED', 'SYSTEM_ALERT', 'ANNOUNCEMENT', 'REMINDER', 'URGENT', 'MAINTENANCE']),
   sms: z.string().min(1, 'SMS template is required'),
   inApp: z.object({
     title: z.string().min(1, 'In-app title is required'),
@@ -582,6 +582,94 @@ router.post('/sms-webhook', async (req, res) => {
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to process SMS webhook'
+    });
+  }
+});
+
+// GET /api/notifications/:id/action - Get notification action URL and mark as read
+router.get('/:id/action', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.userId;
+
+    // Try database first
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+
+      const notification = await prisma.notification.findFirst({
+        where: { 
+          id, 
+          userId 
+        },
+        select: { 
+          id: true, 
+          actionUrl: true, 
+          isRead: true,
+          type: true,
+          metadata: true
+        }
+      });
+
+      if (!notification) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+
+      // Mark as read if not already read
+      if (!notification.isRead) {
+        await prisma.notification.update({
+          where: { id },
+          data: { 
+            isRead: true,
+            readAt: new Date()
+          }
+        });
+      }
+
+      // Determine action URL based on notification type and metadata
+      let actionUrl = notification.actionUrl;
+      
+      if (!actionUrl) {
+        // Default routing based on notification type
+        switch (notification.type) {
+          case 'BOOKING_CONFIRMED':
+          case 'BOOKING_REMINDER':
+          case 'BOOKING_CANCELLED':
+            actionUrl = '/bookings';
+            break;
+          case 'ANNOUNCEMENT':
+          case 'SYSTEM_ALERT':
+          case 'URGENT':
+          case 'MAINTENANCE':
+            actionUrl = '/notifications';
+            break;
+          case 'REMINDER':
+            actionUrl = '/schedule';
+            break;
+          default:
+            actionUrl = '/notifications';
+        }
+      }
+
+      res.json({
+        actionUrl,
+        notificationId: notification.id,
+        markedAsRead: !notification.isRead
+      });
+
+    } catch (dbError) {
+      console.warn('Database unavailable, using mock response:', dbError);
+      res.json({
+        actionUrl: '/notifications',
+        notificationId: id,
+        markedAsRead: false
+      });
+    }
+
+  } catch (error) {
+    console.error('Error getting notification action:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to get notification action'
     });
   }
 });

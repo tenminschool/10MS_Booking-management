@@ -7,13 +7,15 @@ import branchRoutes from './routes/branches';
 import importRoutes from './routes/import';
 import slotRoutes from './routes/slots';
 import bookingRoutes from './routes/bookings';
+import waitingListRoutes from './routes/waiting-list-enhanced';
 import notificationRoutes from './routes/notifications';
+import adminNotificationRoutes from './routes/admin-notifications-simple';
 import assessmentRoutes from './routes/assessments';
-import dashboardRoutes from './routes/dashboard';
+import dashboardRoutes from './routes/dashboard-enhanced';
 import reportRoutes from './routes/reports';
 import systemRoutes from './routes/system';
 import healthRoutes from './routes/health';
-import prisma from './lib/prisma';
+import { supabase } from './lib/supabase';
 import { schedulerService } from './services/scheduler';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { validateRateLimit } from './middleware/validation';
@@ -68,7 +70,9 @@ app.use('/api/branches', branchRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/waiting-list', waitingListRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin/notifications', adminNotificationRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
@@ -89,14 +93,12 @@ app.use(globalErrorHandler);
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
   schedulerService.stop();
-  await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
   schedulerService.stop();
-  await prisma.$disconnect();
   process.exit(0);
 });
 

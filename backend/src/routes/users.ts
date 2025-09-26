@@ -14,10 +14,10 @@ router.get('/',
   requireRole([UserRole.SUPER_ADMIN]), 
   async (req, res) => {
     try {
-      const { page, limit, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
+      const { page = 1, limit = 10, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
       const { branchId, role, search } = req.query;
 
-      const skip = (page - 1) * limit;
+      const skip = ((page || 1) - 1) * (limit || 10);
       
       // Build where clause
       const where: any = {};
@@ -35,7 +35,7 @@ router.get('/',
         prisma.user.findMany({
           where,
           skip,
-          take: limit,
+          take: limit || 10,
           orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
           include: {
             branch: {
@@ -83,10 +83,10 @@ router.get('/branch/:branchId',
   async (req, res) => {
     try {
       const { branchId } = req.params;
-      const { page, limit, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
+      const { page = 1, limit = 10, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
       const { role, search } = req.query;
 
-      const skip = (page - 1) * limit;
+      const skip = ((page || 1) - 1) * (limit || 10);
       
       // Build where clause
       const where: any = { branchId };
@@ -103,7 +103,7 @@ router.get('/branch/:branchId',
         prisma.user.findMany({
           where,
           skip,
-          take: limit,
+          take: limit || 10,
           orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
           include: {
             branch: {
@@ -221,7 +221,7 @@ router.post('/',
         userData.branchId = req.user.branchId;
         
         // Branch admins can only create teachers and students
-        if (![UserRole.TEACHER, UserRole.STUDENT].includes(userData.role)) {
+        if (userData.role !== UserRole.TEACHER && userData.role !== UserRole.STUDENT) {
           return res.status(403).json({
             error: 'Access denied',
             message: 'Branch admins can only create teachers and students'
@@ -256,8 +256,7 @@ router.post('/',
       const user = await prisma.user.create({
         data: {
           ...userData,
-          hashedPassword,
-          password: undefined // Remove plain password
+          hashedPassword
         },
         include: {
           branch: {
@@ -330,7 +329,7 @@ router.put('/:id',
         }
 
         // Branch admins cannot create super-admins or branch-admins
-        if (updateData.role && [UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN].includes(updateData.role)) {
+        if (updateData.role && (updateData.role === UserRole.SUPER_ADMIN || updateData.role === UserRole.BRANCH_ADMIN)) {
           return res.status(403).json({
             error: 'Access denied',
             message: 'Branch admins cannot assign admin roles'
@@ -373,8 +372,7 @@ router.put('/:id',
         where: { id },
         data: {
           ...updateData,
-          ...(hashedPassword && { hashedPassword }),
-          password: undefined // Remove plain password
+          ...(hashedPassword && { hashedPassword })
         },
         include: {
           branch: {

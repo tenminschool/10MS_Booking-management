@@ -420,7 +420,44 @@ router.post('/', authenticate, validateBody(createBookingSchema), auditLog('book
 
   // Business rule validations
   businessRules.validateSlotNotInPast(slot.date, slot.startTime);
-  businessRules.validateSlotCapacity(slot.bookings.length, slot.capacity);
+  
+  // Check if slot has available capacity
+  const hasCapacity = slot.bookings.length < slot.capacity;
+  
+  if (!hasCapacity) {
+    // If slot is full, add to waiting list instead of creating booking
+    const { waitingListService } = await import('../services/waitingList');
+    
+    try {
+      const waitingListEntry = await waitingListService.addToWaitingList(studentId, data.slotId);
+      
+      return res.status(201).json({
+        success: true,
+        message: 'Slot is full. You have been added to the waiting list.',
+        data: {
+          type: 'waiting_list',
+          waitingListEntry: {
+            id: waitingListEntry.id,
+            position: waitingListEntry.position,
+            expiresAt: waitingListEntry.expiresAt,
+            slot: {
+              id: waitingListEntry.slot.id,
+              date: waitingListEntry.slot.date,
+              startTime: waitingListEntry.slot.startTime,
+              endTime: waitingListEntry.slot.endTime,
+              branch: waitingListEntry.slot.branch,
+              teacher: waitingListEntry.slot.teacher
+            }
+          }
+        }
+      });
+    } catch (waitingListError: any) {
+      throw new BusinessRuleError(
+        `Slot is full and cannot be added to waiting list: ${waitingListError.message}`,
+        'SLOT_FULL_WAITING_LIST_ERROR'
+      );
+    }
+  }
 
   // Check if slot is blocked
   await businessRules.validateSlotNotBlocked(data.slotId);

@@ -1,6 +1,25 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { slotsAPI, branchesAPI, bookingsAPI, dashboardAPI } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
+import { UserRole } from '@/types'
+import type { SlotFilters, Slot } from '@/types'
+import { Link } from 'react-router-dom'
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays } from 'date-fns'
+import { 
+  Calendar as CalendarIcon, 
+  List, 
+  Clock, 
+  MapPin, 
+  User, 
+  ChevronLeft,
+  ChevronRight,
+  Users,
+  Filter,
+  BookOpen,
+  GraduationCap
+} from 'lucide-react'
+
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
@@ -11,7 +30,6 @@ const CardHeader = ({ children }: { children: React.ReactNode }) => (
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
 )
-
 const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
@@ -29,12 +47,12 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
     {children}
   </button>
 )
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
+const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
     variant === 'destructive' ? 'bg-red-100 text-red-800' :
     'bg-blue-100 text-blue-800'
-  }`}>
+  } ${className}`}>
     {children}
   </span>
 )
@@ -65,29 +83,136 @@ const DialogDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 mt-1">{children}</p>
 )
 
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  MapPin, 
-  User, 
-  Users, 
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
-  GraduationCap
-} from 'lucide-react'
-import { format, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
-import type { SlotFilters, Slot } from '@/types'
-import { UserRole } from '@/types'
-import { useAuth } from '@/contexts/AuthContext'
-import { Link } from 'react-router-dom'
+// SlotCard component definition
+interface SlotCardProps {
+  slot: Slot
+  onBook: (slot: Slot) => void
+  isAvailable: boolean
+  compact?: boolean
+}
+
+const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact = false }) => {
+  const { user } = useAuth()
+  const isTeacher = user?.role === UserRole.TEACHER
+  const isAdmin = user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.BRANCH_ADMIN
+  const isStudent = user?.role === UserRole.STUDENT
+  
+  return (
+    <Card className={`${compact ? 'p-2' : 'p-4'} ${!isAvailable ? 'opacity-60' : ''}`}>
+      <CardContent className={compact ? 'p-2' : 'p-4'}>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className={`font-medium ${compact ? 'text-sm' : ''}`}>
+                {slot.startTime} - {slot.endTime}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant={isAvailable ? 'default' : 'secondary'}>
+                {slot.bookedCount}/{slot.capacity}
+              </Badge>
+              {isAdmin && (
+                <Badge variant="outline" className="text-xs">
+                  {slot.branch?.name}
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          {!compact && (
+            <>
+              {/* Show teacher info for students and admins */}
+              {(isStudent || isAdmin) && (
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <User className="w-4 h-4" />
+                  <span>{slot.teacher?.name}</span>
+                </div>
+              )}
+              
+              {/* Show branch info for all roles */}
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <MapPin className="w-4 h-4" />
+                <span>{slot.branch?.name}</span>
+              </div>
+              
+              {/* Show additional info for admins */}
+              {isAdmin && (
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <span>ID: {slot.id}</span>
+                </div>
+              )}
+            </>
+          )}
+          
+          {/* Role-based action buttons */}
+          {isTeacher ? (
+            <div className="space-y-2">
+              <Link to={`/bookings?slot=${slot.id}`}>
+                <Button
+                  size={compact ? 'sm' : 'default'}
+                  className="w-full text-xs sm:text-sm"
+                  variant="outline"
+                >
+                  <Users className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">View Students ({slot.bookedCount})</span>
+                  <span className="sm:hidden">Students ({slot.bookedCount})</span>
+                </Button>
+              </Link>
+              <Button
+                size={compact ? 'sm' : 'default'}
+                className="w-full text-xs sm:text-sm"
+                variant="outline"
+              >
+                <GraduationCap className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Mark Attendance</span>
+                <span className="sm:hidden">Attendance</span>
+              </Button>
+            </div>
+          ) : isAdmin ? (
+            <div className="space-y-2">
+              <Button
+                size={compact ? 'sm' : 'default'}
+                className="w-full text-xs sm:text-sm"
+                variant="outline"
+              >
+                <Users className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Manage Bookings</span>
+                <span className="sm:hidden">Bookings</span>
+              </Button>
+              <Button
+                size={compact ? 'sm' : 'default'}
+                className="w-full text-xs sm:text-sm"
+                variant="outline"
+              >
+                <BookOpen className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Edit Slot</span>
+                <span className="sm:hidden">Edit</span>
+              </Button>
+            </div>
+          ) : isStudent ? (
+            <Button
+              size={compact ? 'sm' : 'default'}
+              className="w-full text-xs sm:text-sm"
+              disabled={!isAvailable}
+              onClick={() => onBook(slot)}
+            >
+              <BookOpen className="w-4 h-4 mr-1 sm:mr-2" />
+              {isAvailable ? 'Book Slot' : 'Full'}
+            </Button>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 const Schedule: React.FC = () => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
+  const [displayView, setDisplayView] = useState<'list' | 'calendar'>('list')
   const [filters, setFilters] = useState<SlotFilters>({
     view: 'weekly',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -96,6 +221,7 @@ const Schedule: React.FC = () => {
   })
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   // Fetch branches for filter
   const { data: branches } = useQuery({
@@ -206,9 +332,18 @@ const Schedule: React.FC = () => {
     setIsBookingDialogOpen(true)
   }
 
-  const confirmBooking = () => {
-    if (selectedSlot) {
-      bookSlotMutation.mutate(selectedSlot.id)
+  const handleConfirmBooking = async () => {
+    if (!selectedSlot) return
+    
+    setIsConfirming(true)
+    try {
+      await bookSlotMutation.mutateAsync(selectedSlot.id)
+      // Show success toast (you can implement toast notifications here)
+      console.log('Booking confirmed successfully!')
+    } catch (error) {
+      console.error('Booking failed:', error)
+    } finally {
+      setIsConfirming(false)
     }
   }
 
@@ -227,67 +362,154 @@ const Schedule: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {user?.role === UserRole.TEACHER ? 'My Schedule' : 'Available Slots'}
-          </h1>
-          <p className="text-gray-600">
-            {user?.role === UserRole.TEACHER 
-              ? 'View your assigned speaking test slots and sessions'
-              : 'Browse and book speaking test slots across all branches'}
-          </p>
-        </div>
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              {user?.role === UserRole.SUPER_ADMIN && 'System Schedule Management'}
+              {user?.role === UserRole.BRANCH_ADMIN && 'Branch Schedule Management'}
+              {user?.role === UserRole.TEACHER && 'My Teaching Schedule'}
+              {user?.role === UserRole.STUDENT && 'Available Speaking Test Slots'}
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              {user?.role === UserRole.SUPER_ADMIN && 'Manage all speaking test slots across all branches and monitor system-wide scheduling'}
+              {user?.role === UserRole.BRANCH_ADMIN && 'Manage speaking test slots for your branch and monitor teacher schedules'}
+              {user?.role === UserRole.TEACHER && 'View your assigned speaking test slots, manage sessions, and track student attendance'}
+              {user?.role === UserRole.STUDENT && 'Browse and book speaking test slots across all branches'}
+            </p>
+          </div>
         
         {/* View Toggle */}
-        <div className="flex items-center space-x-2">
-          <Button
-            variant={view === 'daily' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleViewChange('daily')}
-          >
-            Daily
-          </Button>
-          <Button
-            variant={view === 'weekly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleViewChange('weekly')}
-          >
-            Weekly
-          </Button>
-          <Button
-            variant={view === 'monthly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleViewChange('monthly')}
-          >
-            Monthly
-          </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          {/* Time Range Toggle */}
+          <div className="flex items-center space-x-2 overflow-x-auto pb-2 sm:pb-0">
+            <Button
+              variant={view === 'daily' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleViewChange('daily')}
+              className="whitespace-nowrap"
+            >
+              Daily
+            </Button>
+            <Button
+              variant={view === 'weekly' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleViewChange('weekly')}
+              className="whitespace-nowrap"
+            >
+              Weekly
+            </Button>
+            <Button
+              variant={view === 'monthly' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleViewChange('monthly')}
+              className="whitespace-nowrap"
+            >
+              Monthly
+            </Button>
+          </div>
+          
+          {/* Display View Toggle */}
+          <div className="flex items-center space-x-2 border rounded-lg p-1 w-fit">
+            <Button
+              variant={displayView === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setDisplayView('list')}
+              className="flex items-center space-x-1"
+            >
+              <List className="w-4 h-4" />
+              <span className="hidden sm:inline">List</span>
+            </Button>
+            <Button
+              variant={displayView === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setDisplayView('calendar')}
+              className="flex items-center space-x-1"
+            >
+              <CalendarIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Calendar</span>
+            </Button>
+          </div>
+          
+          {/* Role-based Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            {user?.role === UserRole.SUPER_ADMIN && (
+              <>
+                <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                  <Users className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Manage Teachers</span>
+                  <span className="sm:hidden">Teachers</span>
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                  <MapPin className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Manage Branches</span>
+                  <span className="sm:hidden">Branches</span>
+                </Button>
+                <Button variant="default" size="sm" className="text-xs sm:text-sm">
+                  <BookOpen className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Create Slot</span>
+                  <span className="sm:hidden">Create</span>
+                </Button>
+              </>
+            )}
+            {user?.role === UserRole.BRANCH_ADMIN && (
+              <>
+                <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                  <Users className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Manage Teachers</span>
+                  <span className="sm:hidden">Teachers</span>
+                </Button>
+                <Button variant="default" size="sm" className="text-xs sm:text-sm">
+                  <BookOpen className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Create Slot</span>
+                  <span className="sm:hidden">Create</span>
+                </Button>
+              </>
+            )}
+            {user?.role === UserRole.TEACHER && (
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                <GraduationCap className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">View Assessments</span>
+                <span className="sm:hidden">Assessments</span>
+              </Button>
+            )}
+            {user?.role === UserRole.STUDENT && (
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                <BookOpen className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">My Bookings</span>
+                <span className="sm:hidden">Bookings</span>
+              </Button>
+            )}
+          </div>
         </div>
+      </div>
       </div>
 
       {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* PRIMARY CONTENT - 2/3 width */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
           {/* Date Navigation */}
-          <div className="flex items-center justify-between">
-            <Button variant="outline" onClick={() => navigateDate('prev')}>
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Previous
+          <div className="flex items-center justify-between space-x-2">
+            <Button variant="outline" onClick={() => navigateDate('prev')} size="sm" className="text-xs sm:text-sm">
+              <ChevronLeft className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">Prev</span>
             </Button>
             
-            <div className="text-center">
-              <h2 className="text-lg font-semibold">{getDateRange()}</h2>
+            <div className="text-center flex-1 px-2">
+              <h2 className="text-sm sm:text-lg font-semibold truncate">{getDateRange()}</h2>
             </div>
             
-            <Button variant="outline" onClick={() => navigateDate('next')}>
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" />
+            <Button variant="outline" onClick={() => navigateDate('next')} size="sm" className="text-xs sm:text-sm">
+              <span className="hidden sm:inline">Next</span>
+              <span className="sm:hidden">Next</span>
+              <ChevronRight className="w-4 h-4 ml-1 sm:ml-2" />
             </Button>
           </div>
 
           {/* Calendar/Schedule View */}
-          {view === 'monthly' ? (
+          {displayView === 'calendar' ? (
             <Card>
               <CardContent className="p-6">
                 <Calendar
@@ -376,7 +598,7 @@ const Schedule: React.FC = () => {
                     >
                       All Branches
                     </Button>
-                    {branches?.map((branch: any) => (
+                    {Array.isArray(branches) && branches.map((branch: any) => (
                       <Button
                         key={branch.id}
                         variant={filters.branchId === branch.id ? 'default' : 'outline'}
@@ -491,7 +713,7 @@ const Schedule: React.FC = () => {
                   className="w-full justify-start"
                   onClick={() => handleDateChange(new Date())}
                 >
-                  <Calendar className="w-4 h-4 mr-2" />
+                  <CalendarIcon className="w-4 h-4 mr-2" />
                   Today's Slots
                 </Button>
               </div>
@@ -547,10 +769,10 @@ const Schedule: React.FC = () => {
                 </Button>
                 <Button 
                   className="flex-1"
-                  onClick={confirmBooking}
-                  disabled={bookSlotMutation.isPending}
+                  onClick={handleConfirmBooking}
+                  disabled={isConfirming || bookSlotMutation.isPending}
                 >
-                  {bookSlotMutation.isPending ? 'Booking...' : 'Confirm Booking'}
+                  {isConfirming || bookSlotMutation.isPending ? 'Booking...' : 'Confirm Booking'}
                 </Button>
               </div>
             </div>
@@ -558,76 +780,6 @@ const Schedule: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-interface SlotCardProps {
-  slot: Slot
-  onBook: (slot: Slot) => void
-  isAvailable: boolean
-  compact?: boolean
-}
-
-const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact = false }) => {
-  const { user } = useAuth()
-  const isTeacher = user?.role === UserRole.TEACHER
-  
-  return (
-    <Card className={`${compact ? 'p-2' : 'p-4'} ${!isAvailable ? 'opacity-60' : ''}`}>
-      <CardContent className={compact ? 'p-2' : 'p-4'}>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className={`font-medium ${compact ? 'text-sm' : ''}`}>
-                {slot.startTime} - {slot.endTime}
-              </span>
-            </div>
-            <Badge variant={isAvailable ? 'default' : 'secondary'}>
-              {slot.bookedCount}/{slot.capacity}
-            </Badge>
-          </div>
-          
-          {!compact && (
-            <>
-              {!isTeacher && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <User className="w-4 h-4" />
-                  <span>{slot.teacher?.name}</span>
-                </div>
-              )}
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <MapPin className="w-4 h-4" />
-                <span>{slot.branch?.name}</span>
-              </div>
-            </>
-          )}
-          
-          {isTeacher ? (
-            <Link to={`/bookings?slot=${slot.id}`}>
-              <Button
-                size={compact ? 'sm' : 'default'}
-                className="w-full"
-                variant="outline"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                View Students ({slot.bookedCount})
-              </Button>
-            </Link>
-          ) : (
-            <Button
-              size={compact ? 'sm' : 'default'}
-              className="w-full"
-              disabled={!isAvailable}
-              onClick={() => onBook(slot)}
-            >
-              <BookOpen className="w-4 h-4 mr-2" />
-              {isAvailable ? 'Book Slot' : 'Full'}
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 

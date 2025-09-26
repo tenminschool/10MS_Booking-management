@@ -60,6 +60,34 @@ class NotificationService {
         title: 'System Alert',
         message: '{message}'
       }
+    },
+    ANNOUNCEMENT: {
+      sms: 'Announcement: {message}. 10 Minute School',
+      inApp: {
+        title: 'Announcement',
+        message: '{message}'
+      }
+    },
+    REMINDER: {
+      sms: 'Reminder: {message}. 10 Minute School',
+      inApp: {
+        title: 'Reminder',
+        message: '{message}'
+      }
+    },
+    URGENT: {
+      sms: 'URGENT: {message}. 10 Minute School',
+      inApp: {
+        title: 'Urgent Notice',
+        message: '{message}'
+      }
+    },
+    MAINTENANCE: {
+      sms: 'Maintenance Notice: {message}. 10 Minute School',
+      inApp: {
+        title: 'Maintenance Notice',
+        message: '{message}'
+      }
     }
   };
 

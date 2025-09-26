@@ -516,32 +516,6 @@ const Assessments: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Link to="/schedule">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Book New Test
-                  </Button>
-                </Link>
-                <Link to="/bookings">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    My Bookings
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Scores
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 

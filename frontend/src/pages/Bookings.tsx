@@ -165,20 +165,26 @@ const Bookings: React.FC = () => {
     }
   }
 
-  const filterBookings = (bookings: Booking[]) => {
+  const filterBookings = (bookings: any) => {
+    // Ensure bookings is an array
+    const bookingsArray = Array.isArray(bookings) ? bookings : []
     const now = new Date()
     switch (activeTab) {
       case 'upcoming':
-        return bookings.filter(booking =>
+        return bookingsArray.filter(booking =>
           booking.status === BookingStatus.CONFIRMED &&
           booking.slot && new Date(booking.slot.date) >= now
         )
       case 'past':
-        return bookings.filter(booking =>
+        return bookingsArray.filter(booking =>
           booking.slot && new Date(booking.slot.date) < now
         )
+      case 'cancelled':
+        return bookingsArray.filter(booking =>
+          booking.status === BookingStatus.CANCELLED
+        )
       default:
-        return bookings
+        return bookingsArray
     }
   }
 
@@ -220,7 +226,7 @@ const Bookings: React.FC = () => {
     )
   }
 
-  const allBookings = (bookings as Booking[]) || []
+  const allBookings = Array.isArray(bookings) ? bookings : []
   const filteredBookings = filterBookings(allBookings)
   const upcomingBookings = (dashboardData as any)?.upcomingBookings || []
 
@@ -493,32 +499,6 @@ const Bookings: React.FC = () => {
             </Card>
           )}
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Link to="/schedule">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Book New Test
-                  </Button>
-                </Link>
-                <Link to="/assessments">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <GraduationCap className="w-4 h-4 mr-2" />
-                    View Scores
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export History
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Help & Support */}
           <Card>

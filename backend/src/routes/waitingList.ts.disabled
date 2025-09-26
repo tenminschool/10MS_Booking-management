@@ -1,0 +1,143 @@
+import express from 'express';
+import { Request, Response } from 'express';
+import { supabase } from '../lib/supabase';
+import { authenticate, requireRole } from '../middleware/auth';
+import { auditLog } from '../middleware/audit';
+import { waitingListService } from '../services/waitingList';
+import {
+  asyncHandler,
+  NotFoundError,
+  AuthorizationError,
+  BusinessRuleError
+} from '../middleware/errorHandler';
+import {
+  validateBody,
+  validateQuery,
+  validateParams
+} from '../middleware/validation';
+import { z } from 'zod';
+
+// Define types locally since we removed Prisma
+type UserRole = 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'TEACHER' | 'STUDENT';
+
+const router = express.Router();
+
+// Validation schemas
+const addToWaitingListSchema = z.object({
+  slotId: z.string().min(1, 'Slot ID is required')
+});
+
+const removeFromWaitingListSchema = z.object({
+  slotId: z.string().min(1, 'Slot ID is required')
+});
+
+const idParamSchema = z.object({
+  id: z.string().min(1, 'ID is required')
+});
+
+// Add student to waiting list
+router.post('/', authenticate, validateBody(addToWaitingListSchema), auditLog('waiting_list'), asyncHandler(async (req: Request, res: Response) => {
+  const { slotId } = req.body;
+  const user = req.user!;
+
+  // Only students can add themselves to waiting list
+  if (user.role !== UserRole.STUDENT) {
+    throw new AuthorizationError('Only students can add themselves to waiting list');
+  }
+
+  const waitingListEntry = await waitingListService.addToWaitingList(user.userId, slotId);
+
+  res.status(201).json({
+    success: true,
+    message: 'Successfully added to waiting list',
+    data: waitingListEntry
+  });
+}));
+
+// Get waiting list for a specific slot (admin only)
+router.get('/slot/:id', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]), validateParams(idParamSchema), asyncHandler(async (req: Request, res: Response) => {
+  const { id: slotId } = req.params;
+
+  const waitingList = await waitingListService.getWaitingListForSlot(slotId);
+
+  res.json({
+    success: true,
+    data: waitingList
+  });
+}));
+
+// Get student's waiting list entries
+router.get('/student', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const user = req.user!;
+
+  // Only students can view their own waiting list
+  if (user.role !== UserRole.STUDENT) {
+    throw new AuthorizationError('Only students can view their waiting list');
+  }
+
+  const waitingList = await waitingListService.getWaitingListForStudent(user.userId);
+
+  res.json({
+    success: true,
+    data: waitingList
+  });
+}));
+
+// Remove student from waiting list
+router.delete('/', authenticate, validateBody(removeFromWaitingListSchema), auditLog('waiting_list'), asyncHandler(async (req: Request, res: Response) => {
+  const { slotId } = req.body;
+  const user = req.user!;
+
+  // Only students can remove themselves from waiting list
+  if (user.role !== UserRole.STUDENT) {
+    throw new AuthorizationError('Only students can remove themselves from waiting list');
+  }
+
+  await waitingListService.removeFromWaitingList(user.userId, slotId);
+
+  res.json({
+    success: true,
+    message: 'Successfully removed from waiting list'
+  });
+}));
+
+// Convert next waiting list entry to booking (admin only)
+router.post('/convert/:slotId', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]), validateParams(z.object({ slotId: z.string().min(1) })), auditLog('waiting_list'), asyncHandler(async (req: Request, res: Response) => {
+  const { slotId } = req.params;
+
+  const convertedEntry = await waitingListService.convertNextToBooking(slotId);
+
+  if (!convertedEntry) {
+    return res.json({
+      success: true,
+      message: 'No waiting list entries to convert',
+      data: null
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Successfully converted waiting list entry to booking',
+    data: convertedEntry
+  });
+}));
+
+// Cleanup expired waiting list entries (admin only)
+router.post('/cleanup', authenticate, auditLog('waiting_list'), asyncHandler(async (req: Request, res: Response) => {
+  const user = req.user!;
+
+  // Only super admins can cleanup expired entries
+  if (user.role !== UserRole.SUPER_ADMIN) {
+    throw new AuthorizationError('Only super admins can cleanup expired entries');
+  }
+
+  const cleanedCount = await waitingListService.cleanupExpiredEntries();
+
+  res.json({
+    success: true,
+    message: `Cleaned up ${cleanedCount} expired waiting list entries`,
+    data: { cleanedCount }
+  });
+}));
+
+export default router;
