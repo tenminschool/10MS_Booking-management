@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, getTokenFromHeader } from '../utils/jwt';
-import { ROLE_PERMISSIONS, Permission, JWTPayload } from '../types/auth';
-import { UserRole } from '@prisma/client';
+import { ROLE_PERMISSIONS, Permission, JWTPayload, UserRole } from '../types/auth';
+import { supabase } from '../lib/supabase';
 
 // Extend Express Request type
 declare global {
@@ -12,7 +12,39 @@ declare global {
   }
 }
 
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+// Verify Supabase JWT token and get user data
+const verifySupabaseToken = async (token: string): Promise<JWTPayload | null> => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return null;
+    }
+
+    // Get user details from your users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      return null;
+    }
+
+    return {
+      userId: userData.id,
+      email: userData.email,
+      role: userData.role as UserRole,
+      branchId: userData.branchId,
+      name: userData.name
+    };
+  } catch (error) {
+    return null;
+  }
+};
+
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = getTokenFromHeader(req.headers.authorization);
     
@@ -23,6 +55,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       });
     }
 
+    // Try Supabase Auth first
+    const supabaseUser = await verifySupabaseToken(token);
+    if (supabaseUser) {
+      req.user = supabaseUser;
+      return next();
+    }
+
+    // Fallback to custom JWT (for backward compatibility)
     const payload = verifyToken(token);
     req.user = payload;
     next();

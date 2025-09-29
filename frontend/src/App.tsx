@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/components/ui/toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import Layout from '@/components/layout/Layout'
@@ -12,11 +13,16 @@ import Bookings from '@/pages/Bookings'
 import Assessments from '@/pages/Assessments'
 import Profile from '@/pages/Profile'
 // Admin pages
+import AdminDashboard from '@/pages/admin/AdminDashboard'
 import AdminSlots from '@/pages/admin/AdminSlots'
 import AdminBranches from '@/pages/admin/AdminBranches'
+import AdminTeachers from '@/pages/admin/AdminTeachers'
+import AdminUsers from '@/pages/admin/AdminUsers'
+import AdminBookings from '@/pages/admin/AdminBookings'
+import AdminAssessments from '@/pages/admin/AdminAssessments'
+import AdminNotifications from '@/pages/admin/AdminNotifications'
 import AdminSettings from '@/pages/admin/AdminSettings'
 import { UserRole } from '@/types'
-import { getRoleBasedDashboardRoute } from '@/lib/roleRouting'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -32,7 +38,11 @@ const queryClient = new QueryClient({
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth()
 
+  // Debug logging (reduced)
+  // console.log('ProtectedRoute - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading, 'user:', user)
+
   if (isLoading) {
+    // console.log('ProtectedRoute - showing loading spinner')
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
@@ -41,9 +51,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!isAuthenticated) {
+    // console.log('ProtectedRoute - redirecting to login')
     return <Navigate to="/login" replace />
   }
 
+  // console.log('ProtectedRoute - rendering protected content')
   return <>{children}</>
 }
 
@@ -54,6 +66,11 @@ const AdminRoute: React.FC<{ children: React.ReactNode; allowedRoles?: UserRole[
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth()
 
+  // Debug logging
+  console.log('AdminRoute - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading, 'user:', user)
+  console.log('AdminRoute - allowedRoles:', allowedRoles)
+  console.log('AdminRoute - user role:', user?.role)
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -63,29 +80,27 @@ const AdminRoute: React.FC<{ children: React.ReactNode; allowedRoles?: UserRole[
   }
 
   if (!isAuthenticated) {
+    console.log('AdminRoute - Not authenticated, redirecting to login')
     return <Navigate to="/login" replace />
   }
 
   if (!user || !allowedRoles.includes(user.role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600 mb-4">You don't have permission to access this page.</p>
-          <Navigate to="/dashboard" replace />
-        </div>
-      </div>
-    )
+    console.log('AdminRoute - Access denied. User role:', user?.role, 'Allowed roles:', allowedRoles)
+    return <Navigate to="/dashboard" replace />
   }
 
+  console.log('AdminRoute - Access granted')
   return <>{children}</>
 }
 
 // Public Route Component (redirect if authenticated)
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
+
+  console.log('PublicRoute - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading, 'user:', user)
 
   if (isLoading) {
+    console.log('PublicRoute - showing loading spinner')
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
@@ -94,10 +109,12 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   if (isAuthenticated) {
+    console.log('PublicRoute - redirecting to home (user is authenticated)')
     // This will be handled by the main App component
     return <Navigate to="/" replace />
   }
 
+  console.log('PublicRoute - rendering public content (login page)')
   return <>{children}</>
 }
 
@@ -105,7 +122,10 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const RedirectToDashboard: React.FC = () => {
   const { user, isLoading } = useAuth()
   
+  console.log('RedirectToDashboard - user:', user, 'isLoading:', isLoading)
+  
   if (isLoading) {
+    console.log('RedirectToDashboard - showing loading spinner')
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
@@ -114,9 +134,11 @@ const RedirectToDashboard: React.FC = () => {
   }
   
   if (!user) {
+    console.log('RedirectToDashboard - redirecting to login (no user)')
     return <Navigate to="/login" replace />
   }
   
+  console.log('RedirectToDashboard - redirecting to dashboard')
   // All users go to the same dashboard page, but dashboard renders differently based on role
   return <Navigate to="/dashboard" replace />
 }
@@ -125,10 +147,11 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <AuthProvider>
-            <Router>
-              <div className="min-h-screen bg-background text-foreground">
+        <ThemeProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <Router>
+                <div className="min-h-screen bg-background text-foreground">
                 <Routes>
                   {/* Public Routes */}
                   <Route
@@ -157,7 +180,12 @@ function App() {
                     <Route path="profile" element={<Profile />} />
 
                     {/* Admin Routes - Professional URL Structure */}
-                    <Route path="admin" element={<Navigate to="/admin/slots" replace />} />
+                    <Route path="admin" element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route path="admin/dashboard" element={
+                      <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]}>
+                        <AdminDashboard />
+                      </AdminRoute>
+                    } />
                     <Route path="admin/slots" element={
                       <AdminRoute>
                         <AdminSlots />
@@ -166,6 +194,31 @@ function App() {
                     <Route path="admin/branches" element={
                       <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
                         <AdminBranches />
+                      </AdminRoute>
+                    } />
+                    <Route path="admin/teachers" element={
+                      <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+                        <AdminTeachers />
+                      </AdminRoute>
+                    } />
+                    <Route path="admin/users" element={
+                      <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+                        <AdminUsers />
+                      </AdminRoute>
+                    } />
+                    <Route path="admin/bookings" element={
+                      <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+                        <AdminBookings />
+                      </AdminRoute>
+                    } />
+                    <Route path="admin/assessments" element={
+                      <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+                        <AdminAssessments />
+                      </AdminRoute>
+                    } />
+                    <Route path="admin/notifications" element={
+                      <AdminRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+                        <AdminNotifications />
                       </AdminRoute>
                     } />
                     <Route path="admin/settings" element={
@@ -183,10 +236,11 @@ function App() {
                   {/* Catch all route */}
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
-              </div>
-            </Router>
-          </AuthProvider>
-        </ToastProvider>
+                </div>
+              </Router>
+            </AuthProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   )

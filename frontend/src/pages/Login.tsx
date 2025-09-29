@@ -5,18 +5,19 @@ import { useAuth } from '@/contexts/AuthContext'
 import { authAPI } from '@/lib/api'
 import { getRoleBasedDashboardRoute } from '@/lib/roleRouting'
 import { UserRole } from '@/types'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 const CardContent = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pt-0">{children}</div>
@@ -25,7 +26,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
   <button 
     type={type}
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -38,12 +39,12 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Input = ({ className = '', ...props }: any) => (
   <input 
-    className={`w-full py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+    className={`w-full py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${className}`}
     {...props}
   />
 )
 const Label = ({ children, htmlFor, className = '' }: any) => (
-  <label htmlFor={htmlFor} className={`block text-sm font-medium text-gray-700 mb-1 ${className}`}>
+  <label htmlFor={htmlFor} className={`block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ${className}`}>
     {children}
   </label>
 )
@@ -53,12 +54,12 @@ const Tabs = ({ children, value, onValueChange }: any) => (
   </div>
 )
 const TabsList = ({ children, className = '' }: any) => (
-  <div className={`flex bg-gray-100 rounded-lg p-1 ${className}`}>
+  <div className={`flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 ${className}`}>
     {children}
   </div>
 )
 const TabsTrigger = ({ children, value, className = '' }: any) => (
-  <button className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white ${className}`} data-value={value}>
+  <button className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 ${className}`} data-value={value}>
     {children}
   </button>
 )
@@ -96,11 +97,32 @@ const Login: React.FC = () => {
     mutationFn: (data: { phoneNumber: string; otp: string }) => 
       authAPI.loginStudent(data.phoneNumber, data.otp),
     onSuccess: (response) => {
-      const { token, user } = response.data
+      console.log('Student login response:', response)
+      console.log('Student response data:', response.data)
+      console.log('Student response data.data:', response.data.data)
+      
+      if (!response.data || !response.data.data) {
+        console.error('Invalid student response format:', response)
+        return
+      }
+      
+      const { token, user } = response.data.data
+      console.log('Student token:', token)
+      console.log('Student user:', user)
+      
+      if (!token || !user) {
+        console.error('Missing student token or user data')
+        return
+      }
+      
       login(token, user)
       // All users go to the same dashboard page, but dashboard renders differently based on role
+      console.log('Navigating to dashboard...')
       navigate('/dashboard')
     },
+    onError: (error) => {
+      console.error('Student login error:', error)
+    }
   })
 
   // Staff login mutation
@@ -108,11 +130,34 @@ const Login: React.FC = () => {
     mutationFn: (data: { email: string; password: string }) => 
       authAPI.loginStaff(data.email, data.password),
     onSuccess: (response) => {
-      const { token, user } = response.data
+      console.log('Login response:', response)
+      console.log('Response data:', response.data)
+      console.log('Response data.data:', response.data.data)
+      
+      if (!response.data || !response.data.data) {
+        console.error('Invalid response format:', response)
+        return
+      }
+      
+      const { token, user } = response.data.data
+      console.log('Token:', token)
+      console.log('User:', user)
+      
+      if (!token || !user) {
+        console.error('Missing token or user data')
+        return
+      }
+      
       login(token, user)
       // All users go to the same dashboard page, but dashboard renders differently based on role
+      console.log('Navigating to dashboard...')
       navigate('/dashboard')
     },
+    onError: (error) => {
+      console.error('Login error:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+    }
   })
 
   const handleSendOtp = (e: React.FormEvent) => {
@@ -137,15 +182,20 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-2 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-2 sm:p-4">
+      {/* Theme Toggle - Top Right */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      
       <div className="w-full max-w-md mx-auto">
         {/* Logo and Header */}
         <div className="text-center mb-6 sm:mb-8">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
             <span className="text-white font-bold text-lg sm:text-xl">10MS</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-2">Sign in to your speaking test account</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">Sign in to your speaking test account</p>
         </div>
 
         <Card>
@@ -169,7 +219,7 @@ const Login: React.FC = () => {
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
                         Phone Number
-                        <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                       </Label>
                       <Input
                         id="phone"
@@ -199,7 +249,7 @@ const Login: React.FC = () => {
                   </form>
                 ) : (
                   <form onSubmit={handleStudentLogin} className="space-y-4">
-                    <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm text-green-700 dark:text-green-400">
                       OTP sent to {phoneNumber}
                     </div>
                     
@@ -247,7 +297,7 @@ const Login: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
                       Email
-                      <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <Mail className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                     </Label>
                     <Input
                       id="email"

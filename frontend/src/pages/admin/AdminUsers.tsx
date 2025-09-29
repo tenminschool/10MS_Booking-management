@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { usersAPI, branchesAPI } from '@/lib/api'
 import { UserRole, type User, type Branch } from '@/types'
 import { format } from 'date-fns'
+import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
 import { 
   Users, 
   Plus, 
@@ -15,31 +17,39 @@ import {
   UserX,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Calendar,
+  Shield,
+  GraduationCap,
+  Star,
+  Crown,
+  Building,
+  UserCog
 } from 'lucide-react'
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      variant === 'ghost' ? 'hover:bg-gray-100' :
+      variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
+      variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     disabled={disabled}
@@ -51,11 +61,12 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    variant === 'success' ? 'bg-green-100 text-green-800' :
-    variant === 'outline' ? 'border border-gray-300 bg-white text-gray-700' :
-    'bg-blue-100 text-blue-800'
+    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
+    variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
+    variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
+    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   }`}>
     {children}
   </span>
@@ -64,85 +75,116 @@ const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; v
 const AdminUsers: React.FC = () => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const successToast = useSuccessToast()
+  const errorToast = useErrorToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
+  const [branchFilter, setBranchFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | ''>('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [page, setPage] = useState(1)
-  const limit = 10
+  const limit = 20
 
-  // Fetch users based on role and filters
+  // Only super admins can access this page
+  if (user?.role !== UserRole.SUPER_ADMIN) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage users across all branches.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Fetch users based on filters
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users', {
-      branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : undefined,
       role: roleFilter || undefined,
       search: searchTerm || undefined,
+      branchId: branchFilter || undefined,
+      isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
       page,
       limit
     }],
-    queryFn: () => {
-      if (user?.role === UserRole.BRANCH_ADMIN) {
-        return usersAPI.getByBranch(user.branchId!, {
+        queryFn: async () => {
+          const response = await usersAPI.getAll({
           role: roleFilter || undefined,
           search: searchTerm || undefined,
+            branchId: branchFilter || undefined,
+            isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
           page,
           limit
         })
-      } else {
-        // Super admin gets all users across all branches
-        return usersAPI.getAll({
-          role: roleFilter || undefined,
-          search: searchTerm || undefined,
-          page,
-          limit
-        })
-      }
-    },
+          return response.data
+        },
   })
 
-  // Fetch branches (for super admin)
+  // Fetch branches
   const { data: branchesData } = useQuery({
     queryKey: ['branches'],
-    queryFn: () => branchesAPI.getAll(),
-    enabled: user?.role === UserRole.SUPER_ADMIN
+        queryFn: async () => {
+          const response = await branchesAPI.getAll()
+          return response.data
+        },
   })
 
-  const users = usersData?.data?.users || []
-  const pagination = usersData?.data?.pagination
-  const branches = branchesData?.data || []
+  const users = usersData?.users || []
+  const pagination = usersData?.pagination
+  const branches = branchesData || []
 
   // Create user mutation
   const createUserMutation = useMutation({
-    mutationFn: usersAPI.create,
+        mutationFn: async (data: any) => {
+          const response = await usersAPI.create(data)
+          return response.data
+        },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       setShowCreateForm(false)
+      successToast('User created successfully!')
+    },
+    onError: (error: any) => {
+      errorToast(error.response?.data?.message || 'Failed to create user')
     }
   })
 
   // Update user mutation
   const updateUserMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => usersAPI.update(id, data),
+        mutationFn: async ({ id, data }: { id: string; data: any }) => {
+          const response = await usersAPI.update(id, data)
+          return response.data
+        },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       setEditingUser(null)
+      successToast('User updated successfully!')
+    },
+    onError: (error: any) => {
+      errorToast(error.response?.data?.message || 'Failed to update user')
     }
   })
 
   // Delete user mutation
   const deleteUserMutation = useMutation({
-    mutationFn: usersAPI.delete,
+        mutationFn: async (id: string) => {
+          const response = await usersAPI.delete(id)
+          return response.data
+        },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      successToast('User deactivated successfully!')
+    },
+    onError: (error: any) => {
+      errorToast(error.response?.data?.message || 'Failed to deactivate user')
     }
   })
 
   const handleCreateUser = (userData: any) => {
-    createUserMutation.mutate({
-      ...userData,
-      branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : userData.branchId
-    })
+    createUserMutation.mutate(userData)
   }
 
   const handleUpdateUser = (userData: any) => {
@@ -160,6 +202,21 @@ const AdminUsers: React.FC = () => {
     }
   }
 
+  const getRoleIcon = (role: UserRole) => {
+    switch (role) {
+      case UserRole.SUPER_ADMIN:
+        return <Crown className="w-4 h-4 text-purple-600" />
+      case UserRole.BRANCH_ADMIN:
+        return <Building className="w-4 h-4 text-blue-600" />
+      case UserRole.TEACHER:
+        return <GraduationCap className="w-4 h-4 text-green-600" />
+      case UserRole.STUDENT:
+        return <UserCog className="w-4 h-4 text-orange-600" />
+      default:
+        return <Users className="w-4 h-4 text-gray-600" />
+    }
+  }
+
   const getRoleBadgeVariant = (role: UserRole) => {
     switch (role) {
       case UserRole.SUPER_ADMIN:
@@ -169,17 +226,25 @@ const AdminUsers: React.FC = () => {
       case UserRole.TEACHER:
         return 'success'
       case UserRole.STUDENT:
-        return 'secondary'
+        return 'warning'
       default:
         return 'outline'
     }
   }
 
-  const filteredUsers = users.filter(u => {
-    if (statusFilter === 'active' && !u.isActive) return false
-    if (statusFilter === 'inactive' && u.isActive) return false
-    return true
-  })
+  const getUserStats = () => {
+    const total = users.length
+    const active = users.filter(u => u.isActive).length
+    const inactive = users.filter(u => !u.isActive).length
+    const superAdmins = users.filter(u => u.role === UserRole.SUPER_ADMIN).length
+    const branchAdmins = users.filter(u => u.role === UserRole.BRANCH_ADMIN).length
+    const teachers = users.filter(u => u.role === UserRole.TEACHER).length
+    const students = users.filter(u => u.role === UserRole.STUDENT).length
+
+    return { total, active, inactive, superAdmins, branchAdmins, teachers, students }
+  }
+
+  const stats = getUserStats()
 
   if (usersLoading) {
     return (
@@ -189,35 +254,105 @@ const AdminUsers: React.FC = () => {
     )
   }
 
+  const breadcrumbItems = [
+    { label: 'Admin', href: '/admin' },
+    { label: 'User Management', current: true }
+  ]
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
+      <Breadcrumb items={breadcrumbItems} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1">
-            {user?.role === UserRole.SUPER_ADMIN 
-              ? 'Manage users across all branches and assign permissions'
-              : `Manage users and their permissions for ${user?.branchId || 'your branch'}`
-            }
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comprehensive User Management</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage all users across all branches with complete control and analytics
           </p>
         </div>
+        <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+          <Button
+            variant="outline"
+            onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
+            size="sm"
+          >
+            {viewMode === 'grid' ? 'Table View' : 'Grid View'}
+          </Button>
         <Button
           onClick={() => setShowCreateForm(true)}
-          className="bg-red-600 hover:bg-red-700 mt-4 sm:mt-0"
+            className="bg-red-600 hover:bg-red-700"
+            size="sm"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add User
         </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-blue-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <UserCheck className="w-5 h-5 text-green-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Users</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <GraduationCap className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Teachers</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.teachers}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <UserCog className="w-5 h-5 text-orange-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Students</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.students}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center space-x-2">
-                <Search className="w-4 h-4 text-gray-500" />
+                <Filter className="w-4 h-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
+              </div>
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search users..."
@@ -230,23 +365,32 @@ const AdminUsers: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Roles</option>
-                {user?.role === UserRole.SUPER_ADMIN && (
-                  <>
                     <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
                     <option value={UserRole.BRANCH_ADMIN}>Branch Admin</option>
-                  </>
-                )}
                 <option value={UserRole.TEACHER}>Teacher</option>
                 <option value={UserRole.STUDENT}>Student</option>
               </select>
 
               <select
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | '')}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
@@ -254,102 +398,222 @@ const AdminUsers: React.FC = () => {
               </select>
             </div>
 
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
               {pagination?.total || 0} users total
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Users Table */}
-      <Card>
+      {/* Users Grid/Table */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {users.map((user) => (
+            <Card key={user.id} className="hover:shadow-md transition-shadow">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Users className="w-5 h-5" />
-            <span>Users</span>
-          </CardTitle>
-          <CardDescription>
-            Manage user accounts and permissions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredUsers.length > 0 ? (
-            <div className="space-y-4">
-              {filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{user.name}</CardTitle>
+                      <div className="flex items-center space-x-2 mt-1">
                         {user.isActive ? (
                           <UserCheck className="w-4 h-4 text-green-600" />
                         ) : (
                           <UserX className="w-4 h-4 text-red-600" />
                         )}
-                        <span className="font-medium text-gray-900">
-                          {user.name}
-                        </span>
+                        <Badge variant={user.isActive ? 'success' : 'destructive'}>
+                          {user.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
                       </div>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {user.role.replace('_', ' ')}
-                      </Badge>
-                      {!user.isActive && (
-                        <Badge variant="destructive">Inactive</Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center space-x-6 text-sm text-gray-600">
-                      {user.email && (
-                        <div className="flex items-center space-x-1">
-                          <Mail className="w-4 h-4" />
-                          <span>{user.email}</span>
-                        </div>
-                      )}
-                      {user.phoneNumber && (
-                        <div className="flex items-center space-x-1">
-                          <Phone className="w-4 h-4" />
-                          <span>{user.phoneNumber}</span>
-                        </div>
-                      )}
-                      {user.branch && (
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="w-4 h-4" />
-                          <span>{user.branch.name}</span>
-                        </div>
-                      )}
-                      <span className="text-xs">
-                        Created {format(new Date(user.createdAt), 'MMM dd, yyyy')}
-                      </span>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => setEditingUser(user)}
                     >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
+                      <Edit className="w-4 h-4" />
                     </Button>
                     <Button
-                      variant="destructive"
+                      variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteUser(user.id)}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {user.isActive ? 'Deactivate' : 'Activate'}
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    {getRoleIcon(user.role)}
+                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                      {user.role.replace('_', ' ')}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Mail className="w-4 h-4" />
+                    <span>{user.email}</span>
+                  </div>
+                  
+                  {user.phoneNumber && (
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                      <Phone className="w-4 h-4" />
+                      <span>{user.phoneNumber}</span>
+                    </div>
+                  )}
+
+                  {user.branch && (
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                      <MapPin className="w-4 h-4" />
+                      <span>{user.branch.name}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Calendar className="w-4 h-4" />
+                    <span>Created {format(new Date(user.createdAt), 'MMM dd, yyyy')}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      ID: {user.id.slice(0, 8)}...
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-yellow-500" />
+                      <span className="text-sm font-medium">4.8</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {users.length === 0 && (
+            <div className="col-span-full">
+              <Card>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">No users found</p>
+                    <Button onClick={() => setShowCreateForm(true)}>
+                      Add First User
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="w-5 h-5" />
+              <span>Users Table</span>
+            </CardTitle>
+            <CardDescription>
+              Detailed view of all users with their information and statistics
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">User</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Role</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Contact</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Branch</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Created</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              ID: {user.id.slice(0, 8)}...
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-2">
+                          {getRoleIcon(user.role)}
+                          <Badge variant={getRoleBadgeVariant(user.role)}>
+                            {user.role.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-1">
+                          <div className="text-sm text-gray-900 dark:text-white">{user.email}</div>
+                          {user.phoneNumber && (
+                            <div className="text-sm text-gray-500 dark:text-gray-400">{user.phoneNumber}</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-1">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-900 dark:text-white">
+                            {user.branch?.name || 'Unassigned'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant={user.isActive ? 'success' : 'destructive'}>
+                          {user.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {format(new Date(user.createdAt), 'MMM dd, yyyy')}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingUser(user)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
               {/* Pagination */}
               {pagination && pagination.pages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <div className="text-sm text-gray-500">
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                     Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, pagination.total)} of {pagination.total} users
                   </div>
                   <div className="flex items-center space-x-2">
@@ -361,7 +625,7 @@ const AdminUsers: React.FC = () => {
                     >
                       Previous
                     </Button>
-                    <span className="text-sm text-gray-600">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
                       Page {page} of {pagination.pages}
                     </span>
                     <Button
@@ -373,28 +637,17 @@ const AdminUsers: React.FC = () => {
                       Next
                     </Button>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">No users found</p>
-              <Button onClick={() => setShowCreateForm(true)}>
-                Add First User
-              </Button>
             </div>
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Create/Edit User Modal */}
       {(showCreateForm || editingUser) && (
         <UserFormModal
           user={editingUser}
-          branches={user?.role === UserRole.SUPER_ADMIN ? branches : undefined}
-          userBranchId={user?.branchId}
-          userRole={user?.role}
+          branches={branches}
           onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
           onClose={() => {
             setShowCreateForm(false)
@@ -410,9 +663,7 @@ const AdminUsers: React.FC = () => {
 // User Form Modal Component
 interface UserFormModalProps {
   user?: User | null
-  branches?: Branch[]
-  userBranchId?: string
-  userRole?: UserRole
+  branches: Branch[]
   onSubmit: (data: any) => void
   onClose: () => void
   isLoading: boolean
@@ -421,18 +672,24 @@ interface UserFormModalProps {
 const UserFormModal: React.FC<UserFormModalProps> = ({
   user,
   branches,
-  userBranchId,
-  userRole,
   onSubmit,
   onClose,
   isLoading
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    phoneNumber: string
+    role: UserRole
+    branchId: string
+    password: string
+    isActive: boolean
+  }>({
     name: user?.name || '',
     email: user?.email || '',
     phoneNumber: user?.phoneNumber || '',
-    role: user?.role || UserRole.STUDENT,
-    branchId: user?.branchId || userBranchId || '',
+    role: (user?.role as UserRole) || UserRole.STUDENT,
+    branchId: user?.branchId || '',
     password: '',
     isActive: user?.isActive ?? true
   })
@@ -441,25 +698,21 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
     e.preventDefault()
     const submitData = { ...formData }
     if (!submitData.password) {
-      delete submitData.password
+      delete (submitData as any).password
     }
     onSubmit(submitData)
   }
 
-  const availableRoles = userRole === UserRole.BRANCH_ADMIN 
-    ? [UserRole.TEACHER, UserRole.STUDENT]
-    : [UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN, UserRole.TEACHER, UserRole.STUDENT]
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {user ? 'Edit User' : 'Create New User'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             ×
           </button>
@@ -467,45 +720,43 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Full Name *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Role *
             </label>
             <select
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
             >
-              {availableRoles.map((role) => (
-                <option key={role} value={role}>
-                  {role.replace('_', ' ')}
-                </option>
-              ))}
+              <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
+              <option value={UserRole.BRANCH_ADMIN}>Branch Admin</option>
+              <option value={UserRole.TEACHER}>Teacher</option>
+              <option value={UserRole.STUDENT}>Student</option>
             </select>
           </div>
 
-          {branches && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Branch *
               </label>
               <select
                 value={formData.branchId}
                 onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               >
                 <option value="">Select Branch</option>
@@ -516,49 +767,48 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                 ))}
               </select>
             </div>
-          )}
 
-          {formData.role !== UserRole.STUDENT && (
+          {(formData.role as UserRole) !== UserRole.STUDENT && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email *
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required={formData.role !== UserRole.STUDENT}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                required={(formData.role as UserRole) !== UserRole.STUDENT}
               />
             </div>
           )}
 
           {formData.role === UserRole.STUDENT && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Phone Number *
               </label>
               <input
                 type="tel"
                 value={formData.phoneNumber}
                 onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="+8801234567890"
                 required={formData.role === UserRole.STUDENT}
               />
             </div>
           )}
 
-          {formData.role !== UserRole.STUDENT && (
+          {(formData.role as UserRole) !== UserRole.STUDENT && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Password {!user && '*'}
               </label>
               <input
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required={!user}
                 placeholder={user ? 'Leave blank to keep current password' : ''}
               />
@@ -572,9 +822,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                 id="isActive"
                 checked={formData.isActive}
                 onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="rounded border-gray-300"
+                className="rounded border-gray-300 dark:border-gray-600"
               />
-              <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+              <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Active User
               </label>
             </div>

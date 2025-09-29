@@ -36,6 +36,15 @@ export default {
           500: '#dc2626',       // Main brand red
           600: '#b91c1c',       // Hover state
           700: '#991b1b',       // Active state
+        },
+        // Dark mode colors
+        background: {
+          DEFAULT: '#f9fafb',
+          dark: '#111827',
+        },
+        foreground: {
+          DEFAULT: '#111827',
+          dark: '#f9fafb',
         }
       },
     },

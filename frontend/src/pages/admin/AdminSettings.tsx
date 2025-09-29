@@ -24,16 +24,16 @@ import {
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 const CardContent = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pt-0">{children}</div>
@@ -41,9 +41,9 @@ const CardContent = ({ children }: { children: React.ReactNode }) => (
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      variant === 'ghost' ? 'hover:bg-gray-100' :
+      variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     disabled={disabled}
@@ -55,11 +55,11 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    variant === 'success' ? 'bg-green-100 text-green-800' :
-    variant === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-    'bg-blue-100 text-blue-800'
+    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
+    variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
+    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   }`}>
     {children}
   </span>
@@ -247,12 +247,12 @@ const AdminSettings: React.FC = () => {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Configuration</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Configuration</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Configure business rules, notification templates, and system settings
           </p>
         </div>

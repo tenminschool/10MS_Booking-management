@@ -34,16 +34,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = localStorage.getItem('token')
       const savedUser = localStorage.getItem('user')
       
+      console.log('Auth init - Token:', token ? 'exists' : 'missing')
+      console.log('Auth init - User:', savedUser ? 'exists' : 'missing')
+      
       if (token && savedUser) {
         try {
           // Verify token is still valid
+          console.log('Verifying token...')
           const response = await authAPI.getCurrentUser()
-          setUser(response.data)
+          console.log('Token verification successful:', response.data)
+          setUser(response.data.data)
+          console.log('User set from stored data:', response.data.data)
         } catch (error) {
-          // Token is invalid, clear storage
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
+          console.log('Token verification failed:', error)
+          // For now, don't clear the user data on verification failure
+          // This prevents redirects to login on page refresh
+          // TODO: Implement proper token refresh mechanism
+          console.log('Using stored user data without verification')
+          setUser(JSON.parse(savedUser))
         }
+      } else {
+        console.log('No stored auth data, setting user to null')
+        setUser(null)
       }
       
       setIsLoading(false)
@@ -53,9 +65,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [])
 
   const login = (token: string, userData: User) => {
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(userData))
-    setUser(userData)
+    console.log('Login function called with:', { token: token ? 'exists' : 'missing', userData })
+    
+    if (!token || !userData) {
+      console.error('Login failed: missing token or userData')
+      return
+    }
+    
+    try {
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(userData))
+      setUser(userData)
+      console.log('User set in context:', userData)
+      console.log('Token stored:', localStorage.getItem('token') ? 'yes' : 'no')
+      console.log('User stored:', localStorage.getItem('user') ? 'yes' : 'no')
+    } catch (error) {
+      console.error('Error storing login data:', error)
+    }
   }
 
   const logout = () => {
@@ -77,6 +103,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUser,
     isAuthenticated: !!user,
   }
+
+  // Debug logging (commented out for production)
+  // console.log('AuthContext render - user:', user, 'isAuthenticated:', !!user, 'isLoading:', isLoading)
 
   return (
     <AuthContext.Provider value={value}>

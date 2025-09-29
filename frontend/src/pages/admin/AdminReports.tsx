@@ -132,7 +132,7 @@ interface NoShowData {
 
 // Mock UI components with proper TypeScript types
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 
 const CardHeader: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -140,11 +140,11 @@ const CardHeader: React.FC<{ children: React.ReactNode; className?: string }> = 
 )
 
 const CardTitle: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 
 const CardDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 
 const CardContent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -171,9 +171,9 @@ const Button: React.FC<ButtonProps> = ({
   const baseClasses = 'px-4 py-2 rounded-md font-medium transition-colors'
   const variantClasses = {
     default: 'bg-blue-600 text-white hover:bg-blue-700',
-    outline: 'border border-gray-300 bg-white hover:bg-gray-50',
+    outline: 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white',
     destructive: 'bg-red-600 text-white hover:bg-red-700',
-    ghost: 'hover:bg-gray-100'
+    ghost: 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
   }
   const sizeClasses = {
     default: '',
@@ -347,12 +347,12 @@ const AdminReports: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports & Analytics</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             {user?.role === UserRole.SUPER_ADMIN
               ? 'System-wide reporting and analytics across all branches'
               : `Comprehensive reporting and analytics dashboard for ${user?.branchId || 'your branch'}`

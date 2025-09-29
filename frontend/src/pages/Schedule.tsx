@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UserRole } from '@/types'
 import type { SlotFilters, Slot } from '@/types'
 import { Link } from 'react-router-dom'
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays } from 'date-fns'
+import { format, addDays, subDays } from 'date-fns'
 import { 
   Calendar as CalendarIcon, 
   List, 
@@ -17,18 +17,22 @@ import {
   Users,
   Filter,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  HelpCircle
 } from 'lucide-react'
+import { Tooltip } from '@/components/ui/tooltip'
+import { useToast } from '@/components/ui/toast'
+import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
-const CardHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pb-4">{children}</div>
+const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pb-4 ${className}`}>{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`p-6 pt-0 ${className}`}>{children}</div>
@@ -36,7 +40,7 @@ const CardContent = ({ children, className = '' }: { children: React.ReactNode; 
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -49,17 +53,12 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    'bg-blue-100 text-blue-800'
+    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   } ${className}`}>
     {children}
   </span>
-)
-const Calendar = ({ className }: any) => (
-  <div className={`p-4 border rounded-lg ${className || ''}`}>
-    <div className="text-center text-gray-500">Calendar Component (Mock)</div>
-  </div>
 )
 const Dialog = ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) => (
   open ? (
@@ -210,11 +209,11 @@ const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact 
 const Schedule: React.FC = () => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
-  const [displayView, setDisplayView] = useState<'list' | 'calendar'>('list')
+  const [displayView, setDisplayView] = useState<'list' | 'calendar'>('calendar')
   const [filters, setFilters] = useState<SlotFilters>({
-    view: 'weekly',
+    view: 'monthly',
     date: format(new Date(), 'yyyy-MM-dd'),
     // For teachers, automatically filter to their slots
     ...(user?.role === UserRole.TEACHER && { teacherId: user.id })
@@ -277,13 +276,6 @@ const Schedule: React.FC = () => {
     }
   }
 
-  const handleViewChange = (newView: 'daily' | 'weekly' | 'monthly') => {
-    setView(newView)
-    setFilters(prev => ({
-      ...prev,
-      view: newView
-    }))
-  }
 
   const handleBranchFilter = (branchId: string) => {
     setFilters(prev => ({
@@ -293,39 +285,14 @@ const Schedule: React.FC = () => {
   }
 
   const navigateDate = (direction: 'prev' | 'next') => {
-    let newDate: Date
-    if (view === 'daily') {
-      newDate = direction === 'next' ? addDays(selectedDate, 1) : subDays(selectedDate, 1)
-    } else if (view === 'weekly') {
-      newDate = direction === 'next' ? addDays(selectedDate, 7) : subDays(selectedDate, 7)
-    } else {
-      newDate = direction === 'next' ? addDays(selectedDate, 30) : subDays(selectedDate, 30)
-    }
+    const newDate = direction === 'next' ? addDays(selectedDate, 30) : subDays(selectedDate, 30)
     handleDateChange(newDate)
   }
 
   const getDateRange = () => {
-    if (view === 'daily') {
-      return format(selectedDate, 'EEEE, MMMM dd, yyyy')
-    } else if (view === 'weekly') {
-      const start = startOfWeek(selectedDate)
-      const end = endOfWeek(selectedDate)
-      return `${format(start, 'MMM dd')} - ${format(end, 'MMM dd, yyyy')}`
-    } else {
-      return format(selectedDate, 'MMMM yyyy')
-    }
+    return format(selectedDate, 'MMMM yyyy')
   }
 
-  const getWeekDays = () => {
-    const start = startOfWeek(selectedDate)
-    const end = endOfWeek(selectedDate)
-    return eachDayOfInterval({ start, end })
-  }
-
-  const getSlotsByDate = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd')
-    return slots?.filter((slot: any) => slot.date === dateStr) || []
-  }
 
   const handleBookSlot = (slot: Slot) => {
     setSelectedSlot(slot)
@@ -338,10 +305,18 @@ const Schedule: React.FC = () => {
     setIsConfirming(true)
     try {
       await bookSlotMutation.mutateAsync(selectedSlot.id)
-      // Show success toast (you can implement toast notifications here)
-      console.log('Booking confirmed successfully!')
+      addToast({
+        type: 'success',
+        title: 'Booking Confirmed!',
+        message: `Successfully booked slot for ${format(new Date(selectedSlot.date), 'MMM dd, yyyy')} at ${selectedSlot.startTime}`
+      })
     } catch (error) {
       console.error('Booking failed:', error)
+      addToast({
+        type: 'error',
+        title: 'Booking Failed',
+        message: 'Unable to book this slot. Please try again or contact support.'
+      })
     } finally {
       setIsConfirming(false)
     }
@@ -360,18 +335,18 @@ const Schedule: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       {/* Header */}
       <div className="flex flex-col space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               {user?.role === UserRole.SUPER_ADMIN && 'System Schedule Management'}
               {user?.role === UserRole.BRANCH_ADMIN && 'Branch Schedule Management'}
               {user?.role === UserRole.TEACHER && 'My Teaching Schedule'}
               {user?.role === UserRole.STUDENT && 'Available Speaking Test Slots'}
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
               {user?.role === UserRole.SUPER_ADMIN && 'Manage all speaking test slots across all branches and monitor system-wide scheduling'}
               {user?.role === UserRole.BRANCH_ADMIN && 'Manage speaking test slots for your branch and monitor teacher schedules'}
               {user?.role === UserRole.TEACHER && 'View your assigned speaking test slots, manage sessions, and track student attendance'}
@@ -381,54 +356,30 @@ const Schedule: React.FC = () => {
         
         {/* View Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          {/* Time Range Toggle */}
-          <div className="flex items-center space-x-2 overflow-x-auto pb-2 sm:pb-0">
-            <Button
-              variant={view === 'daily' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleViewChange('daily')}
-              className="whitespace-nowrap"
-            >
-              Daily
-            </Button>
-            <Button
-              variant={view === 'weekly' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleViewChange('weekly')}
-              className="whitespace-nowrap"
-            >
-              Weekly
-            </Button>
-            <Button
-              variant={view === 'monthly' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleViewChange('monthly')}
-              className="whitespace-nowrap"
-            >
-              Monthly
-            </Button>
-          </div>
-          
           {/* Display View Toggle */}
           <div className="flex items-center space-x-2 border rounded-lg p-1 w-fit">
-            <Button
-              variant={displayView === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setDisplayView('list')}
-              className="flex items-center space-x-1"
-            >
-              <List className="w-4 h-4" />
-              <span className="hidden sm:inline">List</span>
-            </Button>
-            <Button
-              variant={displayView === 'calendar' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setDisplayView('calendar')}
-              className="flex items-center space-x-1"
-            >
-              <CalendarIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Calendar</span>
-            </Button>
+            <Tooltip content="View slots in a detailed list format">
+              <Button
+                variant={displayView === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setDisplayView('list')}
+                className="flex items-center space-x-1"
+              >
+                <List className="w-4 h-4" />
+                <span className="hidden sm:inline">List</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="View slots in a monthly calendar format">
+              <Button
+                variant={displayView === 'calendar' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setDisplayView('calendar')}
+                className="flex items-center space-x-1"
+              >
+                <CalendarIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Calendar</span>
+              </Button>
+            </Tooltip>
           </div>
           
           {/* Role-based Action Buttons */}
@@ -485,10 +436,10 @@ const Schedule: React.FC = () => {
       </div>
       </div>
 
-      {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* PRIMARY CONTENT - 2/3 width */}
-        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
+      {/* Two-Column Layout: 3/4 Primary + 1/4 Secondary */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
+        {/* PRIMARY CONTENT - 3/4 width */}
+        <div className="lg:col-span-3 space-y-4 lg:space-y-6">
           {/* Date Navigation */}
           <div className="flex items-center justify-between space-x-2">
             <Button variant="outline" onClick={() => navigateDate('prev')} size="sm" className="text-xs sm:text-sm">
@@ -510,90 +461,60 @@ const Schedule: React.FC = () => {
 
           {/* Calendar/Schedule View */}
           {displayView === 'calendar' ? (
-            <Card>
-              <CardContent className="p-6">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateChange}
-                  className="rounded-md border"
-                />
-              </CardContent>
-            </Card>
+            <CalendarComponent
+              selectedDate={selectedDate}
+              onDateSelect={handleDateChange}
+              onSlotClick={handleBookSlot}
+              slots={slots || []}
+              className="w-full"
+            />
           ) : (
-            <div className="grid gap-4">
-              {view === 'daily' ? (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">
-                    {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
-                  </h3>
-                  <div className="grid gap-4">
-                    {getSlotsByDate(selectedDate).map((slot) => (
-                      <SlotCard 
-                        key={slot.id} 
-                        slot={slot} 
-                        onBook={handleBookSlot}
-                        isAvailable={isSlotAvailable(slot)}
-                      />
-                    ))}
-                    {getSlotsByDate(selectedDate).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        No slots available for this date
-                      </div>
-                    )}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">
+                {format(selectedDate, 'MMMM yyyy')} - Available Slots
+              </h3>
+              <div className="grid gap-4">
+                {slots?.map((slot) => (
+                  <SlotCard 
+                    key={slot.id} 
+                    slot={slot} 
+                    onBook={handleBookSlot}
+                    isAvailable={isSlotAvailable(slot)}
+                  />
+                ))}
+                {(!slots || slots.length === 0) && (
+                  <div className="text-center py-8 text-gray-500">
+                    No slots available for this month
                   </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                  {getWeekDays().map((day) => (
-                    <div key={day.toISOString()} className="space-y-2">
-                      <h3 className="font-medium text-center p-2 bg-gray-50 rounded">
-                        {format(day, 'EEE dd')}
-                      </h3>
-                      <div className="space-y-2">
-                        {getSlotsByDate(day).map((slot) => (
-                          <SlotCard 
-                            key={slot.id} 
-                            slot={slot} 
-                            onBook={handleBookSlot}
-                            isAvailable={isSlotAvailable(slot)}
-                            compact
-                          />
-                        ))}
-                        {getSlotsByDate(day).length === 0 && (
-                          <div className="text-xs text-gray-400 text-center py-4">
-                            No slots
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* SECONDARY CONTENT - 1/3 width */}
-        <div className="space-y-6">
+        {/* SECONDARY CONTENT - 1/4 width */}
+        <div className="space-y-4">
           {/* Filters & Search */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Filter className="w-5 h-5" />
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center space-x-2 text-sm">
+                <Filter className="w-4 h-4" />
                 <span>Filters</span>
+                <Tooltip content="Filter slots by branch to see only relevant time slots">
+                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                </Tooltip>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-0">
+              <div className="space-y-3">
                 {/* Branch Filter */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Branch</label>
-                  <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-600">Branch</label>
+                  <div className="space-y-1">
                     <Button
                       variant={!filters.branchId ? 'default' : 'outline'}
                       size="sm"
-                      className="w-full justify-start"
+                      className="w-full justify-start text-xs h-8"
                       onClick={() => handleBranchFilter('all')}
                     >
                       All Branches
@@ -603,7 +524,7 @@ const Schedule: React.FC = () => {
                         key={branch.id}
                         variant={filters.branchId === branch.id ? 'default' : 'outline'}
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-8"
                         onClick={() => handleBranchFilter(branch.id)}
                       >
                         {branch.name}
@@ -688,37 +609,6 @@ const Schedule: React.FC = () => {
             </Card>
           )}
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Link to="/bookings">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    My Bookings
-                  </Button>
-                </Link>
-                <Link to="/assessments">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <GraduationCap className="w-4 h-4 mr-2" />
-                    My Scores
-                  </Button>
-                </Link>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full justify-start"
-                  onClick={() => handleDateChange(new Date())}
-                >
-                  <CalendarIcon className="w-4 h-4 mr-2" />
-                  Today's Slots
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -734,7 +624,7 @@ const Schedule: React.FC = () => {
           
           {selectedSlot && (
             <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2">
                 <div className="flex items-center space-x-2">
                   <CalendarIcon className="w-4 h-4 text-gray-500" />
                   <span className="font-medium">

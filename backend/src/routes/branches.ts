@@ -2,214 +2,138 @@ import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 import { validateRequest, createBranchSchema, updateBranchSchema, paginationSchema } from '../utils/validation';
-import prisma from '../lib/prisma';
-import { UserRole } from '@prisma/client';
+import { supabase } from '../lib/supabase';
+import { UserRole } from '../types/auth';
 
 const router = Router();
 
-// Mock branches data
-const mockBranches = [
-  {
-    id: 'mock-branch-1',
-    name: 'Dhanmondi Branch',
-    address: '27 Dhanmondi R/A, Dhaka 1205',
-    contactNumber: '+880-2-9661301',
-    isActive: true,
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-15'),
-    _count: { users: 45, slots: 120 }
-  },
-  {
-    id: 'mock-branch-2',
-    name: 'Gulshan Branch',
-    address: '98 Gulshan Avenue, Dhaka 1212',
-    contactNumber: '+880-2-9885566',
-    isActive: true,
-    createdAt: new Date('2024-02-01'),
-    updatedAt: new Date('2024-02-01'),
-    _count: { users: 38, slots: 95 }
-  },
-  {
-    id: 'mock-branch-3',
-    name: 'Uttara Branch',
-    address: '15 Uttara Sector 7, Dhaka 1230',
-    contactNumber: '+880-2-8958877',
-    isActive: true,
-    createdAt: new Date('2024-03-10'),
-    updatedAt: new Date('2024-03-10'),
-    _count: { users: 32, slots: 80 }
-  }
-];
-
 // Get all branches
-router.get('/',
-  authenticate,
+router.get('/', 
+  authenticate, 
   async (req, res) => {
     try {
       const { page = 1, limit = 10, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
-      const { search } = req.query;
+      const { search, isActive } = req.query;
 
-      // Try database first, fallback to mock data
-      try {
-        await prisma.$queryRaw`SELECT 1`;
+      const skip = ((page || 1) - 1) * (limit || 10);
+      
+      // Build Supabase query
+      let query = supabase
+        .from('branches')
+        .select('*')
+        .range(skip, skip + (limit || 10) - 1);
 
-        const skip = (page - 1) * limit;
-
-        // Build where clause
-        const where: any = {};
-        if (search) {
-          where.OR = [
-            { name: { contains: search as string, mode: 'insensitive' } },
-            { address: { contains: search as string, mode: 'insensitive' } }
-          ];
-        }
-
-        const [branches, total] = await Promise.all([
-          prisma.branch.findMany({
-            where,
-            skip,
-            take: limit,
-            orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
-            include: {
-              _count: {
-                select: {
-                  users: true,
-                  slots: true
-                }
-              }
-            }
-          }),
-          prisma.branch.count({ where })
-        ]);
-
-        res.json({
-          branches,
-          pagination: {
-            page,
-            limit,
-            total,
-            pages: Math.ceil(total / limit)
-          }
-        });
-
-      } catch (dbError) {
-        console.warn('Database unavailable, using mock branches data:', dbError);
-
-        // Filter mock data based on search
-        let filteredBranches = mockBranches;
-        if (search) {
-          const searchTerm = (search as string).toLowerCase();
-          filteredBranches = mockBranches.filter(branch =>
-            branch.name.toLowerCase().includes(searchTerm) ||
-            branch.address.toLowerCase().includes(searchTerm)
-          );
-        }
-
-        // Apply pagination
-        const skip = (page - 1) * limit;
-        const paginatedBranches = filteredBranches.slice(skip, skip + limit);
-
-        res.json({
-          branches: paginatedBranches,
-          pagination: {
-            page,
-            limit,
-            total: filteredBranches.length,
-            pages: Math.ceil(filteredBranches.length / limit)
-          },
-          _mock: true,
-          _message: 'Using mock data (database unavailable)'
-        });
+      // Apply filters
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
+      }
+      if (isActive !== undefined) {
+        query = query.eq('isActive', isActive === 'true');
       }
 
-    } catch (error) {
-      console.error('Get branches error:', error);
+      // Apply sorting
+      if (sortBy) {
+        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      } else {
+        query = query.order('createdAt', { ascending: false });
+      }
+
+      const { data: branches, error: branchesError } = await query;
+
+      if (branchesError) {
+        throw new Error(`Failed to fetch branches: ${branchesError.message}`);
+      }
+
+      // Get total count
+      let countQuery = supabase
+        .from('branches')
+        .select('*', { count: 'exact', head: true });
+
+      if (search) {
+        countQuery = countQuery.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
+      }
+      if (isActive !== undefined) {
+        countQuery = countQuery.eq('isActive', isActive === 'true');
+      }
+
+      const { count: total, error: countError } = await countQuery;
+
+      if (countError) {
+        throw new Error(`Failed to count branches: ${countError.message}`);
+      }
+
+      res.json({
+        branches: branches || [],
+        pagination: {
+          page: page || 1,
+          limit: limit || 10,
+          total: total || 0,
+          pages: Math.ceil((total || 0) / (limit || 10))
+        }
+      });
+    } catch (error: any) {
+      console.error('Error fetching branches:', error);
       res.status(500).json({
         error: 'Failed to fetch branches',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
-// Get single branch
-router.get('/:id',
-  authenticate,
+// Get branch by ID
+router.get('/:id', 
+  authenticate, 
   async (req, res) => {
     try {
       const { id } = req.params;
 
-      const branch = await prisma.branch.findUnique({
-        where: { id },
-        include: {
-          _count: {
-            select: {
-              users: true,
-              slots: true
-            }
-          },
-          users: {
-            where: { isActive: true },
-            select: {
-              id: true,
-              name: true,
-              role: true,
-              email: true,
-              phoneNumber: true,
-              isActive: true
-            },
-            orderBy: { name: 'asc' }
-          }
-        }
-      });
+      const { data: branch, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      if (!branch) {
-        return res.status(404).json({
-          error: 'Branch not found',
-          message: 'Branch with the specified ID does not exist'
-        });
-      }
-
-      // Check branch access for non-super-admins
-      if (req.user?.role !== UserRole.SUPER_ADMIN) {
-        if (branch.id !== req.user?.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Cannot access other branches'
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'Branch not found',
+            message: 'The requested branch does not exist'
           });
         }
+        throw new Error(`Failed to fetch branch: ${error.message}`);
       }
 
-      res.json({ branch });
-
-    } catch (error) {
-      console.error('Get branch error:', error);
+      res.json(branch);
+    } catch (error: any) {
+      console.error('Error fetching branch:', error);
       res.status(500).json({
         error: 'Failed to fetch branch',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
-// Create branch (Super-Admin only)
-router.post('/',
-  authenticate,
-  requireRole([UserRole.SUPER_ADMIN]),
-  auditLog('branch_create'),
+// Create new branch (Super-Admin only)
+router.post('/', 
+  authenticate, 
+  requireRole(['SUPER_ADMIN']),
+  auditLog('CREATE_BRANCH'),
   async (req, res) => {
     try {
       const branchData = validateRequest(createBranchSchema, req.body);
 
       // Check if branch with same name already exists
-      const existingBranch = await prisma.branch.findFirst({
-        where: {
-          name: {
-            equals: branchData.name,
-            mode: 'insensitive'
-          }
-        }
-      });
+      const { data: existingBranch, error: checkError } = await supabase
+        .from('branches')
+        .select('id')
+        .eq('name', branchData.name)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw new Error(`Failed to check existing branch: ${checkError.message}`);
+      }
 
       if (existingBranch) {
         return res.status(409).json({
@@ -218,251 +142,217 @@ router.post('/',
         });
       }
 
-      // Create branch
-      const branch = await prisma.branch.create({
-        data: branchData,
-        include: {
-          _count: {
-            select: {
-              users: true,
-              slots: true
-            }
-          }
-        }
-      });
+      const { data: branch, error } = await supabase
+        .from('branches')
+        .insert([{
+          name: branchData.name,
+          address: branchData.address,
+          contactNumber: branchData.contactNumber,
+          isActive: branchData.isActive ?? true
+        }])
+        .select()
+        .single();
 
-      res.status(201).json({
-        message: 'Branch created successfully',
-        branch
-      });
+      if (error) {
+        throw new Error(`Failed to create branch: ${error.message}`);
+      }
 
-    } catch (error) {
-      console.error('Create branch error:', error);
+      res.status(201).json(branch);
+    } catch (error: any) {
+      console.error('Error creating branch:', error);
       res.status(500).json({
         error: 'Failed to create branch',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
 // Update branch (Super-Admin only)
-router.put('/:id',
-  authenticate,
-  requireRole([UserRole.SUPER_ADMIN]),
-  auditLog('branch_update'),
+router.put('/:id', 
+  authenticate, 
+  requireRole(['SUPER_ADMIN']),
+  auditLog('UPDATE_BRANCH'),
   async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = validateRequest(updateBranchSchema, req.body);
 
       // Check if branch exists
-      const existingBranch = await prisma.branch.findUnique({
-        where: { id }
-      });
+      const { data: existingBranch, error: checkError } = await supabase
+        .from('branches')
+        .select('id')
+        .eq('id', id)
+        .single();
 
-      if (!existingBranch) {
-        return res.status(404).json({
-          error: 'Branch not found',
-          message: 'Branch with the specified ID does not exist'
-        });
+      if (checkError) {
+        if (checkError.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'Branch not found',
+            message: 'The requested branch does not exist'
+          });
+        }
+        throw new Error(`Failed to check existing branch: ${checkError.message}`);
       }
 
-      // Check for duplicate name
+      // Check for duplicate name if name is being updated
       if (updateData.name) {
-        const duplicateBranch = await prisma.branch.findFirst({
-          where: {
-            AND: [
-              { id: { not: id } },
-              { name: { equals: updateData.name, mode: 'insensitive' } }
-            ]
-          }
-        });
+        const { data: duplicateBranch, error: duplicateError } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('name', updateData.name)
+          .neq('id', id)
+          .single();
+
+        if (duplicateError && duplicateError.code !== 'PGRST116') {
+          throw new Error(`Failed to check duplicate branch: ${duplicateError.message}`);
+        }
 
         if (duplicateBranch) {
           return res.status(409).json({
-            error: 'Duplicate name',
-            message: 'Another branch with this name already exists'
+            error: 'Branch name already exists',
+            message: 'A branch with this name already exists'
           });
         }
       }
 
-      // Update branch
-      const branch = await prisma.branch.update({
-        where: { id },
-        data: updateData,
-        include: {
-          _count: {
-            select: {
-              users: true,
-              slots: true
-            }
-          }
-        }
-      });
+      const { data: branch, error } = await supabase
+        .from('branches')
+        .update({
+          ...updateData,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
-      res.json({
-        message: 'Branch updated successfully',
-        branch
-      });
+      if (error) {
+        throw new Error(`Failed to update branch: ${error.message}`);
+      }
 
-    } catch (error) {
-      console.error('Update branch error:', error);
+      res.json(branch);
+    } catch (error: any) {
+      console.error('Error updating branch:', error);
       res.status(500).json({
         error: 'Failed to update branch',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
 // Delete branch (Super-Admin only)
-router.delete('/:id',
-  authenticate,
-  requireRole([UserRole.SUPER_ADMIN]),
-  auditLog('branch_delete'),
+router.delete('/:id', 
+  authenticate, 
+  requireRole(['SUPER_ADMIN']),
+  auditLog('DELETE_BRANCH'),
   async (req, res) => {
     try {
       const { id } = req.params;
 
       // Check if branch exists
-      const existingBranch = await prisma.branch.findUnique({
-        where: { id },
-        include: {
-          _count: {
-            select: {
-              users: true,
-              slots: true
-            }
-          }
-        }
-      });
+      const { data: existingBranch, error: checkError } = await supabase
+        .from('branches')
+        .select('id')
+        .eq('id', id)
+        .single();
 
-      if (!existingBranch) {
-        return res.status(404).json({
-          error: 'Branch not found',
-          message: 'Branch with the specified ID does not exist'
-        });
+      if (checkError) {
+        if (checkError.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'Branch not found',
+            message: 'The requested branch does not exist'
+          });
+        }
+        throw new Error(`Failed to check existing branch: ${checkError.message}`);
       }
 
-      // Check if branch has users or slots
-      if (existingBranch._count.users > 0 || existingBranch._count.slots > 0) {
-        return res.status(409).json({
-          error: 'Branch has dependencies',
-          message: 'Cannot delete branch that has users or slots. Please reassign or remove them first.',
-          details: {
-            users: existingBranch._count.users,
-            slots: existingBranch._count.slots
-          }
-        });
+      // Soft delete by setting isActive to false
+      const { data: branch, error } = await supabase
+        .from('branches')
+        .update({
+          isActive: false,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to delete branch: ${error.message}`);
       }
 
-      // Delete branch
-      await prisma.branch.delete({
-        where: { id }
-      });
-
-      res.json({
-        message: 'Branch deleted successfully',
-        branch: {
-          id: existingBranch.id,
-          name: existingBranch.name
-        }
-      });
-
-    } catch (error) {
-      console.error('Delete branch error:', error);
+      res.json({ message: 'Branch deleted successfully', branch });
+    } catch (error: any) {
+      console.error('Error deleting branch:', error);
       res.status(500).json({
         error: 'Failed to delete branch',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
-// Get branch statistics (for dashboard)
-router.get('/:id/stats',
-  authenticate,
+// Get branch statistics
+router.get('/:id/stats', 
+  authenticate, 
   async (req, res) => {
     try {
       const { id } = req.params;
 
-      // Check branch access for non-super-admins
-      if (req.user?.role !== UserRole.SUPER_ADMIN) {
-        if (id !== req.user?.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Cannot access other branch statistics'
+      // Check if branch exists
+      const { data: branch, error: branchError } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('id', id)
+        .single();
+
+      if (branchError) {
+        if (branchError.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'Branch not found',
+            message: 'The requested branch does not exist'
           });
         }
-      }
-
-      const branch = await prisma.branch.findUnique({
-        where: { id },
-        select: { id: true, name: true }
-      });
-
-      if (!branch) {
-        return res.status(404).json({
-          error: 'Branch not found',
-          message: 'Branch with the specified ID does not exist'
-        });
+        throw new Error(`Failed to fetch branch: ${branchError.message}`);
       }
 
       // Get statistics
       const [
-        totalUsers,
-        activeUsers,
-        totalTeachers,
-        totalStudents,
-        totalSlots,
-        totalBookings,
-        todayBookings
+        { count: totalUsers },
+        { count: activeUsers },
+        { count: teachers },
+        { count: students },
+        { count: totalSlots },
+        { count: totalBookings },
+        { count: confirmedBookings }
       ] = await Promise.all([
-        prisma.user.count({ where: { branchId: id } }),
-        prisma.user.count({ where: { branchId: id, isActive: true } }),
-        prisma.user.count({ where: { branchId: id, role: UserRole.TEACHER, isActive: true } }),
-        prisma.user.count({ where: { branchId: id, role: UserRole.STUDENT, isActive: true } }),
-        prisma.slot.count({ where: { branchId: id } }),
-        prisma.booking.count({
-          where: {
-            slot: { branchId: id }
-          }
-        }),
-        prisma.booking.count({
-          where: {
-            slot: {
-              branchId: id,
-              date: new Date().toISOString().split('T')[0]
-            }
-          }
-        })
+        supabase.from('users').select('*', { count: 'exact', head: true }).eq('branchId', id),
+        supabase.from('users').select('*', { count: 'exact', head: true }).eq('branchId', id).eq('isActive', true),
+        supabase.from('users').select('*', { count: 'exact', head: true }).eq('branchId', id).eq('role', UserRole.TEACHER).eq('isActive', true),
+        supabase.from('users').select('*', { count: 'exact', head: true }).eq('branchId', id).eq('role', UserRole.STUDENT).eq('isActive', true),
+        supabase.from('slots').select('*', { count: 'exact', head: true }).eq('branchId', id),
+        supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('slot.branchId', id),
+        supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('slot.branchId', id).eq('status', 'CONFIRMED')
       ]);
 
       res.json({
         branch,
         stats: {
-          users: {
-            total: totalUsers,
-            active: activeUsers,
-            teachers: totalTeachers,
-            students: totalStudents
-          },
-          slots: {
-            total: totalSlots
-          },
-          bookings: {
-            total: totalBookings,
-            today: todayBookings
-          }
+          totalUsers: totalUsers || 0,
+          activeUsers: activeUsers || 0,
+          teachers: teachers || 0,
+          students: students || 0,
+          totalSlots: totalSlots || 0,
+          totalBookings: totalBookings || 0,
+          confirmedBookings: confirmedBookings || 0
         }
       });
-
-    } catch (error) {
-      console.error('Get branch stats error:', error);
+    } catch (error: any) {
+      console.error('Error fetching branch stats:', error);
       res.status(500).json({
         error: 'Failed to fetch branch statistics',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }

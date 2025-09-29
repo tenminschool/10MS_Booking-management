@@ -5,7 +5,7 @@ import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 const Button = ({ children, className = '', variant = 'default', onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${className}`}
     onClick={onClick}
@@ -16,7 +16,7 @@ const Button = ({ children, className = '', variant = 'default', onClick, ...pro
 );
 
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 );
 
 const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
@@ -24,7 +24,7 @@ const CardHeader = ({ children, className = '' }: { children: React.ReactNode; c
 );
 
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 );
 
 const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
@@ -109,27 +109,27 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({ error, resetError 
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
           </div>
-          <CardTitle className="text-xl font-semibold text-gray-900">
+          <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
             Something went wrong
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
             We're sorry, but something unexpected happened. Please try refreshing the page or go back to the home page.
           </p>
 
           {import.meta.env.DEV && error && (
-            <details className="mt-4 p-3 bg-gray-100 rounded-lg">
-              <summary className="text-sm font-medium text-gray-700 cursor-pointer">
+            <details className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <summary className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                 Error Details (Development)
               </summary>
-              <div className="mt-2 text-xs text-gray-600 font-mono">
+              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 font-mono">
                 <div className="font-semibold">Error:</div>
                 <div className="mb-2">{error.message}</div>
                 <div className="font-semibold">Stack:</div>
@@ -173,18 +173,18 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({ error, resetError 
 
 // Specific error fallbacks for different scenarios
 export const NetworkErrorFallback: React.FC<ErrorFallbackProps> = ({ resetError }) => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
-          <AlertTriangle className="w-6 h-6 text-yellow-600" />
+        <div className="mx-auto w-12 h-12 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mb-4">
+          <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
         </div>
-        <CardTitle className="text-xl font-semibold text-gray-900">
+        <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
           Connection Problem
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-gray-600 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
           Unable to connect to the server. Please check your internet connection and try again.
         </p>
         <div className="flex flex-col gap-3 pt-4">
@@ -202,18 +202,18 @@ export const NetworkErrorFallback: React.FC<ErrorFallbackProps> = ({ resetError 
 );
 
 export const AuthErrorFallback: React.FC<ErrorFallbackProps> = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-          <AlertTriangle className="w-6 h-6 text-blue-600" />
+        <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
+          <AlertTriangle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
         </div>
-        <CardTitle className="text-xl font-semibold text-gray-900">
+        <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
           Authentication Required
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-gray-600 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
           Your session has expired. Please log in again to continue.
         </p>
         <div className="flex flex-col gap-3 pt-4">

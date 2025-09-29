@@ -5,6 +5,7 @@ import { branchesAPI } from '@/lib/api'
 import { UserRole, type Branch } from '@/types'
 import { format } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
 import { 
   MapPin, 
   Plus, 
@@ -15,21 +16,25 @@ import {
   Phone,
   Users,
   CheckCircle,
-  XCircle
+  XCircle,
+  BarChart3,
+  Calendar,
+  Clock,
+  Shield
 } from 'lucide-react'
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 const CardContent = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pt-0">{children}</div>
@@ -37,9 +42,9 @@ const CardContent = ({ children }: { children: React.ReactNode }) => (
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      variant === 'ghost' ? 'hover:bg-gray-100' :
+      variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     disabled={disabled}
@@ -51,11 +56,11 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    variant === 'success' ? 'bg-green-100 text-green-800' :
-    variant === 'outline' ? 'border border-gray-300 bg-white text-gray-700' :
-    'bg-blue-100 text-blue-800'
+    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
+    variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
+    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   }`}>
     {children}
   </span>
@@ -64,6 +69,8 @@ const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; v
 const AdminBranches: React.FC = () => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const successToast = useSuccessToast()
+  const errorToast = useErrorToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
@@ -71,10 +78,11 @@ const AdminBranches: React.FC = () => {
   // Only super admins can access this page
   if (user?.role !== UserRole.SUPER_ADMIN) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600 mb-4">You don't have permission to manage branches.</p>
+          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage branches across the system.</p>
         </div>
       </div>
     )
@@ -94,6 +102,10 @@ const AdminBranches: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-branches'] })
       setShowCreateForm(false)
+      successToast('Branch created successfully!')
+    },
+    onError: (error: any) => {
+      errorToast(error.response?.data?.message || 'Failed to create branch')
     }
   })
 
@@ -103,6 +115,10 @@ const AdminBranches: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-branches'] })
       setEditingBranch(null)
+      successToast('Branch updated successfully!')
+    },
+    onError: (error: any) => {
+      errorToast(error.response?.data?.message || 'Failed to update branch')
     }
   })
 
@@ -111,6 +127,10 @@ const AdminBranches: React.FC = () => {
     mutationFn: branchesAPI.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-branches'] })
+      successToast('Branch deactivated successfully!')
+    },
+    onError: (error: any) => {
+      errorToast(error.response?.data?.message || 'Failed to deactivate branch')
     }
   })
 
@@ -152,15 +172,15 @@ const AdminBranches: React.FC = () => {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       <Breadcrumb items={breadcrumbItems} />
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Branch Management</h1>
-          <p className="text-gray-600 mt-1">
-            Manage all branches across the system
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comprehensive Branch Management</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage all branches across the system with advanced analytics and controls
           </p>
         </div>
         <Button
@@ -170,6 +190,63 @@ const AdminBranches: React.FC = () => {
           <Plus className="w-4 h-4 mr-2" />
           Add Branch
         </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Building className="w-5 h-5 text-blue-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Branches</p>
+                <p className="text-2xl font-bold text-gray-900">{branches.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Branches</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {branches.filter(b => b.isActive).length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {branches.reduce((sum, b) => sum + (b._count?.users || 0), 0)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Calendar className="w-5 h-5 text-orange-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Slots</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {branches.reduce((sum, b) => sum + (b._count?.slots || 0), 0)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search */}

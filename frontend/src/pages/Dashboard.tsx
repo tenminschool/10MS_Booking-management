@@ -5,16 +5,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { dashboardAPI, notificationsAPI, slotsAPI, bookingsAPI } from '@/lib/api'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`p-4 sm:p-6 pb-3 sm:pb-4 ${className}`}>{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-base sm:text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-base sm:text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-xs sm:text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`p-4 sm:p-6 pt-0 ${className}`}>{children}</div>
@@ -22,7 +22,7 @@ const CardContent = ({ children, className = '' }: { children: React.ReactNode; 
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-2 sm:px-3 py-1 text-xs sm:text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -35,9 +35,9 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    'bg-blue-100 text-blue-800'
+    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   } ${className}`}>
     {children}
   </span>
@@ -128,10 +128,10 @@ const Dashboard: React.FC = () => {
         {/* Welcome Header - Simplified */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Welcome back, {user?.name}!
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               Branch overview for {dashboardData?.branchName || 'your branch'}
             </p>
           </div>
@@ -215,7 +215,7 @@ const Dashboard: React.FC = () => {
                 {dashboardData?.upcomingBookings?.length ? (
                   <div className="space-y-4">
                     {dashboardData.upcomingBookings.slice(0, 8).map((booking) => (
-                      <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <Clock className="w-4 h-4 text-gray-500" />
@@ -360,15 +360,15 @@ const Dashboard: React.FC = () => {
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
-                          !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                          !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700'
                         }`}
                       >
                         <div className="flex items-start space-x-2">
                           <div className={`p-1 rounded-full ${
-                            notification.type === 'booking_confirmed' ? 'bg-green-100' :
+                            notification.type === 'booking_confirmed' ? 'bg-green-100 dark:bg-green-900/20' :
                             notification.type === 'booking_reminder' ? 'bg-yellow-100' :
-                            notification.type === 'booking_cancelled' ? 'bg-red-100' :
-                            'bg-blue-100'
+                            notification.type === 'booking_cancelled' ? 'bg-red-100 dark:bg-red-900/20' :
+                            'bg-blue-100 dark:bg-blue-900/20'
                           }`}>
                             {notification.type === 'booking_confirmed' ? (
                               <CheckCircle className="w-3 h-3 text-green-600" />
@@ -516,7 +516,7 @@ const Dashboard: React.FC = () => {
                 {dashboardData?.branchPerformance?.length ? (
                   <div className="space-y-4">
                     {dashboardData.branchPerformance.map((branch: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <Building className="w-4 h-4 text-gray-500" />
@@ -572,14 +572,14 @@ const Dashboard: React.FC = () => {
                 {dashboardData?.recentActivity?.length ? (
                   <div className="space-y-4">
                     {dashboardData.recentActivity.slice(0, 8).map((activity: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <div className={`p-1 rounded-full ${
-                              activity.type === 'booking' ? 'bg-green-100' :
-                              activity.type === 'cancellation' ? 'bg-red-100' :
-                              activity.type === 'assessment' ? 'bg-blue-100' :
-                              'bg-gray-100'
+                              activity.type === 'booking' ? 'bg-green-100 dark:bg-green-900/20' :
+                              activity.type === 'cancellation' ? 'bg-red-100 dark:bg-red-900/20' :
+                              activity.type === 'assessment' ? 'bg-blue-100 dark:bg-blue-900/20' :
+                              'bg-gray-100 dark:bg-gray-700'
                             }`}>
                               {activity.type === 'booking' ? (
                                 <CheckCircle className="w-3 h-3 text-green-600" />
@@ -746,14 +746,14 @@ const Dashboard: React.FC = () => {
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
-                          !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                          !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700'
                         }`}
                       >
                         <div className="flex items-start space-x-2">
                           <div className={`p-1 rounded-full ${
-                            notification.type === 'system_alert' ? 'bg-red-100' :
-                            notification.type === 'booking_confirmed' ? 'bg-green-100' :
-                            'bg-blue-100'
+                            notification.type === 'system_alert' ? 'bg-red-100 dark:bg-red-900/20' :
+                            notification.type === 'booking_confirmed' ? 'bg-green-100 dark:bg-green-900/20' :
+                            'bg-blue-100 dark:bg-blue-900/20'
                           }`}>
                             {notification.type === 'system_alert' ? (
                               <AlertTriangle className="w-3 h-3 text-red-600" />
@@ -838,7 +838,7 @@ const Dashboard: React.FC = () => {
                 {todaySlots.length > 0 ? (
                   <div className="space-y-4">
                     {todaySlots.map((slot: any) => (
-                      <div key={slot.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div key={slot.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <Clock className="w-4 h-4 text-gray-500" />
@@ -999,15 +999,15 @@ const Dashboard: React.FC = () => {
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
-                          !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                          !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700'
                         }`}
                       >
                         <div className="flex items-start space-x-2">
                           <div className={`p-1 rounded-full ${
-                            notification.type === 'booking_confirmed' ? 'bg-green-100' :
+                            notification.type === 'booking_confirmed' ? 'bg-green-100 dark:bg-green-900/20' :
                             notification.type === 'booking_reminder' ? 'bg-yellow-100' :
-                            notification.type === 'booking_cancelled' ? 'bg-red-100' :
-                            'bg-blue-100'
+                            notification.type === 'booking_cancelled' ? 'bg-red-100 dark:bg-red-900/20' :
+                            'bg-blue-100 dark:bg-blue-900/20'
                           }`}>
                             {notification.type === 'booking_confirmed' ? (
                               <CheckCircle className="w-3 h-3 text-green-600" />
@@ -1050,10 +1050,10 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       {/* Welcome Header - Simplified */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Welcome back, {user?.name}!
         </h1>
         {user?.role === UserRole.STUDENT && (
@@ -1136,7 +1136,7 @@ const Dashboard: React.FC = () => {
               {dashboardData?.upcomingBookings?.length ? (
                 <div className="space-y-4">
                   {dashboardData.upcomingBookings.slice(0, 5).map((booking) => (
-                    <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-gray-500" />

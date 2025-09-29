@@ -1,4 +1,12 @@
-import { UserRole } from '@prisma/client';
+// UserRole constants
+export const UserRole = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  BRANCH_ADMIN: 'BRANCH_ADMIN',
+  TEACHER: 'TEACHER',
+  STUDENT: 'STUDENT'
+} as const;
+
+export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 export interface JWTPayload {
   userId: string;
@@ -6,6 +14,7 @@ export interface JWTPayload {
   branchId?: string;
   email?: string;
   phoneNumber?: string;
+  name?: string;
 }
 
 export interface AuthRequest {

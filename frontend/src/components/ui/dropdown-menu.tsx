@@ -108,7 +108,7 @@ const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({
   return (
     <div
       className={cn(
-        'absolute top-full mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50',
+        'absolute top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50',
         alignmentClasses[align],
         className
       )}
@@ -138,7 +138,7 @@ const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
       onClick={handleClick}
       disabled={disabled}
       className={cn(
-        'w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2',
+        'w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2',
         className
       )}
     >
@@ -148,7 +148,7 @@ const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
 }
 
 const DropdownMenuSeparator: React.FC<{ className?: string }> = ({ className }) => {
-  return <div className={cn('h-px bg-gray-200 my-1', className)} />
+  return <div className={cn('h-px bg-gray-200 dark:bg-gray-700 my-1', className)} />
 }
 
 export {

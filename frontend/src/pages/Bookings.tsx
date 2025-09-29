@@ -20,7 +20,7 @@ interface CardTitleProps {
 }
 
 const Card: React.FC<CardProps> = ({ children, className = '' }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 
 const CardHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -28,11 +28,11 @@ const CardHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 )
 
 const CardTitle: React.FC<CardTitleProps> = ({ children, className = '' }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 
 const CardDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 
 const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) => (
@@ -40,7 +40,7 @@ const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) =
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button
-    className={`px-4 py-2 rounded-md font-medium transition-colors ${variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+    className={`px-4 py-2 rounded-md font-medium transition-colors ${variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
         'bg-blue-600 text-white hover:bg-blue-700'
       } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -52,9 +52,9 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
   </button>
 )
 const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
-  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-      'bg-blue-100 text-blue-800'
+  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+      'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
     } ${className}`}>
     {children}
   </span>
@@ -62,7 +62,7 @@ const Badge = ({ children, variant = 'default', className = '' }: { children: Re
 const Dialog = ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) => (
   open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => onOpenChange(false)}>
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -75,10 +75,10 @@ const DialogHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="mb-4">{children}</div>
 )
 const DialogTitle = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="text-xl font-semibold">{children}</h2>
+  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{children}</h2>
 )
 const DialogDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 import {
   Calendar,
@@ -235,16 +235,16 @@ const Bookings: React.FC = () => {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       <Breadcrumb items={breadcrumbItems} />
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {isTeacher ? 'My Sessions' : 'My Bookings'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             {isTeacher
               ? 'Manage your teaching sessions and mark attendance'
               : 'Manage your speaking test bookings'}
@@ -262,7 +262,7 @@ const Bookings: React.FC = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
         <Button
           variant={activeTab === 'upcoming' ? 'default' : 'ghost'}
           size="sm"

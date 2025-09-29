@@ -94,8 +94,11 @@ export const branchesAPI = {
 
 // Slots API
 export const slotsAPI = {
-  getAvailable: (filters: SlotFilters) =>
+  getAvailable: (filters?: SlotFilters) =>
     api.get<Slot[]>('/api/slots', { params: filters }),
+
+  getAll: (params?: any) =>
+    api.get<{ slots: Slot[]; pagination: any }>('/api/slots', { params }),
 
   getById: (id: string) =>
     api.get<Slot>(`/api/slots/${id}`),
@@ -118,8 +121,14 @@ export const bookingsAPI = {
   create: (data: CreateBookingRequest) =>
     api.post<Booking>('/api/bookings', data),
 
+  getAll: (params?: any) =>
+    api.get<{ bookings: Booking[]; pagination: any }>('/api/bookings', { params }),
+
   getMyBookings: () =>
     api.get<Booking[]>('/api/bookings/my'),
+
+  update: (id: string, data: any) =>
+    api.put<Booking>(`/api/bookings/${id}`, data),
 
   cancel: (id: string, reason?: string) =>
     api.put(`/api/bookings/${id}/cancel`, { reason }),
@@ -136,6 +145,9 @@ export const bookingsAPI = {
 
 // Assessments API
 export const assessmentsAPI = {
+  getAll: (params?: any) =>
+    api.get<{ assessments: Assessment[]; pagination: any }>('/api/assessments', { params }),
+
   getMyAssessments: () =>
     api.get<Assessment[]>('/api/assessments/my'),
 
@@ -144,6 +156,12 @@ export const assessmentsAPI = {
 
   create: (data: AssessmentRequest) =>
     api.post<Assessment>('/api/assessments', data),
+
+  update: (id: string, data: any) =>
+    api.put<Assessment>(`/api/assessments/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/api/assessments/${id}`),
 
   getRubrics: () =>
     api.get<IELTSRubrics>('/api/assessments/rubrics'),

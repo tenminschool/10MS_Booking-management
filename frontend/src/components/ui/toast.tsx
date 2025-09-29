@@ -1,4 +1,4 @@
-import * as React from "react"
+import React, { useState, useCallback, useContext, createContext } from "react"
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -21,10 +21,10 @@ interface ToastContextType {
   clearToasts: () => void
 }
 
-const ToastContext = React.createContext<ToastContextType | undefined>(undefined)
+const ToastContext = createContext<ToastContextType | undefined>(undefined)
 
 export const useToast = () => {
-  const context = React.useContext(ToastContext)
+  const context = useContext(ToastContext)
   if (!context) {
     throw new Error('useToast must be used within a ToastProvider')
   }
@@ -32,9 +32,13 @@ export const useToast = () => {
 }
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [toasts, setToasts] = React.useState<Toast[]>([])
+  const [toasts, setToasts] = useState<Toast[]>([])
 
-  const addToast = React.useCallback((toast: Omit<Toast, 'id'>) => {
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id))
+  }, [])
+
+  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9)
     const duration = toast.duration ?? 5000
     const newToast: Toast = {
@@ -51,13 +55,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         removeToast(id)
       }, duration)
     }
-  }, [])
+  }, [removeToast])
 
-  const removeToast = React.useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id))
-  }, [])
-
-  const clearToasts = React.useCallback(() => {
+  const clearToasts = useCallback(() => {
     setToasts([])
   }, [])
 
@@ -87,26 +87,26 @@ const ToastItem: React.FC<{ toast: Toast }> = ({ toast }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <CheckCircle className="w-5 h-5 text-green-600" />
+        return <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
       case 'error':
-        return <AlertCircle className="w-5 h-5 text-red-600" />
+        return <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
       case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-yellow-600" />
+        return <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
       case 'info':
-        return <Info className="w-5 h-5 text-blue-600" />
+        return <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
     }
   }
 
   const getStyles = () => {
     switch (toast.type) {
       case 'success':
-        return 'bg-green-50 border-green-200 text-green-800'
+        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-400'
       case 'error':
-        return 'bg-red-50 border-red-200 text-red-800'
+        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-400'
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800'
+        return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-400'
       case 'info':
-        return 'bg-blue-50 border-blue-200 text-blue-800'
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-400'
     }
   }
 
@@ -146,7 +146,7 @@ const ToastItem: React.FC<{ toast: Toast }> = ({ toast }) => {
 export const useErrorToast = () => {
   const { addToast } = useToast()
 
-  return React.useCallback((message: string, title?: string) => {
+  return useCallback((message: string, title?: string) => {
     addToast({
       type: 'error',
       title,
@@ -159,7 +159,7 @@ export const useErrorToast = () => {
 export const useSuccessToast = () => {
   const { addToast } = useToast()
 
-  return React.useCallback((message: string, title?: string) => {
+  return useCallback((message: string, title?: string) => {
     addToast({
       type: 'success',
       title,
@@ -171,7 +171,7 @@ export const useSuccessToast = () => {
 export const useWarningToast = () => {
   const { addToast } = useToast()
 
-  return React.useCallback((message: string, title?: string) => {
+  return useCallback((message: string, title?: string) => {
     addToast({
       type: 'warning',
       title,
@@ -184,7 +184,7 @@ export const useWarningToast = () => {
 export const useInfoToast = () => {
   const { addToast } = useToast()
 
-  return React.useCallback((message: string, title?: string) => {
+  return useCallback((message: string, title?: string) => {
     addToast({
       type: 'info',
       title,

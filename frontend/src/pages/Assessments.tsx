@@ -6,16 +6,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
 )
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 const CardContent = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pt-0">{children}</div>
@@ -23,7 +23,7 @@ const CardContent = ({ children }: { children: React.ReactNode }) => (
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 bg-white hover:bg-gray-50' :
+      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -36,9 +36,9 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 text-gray-800' :
-    variant === 'destructive' ? 'bg-red-100 text-red-800' :
-    'bg-blue-100 text-blue-800'
+    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
+    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   }`}>
     {children}
   </span>
@@ -46,7 +46,7 @@ const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; v
 const Dialog = ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) => (
   open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => onOpenChange(false)}>
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -59,19 +59,19 @@ const DialogHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="mb-4">{children}</div>
 )
 const DialogTitle = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="text-xl font-semibold">{children}</h2>
+  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{children}</h2>
 )
 const DialogDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 mt-1">{children}</p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
 const Tabs = ({ children, defaultValue, value, onValueChange }: { children: React.ReactNode; defaultValue?: string; value?: string; onValueChange?: (value: string) => void }) => (
   <div className="w-full">{children}</div>
 )
 const TabsList = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`flex space-x-1 bg-gray-100 p-1 rounded-lg ${className}`}>{children}</div>
+  <div className={`flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg ${className}`}>{children}</div>
 )
 const TabsTrigger = ({ children, value, className = '', onClick }: { children: React.ReactNode; value: string; className?: string; onClick?: () => void }) => (
-  <button className={`px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white hover:shadow-sm ${className}`} onClick={onClick}>
+  <button className={`px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm text-gray-700 dark:text-gray-300 ${className}`} onClick={onClick}>
     {children}
   </button>
 )
@@ -82,12 +82,12 @@ const Accordion = ({ children, type = 'single', collapsible = true }: { children
   <div className="space-y-2">{children}</div>
 )
 const AccordionItem = ({ children, value }: { children: React.ReactNode; value: string }) => (
-  <div className="border rounded-lg">{children}</div>
+  <div className="border border-gray-200 dark:border-gray-700 rounded-lg">{children}</div>
 )
 const AccordionTrigger = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <button className={`flex justify-between items-center w-full p-4 text-left hover:bg-gray-50 ${className}`}>
+  <button className={`flex justify-between items-center w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white ${className}`}>
     {children}
-    <span className="text-gray-400">▼</span>
+    <span className="text-gray-400 dark:text-gray-500">▼</span>
   </button>
 )
 const AccordionContent = ({ children }: { children: React.ReactNode }) => (
@@ -224,16 +224,16 @@ const Assessments: React.FC = () => {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background dark:bg-gray-900">
       <Breadcrumb items={breadcrumbItems} />
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {isTeacher ? 'Assessment Recording' : 'My Assessments'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             {isTeacher
               ? 'Record IELTS scores and feedback for completed sessions'
               : 'Track your IELTS speaking test scores and progress'}
@@ -269,7 +269,7 @@ const Assessments: React.FC = () => {
               <CardContent>
                 <div className="space-y-4">
                   {(completedBookings as Booking[]).map((booking: Booking) => (
-                    <div key={booking.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center space-x-3">
@@ -330,7 +330,7 @@ const Assessments: React.FC = () => {
                   {allAssessments
                     .sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())
                     .map((assessment: Assessment) => (
-                      <div key={assessment.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div key={assessment.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <div className="flex items-start justify-between">
                           <div className="space-y-3 flex-1">
                             <div className="flex items-center space-x-3">
@@ -345,7 +345,7 @@ const Assessments: React.FC = () => {
                               </Badge>
                             </div>
 
-                            <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                               <div className="flex items-center space-x-1">
                                 <User className="w-4 h-4" />
                                 <span>{assessment.teacher?.name}</span>
@@ -357,8 +357,8 @@ const Assessments: React.FC = () => {
                             </div>
 
                             {assessment.remarks && (
-                              <div className="p-3 bg-gray-50 rounded-lg">
-                                <p className="text-sm text-gray-700 line-clamp-2">
+                              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
                                   <strong>Teacher's feedback:</strong> {assessment.remarks}
                                 </p>
                               </div>
@@ -372,7 +372,7 @@ const Assessments: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex justify-end mt-4 pt-4 border-t">
+                        <div className="flex justify-end mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                           <Button
                             variant="outline"
                             size="sm"
@@ -388,8 +388,8 @@ const Assessments: React.FC = () => {
               ) : (
                 <div className="text-center py-12">
                   <GraduationCap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No assessments yet</h3>
-                  <p className="text-gray-500 mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No assessments yet</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
                     Complete your first speaking test to see your scores here
                   </p>
                   <Link to="/schedule">
@@ -410,31 +410,31 @@ const Assessments: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
+                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {averageScore > 0 ? averageScore.toFixed(1) : '0.0'}
                   </div>
-                  <div className="text-sm text-gray-600">Average Score</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Average Score</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-lg font-bold text-green-600">
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
                       {highestScore > 0 ? highestScore.toFixed(1) : '0.0'}
                     </div>
-                    <div className="text-xs text-gray-600">Highest</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Highest</div>
                   </div>
-                  <div className="text-center p-3 bg-purple-50 rounded-lg">
-                    <div className="text-lg font-bold text-purple-600">
+                  <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
                       {latestScore > 0 ? latestScore.toFixed(1) : '0.0'}
                     </div>
-                    <div className="text-xs text-gray-600">Latest</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Latest</div>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Total Tests</span>
-                  <span className="font-medium">{allAssessments.length}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Total Tests</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{allAssessments.length}</span>
                 </div>
               </div>
             </CardContent>
@@ -461,12 +461,12 @@ const Assessments: React.FC = () => {
 
                     return (
                       <div className="text-center">
-                        <div className={`text-lg font-bold ${improvement > 0 ? 'text-green-600' :
-                            improvement < 0 ? 'text-red-600' : 'text-gray-600'
+                        <div className={`text-lg font-bold ${improvement > 0 ? 'text-green-600 dark:text-green-400' :
+                            improvement < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'
                           }`}>
                           {improvement > 0 ? '+' : ''}{improvement.toFixed(1)}
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           {improvement > 0 ? 'Improvement' :
                             improvement < 0 ? 'Decline' : 'No Change'}
                         </div>
@@ -489,28 +489,28 @@ const Assessments: React.FC = () => {
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between items-center">
-                  <span>9.0</span>
-                  <span className="text-green-600 font-medium">Expert</span>
+                  <span className="text-gray-900 dark:text-white">9.0</span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">Expert</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>8.0-8.5</span>
-                  <span className="text-green-600">Very Good</span>
+                  <span className="text-gray-900 dark:text-white">8.0-8.5</span>
+                  <span className="text-green-600 dark:text-green-400">Very Good</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>7.0-7.5</span>
-                  <span className="text-blue-600">Good</span>
+                  <span className="text-gray-900 dark:text-white">7.0-7.5</span>
+                  <span className="text-blue-600 dark:text-blue-400">Good</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>6.0-6.5</span>
-                  <span className="text-yellow-600">Competent</span>
+                  <span className="text-gray-900 dark:text-white">6.0-6.5</span>
+                  <span className="text-yellow-600 dark:text-yellow-400">Competent</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>5.0-5.5</span>
-                  <span className="text-orange-600">Modest</span>
+                  <span className="text-gray-900 dark:text-white">5.0-5.5</span>
+                  <span className="text-orange-600 dark:text-orange-400">Modest</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>4.0-4.5</span>
-                  <span className="text-red-600">Limited</span>
+                  <span className="text-gray-900 dark:text-white">4.0-4.5</span>
+                  <span className="text-red-600 dark:text-red-400">Limited</span>
                 </div>
               </div>
             </CardContent>

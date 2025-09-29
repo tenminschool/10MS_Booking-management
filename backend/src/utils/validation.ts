@@ -1,5 +1,25 @@
 import { z } from 'zod';
-import { UserRole, BookingStatus, NotificationType } from '@prisma/client';
+// Define types locally
+const UserRole = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  BRANCH_ADMIN: 'BRANCH_ADMIN',
+  TEACHER: 'TEACHER',
+  STUDENT: 'STUDENT'
+} as const;
+
+const BookingStatus = {
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED: 'CANCELLED',
+  COMPLETED: 'COMPLETED',
+  NO_SHOW: 'NO_SHOW'
+} as const;
+
+const NotificationType = {
+  BOOKING_CONFIRMED: 'BOOKING_CONFIRMED',
+  BOOKING_REMINDER: 'BOOKING_REMINDER',
+  BOOKING_CANCELLED: 'BOOKING_CANCELLED',
+  SYSTEM_ALERT: 'SYSTEM_ALERT'
+} as const;
 
 // Custom validation helpers
 const phoneRegex = /^\+8801[3-9]\d{8}$/;
@@ -31,6 +51,7 @@ export const createUserSchema = z.object({
     .max(128, 'Password must be less than 128 characters')
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one lowercase letter, one uppercase letter, and one number')
     .optional(),
+  isActive: z.boolean().optional(),
 }).refine((data) => {
   // Students must have phone number, staff must have email and password
   if (data.role === UserRole.STUDENT) {
@@ -113,6 +134,7 @@ export const createBranchSchema = z.object({
     .max(500, 'Address must be less than 500 characters'),
   contactNumber: z.string()
     .regex(phoneRegex, 'Invalid phone number format (+8801XXXXXXXXX)'),
+  isActive: z.boolean().optional(),
 });
 
 export const updateBranchSchema = createBranchSchema.partial();

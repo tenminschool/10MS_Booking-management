@@ -1,8 +1,8 @@
 export const UserRole = {
-  SUPER_ADMIN: 'super_admin',
-  BRANCH_ADMIN: 'branch_admin',
-  TEACHER: 'teacher',
-  STUDENT: 'student'
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  BRANCH_ADMIN: 'BRANCH_ADMIN',
+  TEACHER: 'TEACHER',
+  STUDENT: 'STUDENT'
 } as const
 
 export type UserRole = typeof UserRole[keyof typeof UserRole]
@@ -55,6 +55,7 @@ export interface Slot {
   endTime: string
   capacity: number
   bookedCount: number
+  isBooked?: boolean
   createdAt: string
   branch?: Branch
   teacher?: User
@@ -67,8 +68,10 @@ export interface Booking {
   status: BookingStatus
   attended?: boolean
   cancellationReason?: string
+  notes?: string
   bookedAt: string
   cancelledAt?: string
+  createdAt: string
   slot?: Slot
   student?: User
 }
@@ -78,10 +81,18 @@ export interface Assessment {
   bookingId: string
   studentId: string
   teacherId: string
-  score: number
+  fluencyScore: number
+  coherenceScore: number
+  lexicalResourceScore: number
+  grammaticalRangeScore: number
+  pronunciationScore: number
+  overallScore: number
   remarks: string
+  status: 'draft' | 'pending' | 'completed'
   assessedAt: string
+  createdAt: string
   booking?: Booking
+  student?: User
   teacher?: User
 }
 

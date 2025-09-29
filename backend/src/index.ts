@@ -11,7 +11,8 @@ import waitingListRoutes from './routes/waiting-list-enhanced';
 import notificationRoutes from './routes/notifications';
 import adminNotificationRoutes from './routes/admin-notifications-simple';
 import assessmentRoutes from './routes/assessments';
-import dashboardRoutes from './routes/dashboard-enhanced';
+import dashboardRoutes from './routes/dashboard';
+import adminDashboardRoutes from './routes/admin-dashboard';
 import reportRoutes from './routes/reports';
 import systemRoutes from './routes/system';
 import healthRoutes from './routes/health';
@@ -75,6 +76,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin/dashboard', adminDashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/system', systemRoutes);
 

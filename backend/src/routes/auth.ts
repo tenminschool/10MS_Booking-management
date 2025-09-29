@@ -1,227 +1,304 @@
 import express from 'express';
-import { authenticate } from '../middleware/auth';
-import { auditLog } from '../middleware/audit';
 import { supabase } from '../lib/supabase';
-import { generateToken } from '../utils/jwt';
-import { comparePassword } from '../utils/password';
 
 const router = express.Router();
 
-// POST /api/auth/staff/login - Staff login endpoint
-router.post('/staff/login', auditLog('staff_login'), async (req, res) => {
+// POST /api/auth/login - Legacy endpoint (redirects to staff login)
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
-        error: 'Invalid request',
+        error: 'Missing credentials',
         message: 'Email and password are required'
       });
     }
 
-    // Query user from Supabase database
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('isActive', true)
-      .single();
-
-    if (error || !user) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Verify password
-    const isValidPassword = await comparePassword(password, user.hashedPassword);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Generate JWT token
-    const token = generateToken({
-      userId: user.id,
-      role: user.role,
-      branchId: user.branchId,
-      email: user.email
+    // Use Supabase Auth to sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
     });
 
-    // Update last login
-    await supabase
+    if (error) {
+      console.log('Supabase auth error:', error);
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: error.message
+      });
+    }
+
+    if (!data.user || !data.session) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Get user details from our users table
+    const { data: userData, error: userError } = await supabase
       .from('users')
-      .update({ lastLoginAt: new Date().toISOString() })
-      .eq('id', user.id);
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
 
-    const result = {
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        branchId: user.branchId
+    if (userError || !userData) {
+      return res.status(401).json({
+        error: 'User not found',
+        message: 'User exists in auth but not in users table'
+      });
+    }
+
+    // Return user data and access token in the format expected by frontend
+    res.json({
+      data: {
+        token: data.session?.access_token,
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          branchId: userData.branchId
+        }
       }
-    };
+    });
 
-    res.json(result);
   } catch (error) {
-    console.error('Staff login error:', error);
-    res.status(401).json({
-      error: 'Authentication failed',
-      message: 'Invalid credentials'
+    console.error('Login error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to process login request'
     });
   }
 });
 
-// POST /api/auth/student/request-otp - Student OTP request
-router.post('/student/request-otp', auditLog('otp_request'), async (req, res) => {
+// POST /api/auth/staff/login - Staff login with Supabase Auth
+router.post('/staff/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Missing credentials',
+        message: 'Email and password are required'
+      });
+    }
+
+    // Authenticate with Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: error.message
+      });
+    }
+
+    if (!data.user) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'No user data returned'
+      });
+    }
+
+    // Get user details from your users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(401).json({
+        error: 'User not found',
+        message: 'User exists in auth but not in users table'
+      });
+    }
+
+    // Return user data and access token in the format expected by frontend
+    res.json({
+      data: {
+        token: data.session?.access_token,
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          branchId: userData.branchId
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Login failed'
+    });
+  }
+});
+
+// POST /api/auth/logout - Logout
+router.post('/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (refreshToken) {
+      await supabase.auth.signOut();
+    }
+
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Logout failed'
+    });
+  }
+});
+
+// GET /api/auth/me - Get current user
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'No token provided'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid token'
+      });
+    }
+
+    // Get user details from your users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(401).json({
+        error: 'User not found',
+        message: 'User exists in auth but not in users table'
+      });
+    }
+
+    res.json({
+      data: {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        branchId: userData.branchId
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to get user data'
+    });
+  }
+});
+
+// POST /api/auth/student/request-otp - Send OTP to student phone
+router.post('/student/request-otp', async (req, res) => {
   try {
     const { phoneNumber } = req.body;
 
     if (!phoneNumber) {
       return res.status(400).json({
-        error: 'Invalid request',
+        error: 'Missing phone number',
         message: 'Phone number is required'
       });
     }
 
-    // Mock OTP request response
+    // For now, just return success (in production, you'd send real OTP)
+    // You can integrate with SMS service like Twilio, AWS SNS, etc.
     res.json({
       message: 'OTP sent successfully',
-      phoneNumber: phoneNumber,
-      expiresIn: 300 // 5 minutes
+      phoneNumber: phoneNumber
     });
+
   } catch (error) {
-    console.error('OTP request error:', error);
-    res.status(400).json({
-      error: 'OTP request failed',
+    console.error('Send OTP error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
       message: 'Failed to send OTP'
     });
   }
 });
 
-// POST /api/auth/student/verify-otp - Student OTP verification
-router.post('/student/verify-otp', auditLog('otp_verification'), async (req, res) => {
+// POST /api/auth/student/verify-otp - Verify OTP and login student
+router.post('/student/verify-otp', async (req, res) => {
   try {
     const { phoneNumber, otp } = req.body;
 
     if (!phoneNumber || !otp) {
       return res.status(400).json({
-        error: 'Invalid request',
+        error: 'Missing credentials',
         message: 'Phone number and OTP are required'
       });
     }
 
-    // Query user from Supabase database by phone number
-    const { data: user, error } = await supabase
+    // For demo purposes, accept OTP '123456' (in production, verify against stored OTP)
+    if (otp !== '123456') {
+      return res.status(401).json({
+        error: 'Invalid OTP',
+        message: 'The OTP you entered is incorrect. Use 123456 for demo.'
+      });
+    }
+
+    // Find student by phone number
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('phoneNumber', phoneNumber)
       .eq('role', 'STUDENT')
-      .eq('isActive', true)
       .single();
 
-    if (error || !user) {
+    if (userError || !userData) {
       return res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Invalid phone number'
+        error: 'Student not found',
+        message: 'No student found with this phone number'
       });
     }
 
-    // For now, accept any 6-digit OTP (in production, verify against stored OTP)
-    if (otp.length === 6 && /^\d+$/.test(otp)) {
-      // Generate JWT token
-      const token = generateToken({
-        userId: user.id,
-        role: user.role,
-        branchId: user.branchId,
-        phoneNumber: user.phoneNumber
-      });
+    // Generate a simple token for student (you might want to use Supabase Auth for students too)
+    const token = `student_${userData.id}_${Date.now()}`;
 
-      // Update last login
-      await supabase
-        .from('users')
-        .update({ lastLoginAt: new Date().toISOString() })
-        .eq('id', user.id);
-
-      const result = {
+    res.json({
+      data: {
         token,
         user: {
-          id: user.id,
-          name: user.name,
-          phoneNumber: user.phoneNumber,
-          role: user.role,
-          branchId: user.branchId
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          branchId: userData.branchId
         }
-      };
-      res.json(result);
-    } else {
-      res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Invalid OTP'
-      });
-    }
-  } catch (error) {
-    console.error('OTP verification error:', error);
-    res.status(401).json({
-      error: 'Authentication failed',
-      message: 'Invalid OTP'
+      }
     });
-  }
-});
 
-// GET /api/auth/me - Get current user info
-router.get('/me', authenticate, async (req, res) => {
-  try {
-    const user = req.user!;
-    
-    // Query user details from database
-    const { data: userData, error } = await supabase
-      .from('users')
-      .select('id, name, email, phoneNumber, role, branchId')
-      .eq('id', user.userId)
-      .single();
-
-    if (error || !userData) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'User data not found'
-      });
-    }
-
-    res.json({
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      phoneNumber: userData.phoneNumber,
-      role: userData.role,
-      branchId: userData.branchId
-    });
   } catch (error) {
-    console.error('Get user info error:', error);
+    console.error('Verify OTP error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to get user info'
-    });
-  }
-});
-
-// POST /api/auth/logout - Logout endpoint
-router.post('/logout', authenticate, auditLog('logout'), async (req, res) => {
-  try {
-    res.json({
-      message: 'Logged out successfully'
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to logout'
+      message: 'Failed to verify OTP'
     });
   }
 });

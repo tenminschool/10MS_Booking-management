@@ -3,15 +3,15 @@ import { authenticate, authorize, requireRole, requireBranchAccess } from '../mi
 import { auditLog } from '../middleware/audit';
 import { validateRequest, createUserSchema, updateUserSchema, paginationSchema } from '../utils/validation';
 import { hashPassword } from '../utils/password';
-import prisma from '../lib/prisma';
-import { UserRole } from '@prisma/client';
+import { supabase } from '../lib/supabase';
+import { UserRole } from '../types/auth';
 
 const router = Router();
 
 // Get all users (Super-Admin only)
 router.get('/', 
   authenticate, 
-  requireRole([UserRole.SUPER_ADMIN]), 
+  requireRole(['SUPER_ADMIN']), 
   async (req, res) => {
     try {
       const { page = 1, limit = 10, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
@@ -19,38 +19,54 @@ router.get('/',
 
       const skip = ((page || 1) - 1) * (limit || 10);
       
-      // Build where clause
-      const where: any = {};
-      if (branchId) where.branchId = branchId as string;
-      if (role) where.role = role as UserRole;
+      // Build Supabase query
+      let query = supabase
+        .from('users')
+        .select(`
+          *,
+          branch:branches(id, name)
+        `)
+        .range(skip, skip + (limit || 10) - 1);
+
+      // Apply filters
+      if (branchId) query = query.eq('branchId', branchId as string);
+      if (role) query = query.eq('role', role as string);
       if (search) {
-        where.OR = [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { email: { contains: search as string, mode: 'insensitive' } },
-          { phoneNumber: { contains: search as string } }
-        ];
+        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phoneNumber.ilike.%${search}%`);
       }
 
-      const [users, total] = await Promise.all([
-        prisma.user.findMany({
-          where,
-          skip,
-          take: limit || 10,
-          orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
-          include: {
-            branch: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        }),
-        prisma.user.count({ where })
-      ]);
+      // Apply sorting
+      if (sortBy) {
+        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      } else {
+        query = query.order('createdAt', { ascending: false });
+      }
+
+      const { data: users, error: usersError } = await query;
+
+      if (usersError) {
+        throw new Error(`Failed to fetch users: ${usersError.message}`);
+      }
+
+      // Get total count
+      let countQuery = supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+      if (branchId) countQuery = countQuery.eq('branchId', branchId as string);
+      if (role) countQuery = countQuery.eq('role', role as string);
+      if (search) {
+        countQuery = countQuery.or(`name.ilike.%${search}%,email.ilike.%${search}%,phoneNumber.ilike.%${search}%`);
+      }
+
+      const { count: total, error: countError } = await countQuery;
+
+      if (countError) {
+        throw new Error(`Failed to count users: ${countError.message}`);
+      }
 
       // Remove sensitive data
-      const sanitizedUsers = users.map(user => ({
+      const sanitizedUsers = (users || []).map(user => ({
         ...user,
         hashedPassword: undefined
       }));
@@ -58,27 +74,26 @@ router.get('/',
       res.json({
         users: sanitizedUsers,
         pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit)
+          page: page || 1,
+          limit: limit || 10,
+          total: total || 0,
+          pages: Math.ceil((total || 0) / (limit || 10))
         }
       });
-
-    } catch (error) {
-      console.error('Get users error:', error);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
       res.status(500).json({
         error: 'Failed to fetch users',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
-// Get users by branch (Branch-Admin can see their branch, Super-Admin can see any)
+// Get users by branch (Branch-Admin only)
 router.get('/branch/:branchId', 
   authenticate, 
-  requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]), 
+  requireRole(['BRANCH_ADMIN', 'SUPER_ADMIN']),
   requireBranchAccess,
   async (req, res) => {
     try {
@@ -88,37 +103,54 @@ router.get('/branch/:branchId',
 
       const skip = ((page || 1) - 1) * (limit || 10);
       
-      // Build where clause
-      const where: any = { branchId };
-      if (role) where.role = role as UserRole;
+      // Build Supabase query
+      let query = supabase
+        .from('users')
+        .select(`
+          *,
+          branch:branches(id, name)
+        `)
+        .eq('branchId', branchId)
+        .range(skip, skip + (limit || 10) - 1);
+
+      // Apply filters
+      if (role) query = query.eq('role', role as string);
       if (search) {
-        where.OR = [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { email: { contains: search as string, mode: 'insensitive' } },
-          { phoneNumber: { contains: search as string } }
-        ];
+        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phoneNumber.ilike.%${search}%`);
       }
 
-      const [users, total] = await Promise.all([
-        prisma.user.findMany({
-          where,
-          skip,
-          take: limit || 10,
-          orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
-          include: {
-            branch: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        }),
-        prisma.user.count({ where })
-      ]);
+      // Apply sorting
+      if (sortBy) {
+        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      } else {
+        query = query.order('createdAt', { ascending: false });
+      }
+
+      const { data: users, error: usersError } = await query;
+
+      if (usersError) {
+        throw new Error(`Failed to fetch users: ${usersError.message}`);
+      }
+
+      // Get total count
+      let countQuery = supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('branchId', branchId);
+
+      if (role) countQuery = countQuery.eq('role', role as string);
+      if (search) {
+        countQuery = countQuery.or(`name.ilike.%${search}%,email.ilike.%${search}%,phoneNumber.ilike.%${search}%`);
+      }
+
+      const { count: total, error: countError } = await countQuery;
+
+      if (countError) {
+        throw new Error(`Failed to count users: ${countError.message}`);
+      }
 
       // Remove sensitive data
-      const sanitizedUsers = users.map(user => ({
+      const sanitizedUsers = (users || []).map(user => ({
         ...user,
         hashedPassword: undefined
       }));
@@ -126,60 +158,143 @@ router.get('/branch/:branchId',
       res.json({
         users: sanitizedUsers,
         pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit)
+          page: page || 1,
+          limit: limit || 10,
+          total: total || 0,
+          pages: Math.ceil((total || 0) / (limit || 10))
         }
       });
-
-    } catch (error) {
-      console.error('Get branch users error:', error);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
       res.status(500).json({
-        error: 'Failed to fetch branch users',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        error: 'Failed to fetch users',
+        message: error.message
       });
     }
   }
 );
 
-// Get single user
+// Get user by ID
 router.get('/:id', 
   authenticate, 
-  authorize(['read:all_users', 'read:branch_users']),
   async (req, res) => {
     try {
       const { id } = req.params;
+      const user = req.user!;
 
-      const user = await prisma.user.findUnique({
-        where: { id },
-        include: {
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-              contactNumber: true
-            }
-          }
-        }
-      });
-
-      if (!user) {
-        return res.status(404).json({
-          error: 'User not found',
-          message: 'User with the specified ID does not exist'
+      // Check if user can access this user's data
+      if (user.role === UserRole.STUDENT && user.userId !== id) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You can only view your own profile'
         });
       }
 
-      // Check branch access for non-super-admins
-      if (req.user?.role !== UserRole.SUPER_ADMIN) {
-        if (user.branchId !== req.user?.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Cannot access users from other branches'
+      if (user.role === UserRole.TEACHER && user.userId !== id) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You can only view your own profile'
+        });
+      }
+
+      if (user.role === UserRole.BRANCH_ADMIN && user.branchId !== user.branchId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You can only view users from your branch'
+        });
+      }
+
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          branch:branches(id, name)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'User not found',
+            message: 'The requested user does not exist'
           });
         }
+        throw new Error(`Failed to fetch user: ${error.message}`);
+      }
+
+      // Remove sensitive data
+      const sanitizedUser = {
+        ...userData,
+        hashedPassword: undefined
+      };
+
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      console.error('Error fetching user:', error);
+      res.status(500).json({
+        error: 'Failed to fetch user',
+        message: error.message
+      });
+    }
+  }
+);
+
+// Create new user (Super-Admin or Branch-Admin)
+router.post('/', 
+  authenticate, 
+  requireRole(['SUPER_ADMIN', 'BRANCH_ADMIN']),
+  auditLog('CREATE_USER'),
+  async (req, res) => {
+    try {
+      const userData = validateRequest(createUserSchema, req.body);
+      const currentUser = req.user!;
+
+      // Branch admins can only create users for their branch
+      if (currentUser.role === UserRole.BRANCH_ADMIN) {
+        userData.branchId = currentUser.branchId;
+      }
+
+      // Check if user with same email already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', userData.email)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw new Error(`Failed to check existing user: ${checkError.message}`);
+      }
+
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'User already exists',
+          message: 'A user with this email already exists'
+        });
+      }
+
+      // Hash password if provided
+      const hashedPassword = userData.password ? await hashPassword(userData.password) : null;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .insert([{
+          name: userData.name,
+          email: userData.email,
+          phoneNumber: userData.phoneNumber,
+          role: userData.role,
+          branchId: userData.branchId,
+          hashedPassword,
+          isActive: userData.isActive ?? true
+        }])
+        .select(`
+          *,
+          branch:branches(id, name)
+        `)
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create user: ${error.message}`);
       }
 
       // Remove sensitive data
@@ -188,274 +303,179 @@ router.get('/:id',
         hashedPassword: undefined
       };
 
-      res.json({ user: sanitizedUser });
-
-    } catch (error) {
-      console.error('Get user error:', error);
-      res.status(500).json({
-        error: 'Failed to fetch user',
-        message: error instanceof Error ? error.message : 'Internal server error'
-      });
-    }
-  }
-);
-
-// Create user
-router.post('/', 
-  authenticate, 
-  authorize(['create:any_user', 'create:branch_user']),
-  auditLog('user_create'),
-  async (req, res) => {
-    try {
-      const userData = validateRequest(createUserSchema, req.body);
-
-      // Branch-Admin can only create users in their branch
-      if (req.user?.role === UserRole.BRANCH_ADMIN) {
-        if (userData.branchId && userData.branchId !== req.user.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Branch admins can only create users in their own branch'
-          });
-        }
-        // Force branch assignment for branch admins
-        userData.branchId = req.user.branchId;
-        
-        // Branch admins can only create teachers and students
-        if (userData.role !== UserRole.TEACHER && userData.role !== UserRole.STUDENT) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Branch admins can only create teachers and students'
-          });
-        }
-      }
-
-      // Check if user already exists
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(userData.email ? [{ email: userData.email }] : []),
-            ...(userData.phoneNumber ? [{ phoneNumber: userData.phoneNumber }] : [])
-          ]
-        }
-      });
-
-      if (existingUser) {
-        return res.status(409).json({
-          error: 'User already exists',
-          message: 'A user with this email or phone number already exists'
-        });
-      }
-
-      // Hash password if provided
-      let hashedPassword: string | undefined;
-      if (userData.password) {
-        hashedPassword = await hashPassword(userData.password);
-      }
-
-      // Create user
-      const user = await prisma.user.create({
-        data: {
-          ...userData,
-          hashedPassword
-        },
-        include: {
-          branch: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
-        }
-      });
-
-      // Remove sensitive data from response
-      const sanitizedUser = {
-        ...user,
-        hashedPassword: undefined
-      };
-
-      res.status(201).json({
-        message: 'User created successfully',
-        user: sanitizedUser
-      });
-
-    } catch (error) {
-      console.error('Create user error:', error);
+      res.status(201).json(sanitizedUser);
+    } catch (error: any) {
+      console.error('Error creating user:', error);
       res.status(500).json({
         error: 'Failed to create user',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
-// Update user
+// Update user (Super-Admin or Branch-Admin)
 router.put('/:id', 
   authenticate, 
-  authorize(['update:any_user', 'update:branch_user']),
-  auditLog('user_update'),
+  requireRole(['SUPER_ADMIN', 'BRANCH_ADMIN']),
+  auditLog('UPDATE_USER'),
   async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = validateRequest(updateUserSchema, req.body);
+      const currentUser = req.user!;
 
       // Check if user exists
-      const existingUser = await prisma.user.findUnique({
-        where: { id }
-      });
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id, branchId, role')
+        .eq('id', id)
+        .single();
 
-      if (!existingUser) {
-        return res.status(404).json({
-          error: 'User not found',
-          message: 'User with the specified ID does not exist'
+      if (checkError) {
+        if (checkError.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'User not found',
+            message: 'The requested user does not exist'
+          });
+        }
+        throw new Error(`Failed to check existing user: ${checkError.message}`);
+      }
+
+      // Branch admins can only update users from their branch
+      if (currentUser.role === UserRole.BRANCH_ADMIN && existingUser.branchId !== currentUser.branchId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You can only update users from your branch'
         });
       }
 
-      // Check branch access for non-super-admins
-      if (req.user?.role !== UserRole.SUPER_ADMIN) {
-        if (existingUser.branchId !== req.user?.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Cannot update users from other branches'
-          });
-        }
+      // Check for duplicate email if email is being updated
+      if (updateData.email) {
+        const { data: duplicateUser, error: duplicateError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', updateData.email)
+          .neq('id', id)
+          .single();
 
-        // Branch admins cannot change branch assignment
-        if (updateData.branchId && updateData.branchId !== req.user.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Branch admins cannot move users to other branches'
-          });
+        if (duplicateError && duplicateError.code !== 'PGRST116') {
+          throw new Error(`Failed to check duplicate user: ${duplicateError.message}`);
         }
-
-        // Branch admins cannot create super-admins or branch-admins
-        if (updateData.role && (updateData.role === UserRole.SUPER_ADMIN || updateData.role === UserRole.BRANCH_ADMIN)) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Branch admins cannot assign admin roles'
-          });
-        }
-      }
-
-      // Check for duplicate email/phone
-      if (updateData.email || updateData.phoneNumber) {
-        const duplicateUser = await prisma.user.findFirst({
-          where: {
-            AND: [
-              { id: { not: id } },
-              {
-                OR: [
-                  ...(updateData.email ? [{ email: updateData.email }] : []),
-                  ...(updateData.phoneNumber ? [{ phoneNumber: updateData.phoneNumber }] : [])
-                ]
-              }
-            ]
-          }
-        });
 
         if (duplicateUser) {
           return res.status(409).json({
-            error: 'Duplicate data',
-            message: 'Another user with this email or phone number already exists'
+            error: 'Email already exists',
+            message: 'A user with this email already exists'
           });
         }
       }
 
       // Hash password if provided
-      let hashedPassword: string | undefined;
+      const updatePayload: any = { ...updateData };
       if (updateData.password) {
-        hashedPassword = await hashPassword(updateData.password);
+        updatePayload.hashedPassword = await hashPassword(updateData.password);
+        delete updatePayload.password;
       }
 
-      // Update user
-      const user = await prisma.user.update({
-        where: { id },
-        data: {
-          ...updateData,
-          ...(hashedPassword && { hashedPassword })
-        },
-        include: {
-          branch: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
-        }
-      });
+      updatePayload.updatedAt = new Date().toISOString();
 
-      // Remove sensitive data from response
+      const { data: user, error } = await supabase
+        .from('users')
+        .update(updatePayload)
+        .eq('id', id)
+        .select(`
+          *,
+          branch:branches(id, name)
+        `)
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update user: ${error.message}`);
+      }
+
+      // Remove sensitive data
       const sanitizedUser = {
         ...user,
         hashedPassword: undefined
       };
 
-      res.json({
-        message: 'User updated successfully',
-        user: sanitizedUser
-      });
-
-    } catch (error) {
-      console.error('Update user error:', error);
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      console.error('Error updating user:', error);
       res.status(500).json({
         error: 'Failed to update user',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
 );
 
-// Delete user (deactivate)
+// Delete user (Super-Admin or Branch-Admin)
 router.delete('/:id', 
   authenticate, 
-  authorize(['delete:any_user', 'delete:branch_user']),
-  auditLog('user_delete'),
+  requireRole(['SUPER_ADMIN', 'BRANCH_ADMIN']),
+  auditLog('DELETE_USER'),
   async (req, res) => {
     try {
       const { id } = req.params;
+      const currentUser = req.user!;
 
       // Check if user exists
-      const existingUser = await prisma.user.findUnique({
-        where: { id }
-      });
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id, branchId, role')
+        .eq('id', id)
+        .single();
 
-      if (!existingUser) {
-        return res.status(404).json({
-          error: 'User not found',
-          message: 'User with the specified ID does not exist'
+      if (checkError) {
+        if (checkError.code === 'PGRST116') {
+          return res.status(404).json({
+            error: 'User not found',
+            message: 'The requested user does not exist'
+          });
+        }
+        throw new Error(`Failed to check existing user: ${checkError.message}`);
+      }
+
+      // Branch admins can only delete users from their branch
+      if (currentUser.role === UserRole.BRANCH_ADMIN && existingUser.branchId !== currentUser.branchId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You can only delete users from your branch'
         });
       }
 
-      // Check branch access for non-super-admins
-      if (req.user?.role !== UserRole.SUPER_ADMIN) {
-        if (existingUser.branchId !== req.user?.branchId) {
-          return res.status(403).json({
-            error: 'Access denied',
-            message: 'Cannot delete users from other branches'
-          });
-        }
+      // Soft delete by setting isActive to false
+      const { data: user, error } = await supabase
+        .from('users')
+        .update({
+          isActive: false,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select(`
+          *,
+          branch:branches(id, name)
+        `)
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to delete user: ${error.message}`);
       }
 
-      // Deactivate user instead of hard delete
-      const user = await prisma.user.update({
-        where: { id },
-        data: { isActive: false }
-      });
+      // Remove sensitive data
+      const sanitizedUser = {
+        ...user,
+        hashedPassword: undefined
+      };
 
-      res.json({
-        message: 'User deactivated successfully',
-        user: {
-          id: user.id,
-          name: user.name,
-          isActive: user.isActive
-        }
-      });
-
-    } catch (error) {
-      console.error('Delete user error:', error);
+      res.json({ message: 'User deleted successfully', user: sanitizedUser });
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
       res.status(500).json({
         error: 'Failed to delete user',
-        message: error instanceof Error ? error.message : 'Internal server error'
+        message: error.message
       });
     }
   }
