@@ -3,6 +3,8 @@ import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { authAPI } from '@/lib/api'
+import { getRoleBasedDashboardRoute } from '@/lib/roleRouting'
+import { UserRole } from '@/types'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`bg-white border rounded-lg shadow-sm ${className}`}>{children}</div>
@@ -96,6 +98,7 @@ const Login: React.FC = () => {
     onSuccess: (response) => {
       const { token, user } = response.data
       login(token, user)
+      // All users go to the same dashboard page, but dashboard renders differently based on role
       navigate('/dashboard')
     },
   })
@@ -107,6 +110,7 @@ const Login: React.FC = () => {
     onSuccess: (response) => {
       const { token, user } = response.data
       login(token, user)
+      // All users go to the same dashboard page, but dashboard renders differently based on role
       navigate('/dashboard')
     },
   })

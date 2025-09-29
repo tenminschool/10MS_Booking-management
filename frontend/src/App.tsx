@@ -16,6 +16,7 @@ import AdminSlots from '@/pages/admin/AdminSlots'
 import AdminBranches from '@/pages/admin/AdminBranches'
 import AdminSettings from '@/pages/admin/AdminSettings'
 import { UserRole } from '@/types'
+import { getRoleBasedDashboardRoute } from '@/lib/roleRouting'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -93,10 +94,31 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
+    // This will be handled by the main App component
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>
+}
+
+// Redirect to dashboard component
+const RedirectToDashboard: React.FC = () => {
+  const { user, isLoading } = useAuth()
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+  
+  // All users go to the same dashboard page, but dashboard renders differently based on role
+  return <Navigate to="/dashboard" replace />
 }
 
 function App() {
@@ -127,7 +149,7 @@ function App() {
                       </ProtectedRoute>
                     }
                   >
-                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route index element={<RedirectToDashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="schedule" element={<Schedule />} />
                     <Route path="bookings" element={<Bookings />} />
