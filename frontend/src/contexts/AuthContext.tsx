@@ -42,16 +42,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Verify token is still valid
           console.log('Verifying token...')
           const response = await authAPI.getCurrentUser()
-          console.log('Token verification successful:', response.data)
-          setUser(response.data.data)
-          console.log('User set from stored data:', response.data.data)
+          console.log('Token verification successful:', response)
+          setUser((response as any).data)
+          console.log('User set from verified data:', (response as any).data)
         } catch (error) {
           console.log('Token verification failed:', error)
-          // For now, don't clear the user data on verification failure
-          // This prevents redirects to login on page refresh
-          // TODO: Implement proper token refresh mechanism
-          console.log('Using stored user data without verification')
-          setUser(JSON.parse(savedUser))
+          
+          // Parse the stored user data
+          const parsedUser = JSON.parse(savedUser)
+          
+          // For student tokens, check if token format is valid
+          if (token.startsWith('student_')) {
+            console.log('Student token detected, using stored user data')
+            setUser(parsedUser)
+          } else {
+            // For other tokens, clear auth data on verification failure
+            console.log('Non-student token verification failed, clearing auth data')
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            setUser(null)
+          }
         }
       } else {
         console.log('No stored auth data, setting user to null')

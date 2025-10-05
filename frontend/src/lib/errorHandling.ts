@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+// AxiosError is not available in the axios package, we'll use a generic approach
 
 export interface ApiError {
   error: string;
@@ -16,36 +16,51 @@ export interface ValidationError {
 }
 
 export class AppError extends Error {
+  public code?: string;
+  public statusCode?: number;
+  public details?: any;
+
   constructor(
     message: string,
-    public code?: string,
-    public statusCode?: number,
-    public details?: any
+    code?: string,
+    statusCode?: number,
+    details?: any
   ) {
     super(message);
     this.name = 'AppError';
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
   }
 }
 
 export class ValidationErrorClass extends AppError {
-  constructor(message: string, public validationErrors: ValidationError[]) {
+  public validationErrors: ValidationError[];
+
+  constructor(message: string, validationErrors: ValidationError[]) {
     super(message, 'VALIDATION_ERROR', 400);
     this.name = 'ValidationError';
+    this.validationErrors = validationErrors;
   }
 }
 
 export class BusinessRuleError extends AppError {
-  constructor(message: string, public ruleType?: string) {
+  public ruleType?: string;
+
+  constructor(message: string, ruleType?: string) {
     super(message, 'BUSINESS_RULE_ERROR', 409);
     this.name = 'BusinessRuleError';
+    this.ruleType = ruleType;
   }
 }
 
 // Error parsing utilities
 export const parseApiError = (error: unknown): ApiError => {
-  if (error instanceof AxiosError) {
-    const response = error.response;
-    
+  // Check if it's an axios-like error (has response property)
+  const axiosError = error as any;
+  if (axiosError && axiosError.response) {
+    const response = axiosError.response;
+
     if (response?.data) {
       return {
         error: response.data.error || 'API Error',
@@ -57,7 +72,7 @@ export const parseApiError = (error: unknown): ApiError => {
     }
 
     // Network or other axios errors
-    if (error.code === 'NETWORK_ERROR' || !response) {
+    if (axiosError.code === 'NETWORK_ERROR' || !response) {
       return {
         error: 'Network Error',
         message: 'Unable to connect to the server. Please check your internet connection.',
@@ -68,8 +83,8 @@ export const parseApiError = (error: unknown): ApiError => {
 
     return {
       error: 'Request Error',
-      message: error.message || 'Request failed',
-      code: error.code,
+      message: axiosError.message || 'Request failed',
+      code: axiosError.code,
       statusCode: response?.status || 500,
     };
   }

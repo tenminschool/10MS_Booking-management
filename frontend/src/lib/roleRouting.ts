@@ -4,7 +4,7 @@ import { UserRole } from '@/types'
  * Get the appropriate dashboard route based on user role
  * ALL users go to their dedicated dashboard page with different functionalities
  */
-export const getRoleBasedDashboardRoute = (role: UserRole): string => {
+export const getRoleBasedDashboardRoute = (): string => {
   // All users go to /dashboard, but the dashboard will render different content based on role
   return '/dashboard'
 }

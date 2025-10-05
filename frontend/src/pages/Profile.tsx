@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { User, Mail, Phone, Building, Calendar, Edit2, Save, X } from 'lucide-react'
-import { authAPI } from '@/lib/api'
 import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
 
 const Profile: React.FC = () => {
@@ -87,21 +86,25 @@ const Profile: React.FC = () => {
     <div className="max-w-4xl mx-auto">
       <Breadcrumb items={breadcrumbItems} />
 
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                <User className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-                <p className="text-gray-600">Manage your account information</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile</h1>
+                <p className="text-gray-600 dark:text-gray-400">Manage your account information</p>
               </div>
             </div>
 
             {!isEditing ? (
-              <Button onClick={handleEdit} className="flex items-center space-x-2">
+              <Button 
+                onClick={handleEdit} 
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
+                variant="default"
+              >
                 <Edit2 className="w-4 h-4" />
                 <span>Edit Profile</span>
               </Button>
@@ -133,7 +136,7 @@ const Profile: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Basic Information */}
             <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Basic Information</h2>
 
               {/* Name */}
               <div>
@@ -149,7 +152,7 @@ const Profile: React.FC = () => {
                     placeholder="Enter your full name"
                   />
                 ) : (
-                  <div className="flex items-center space-x-2 text-gray-900">
+                  <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
                     <User className="w-4 h-4 text-gray-400" />
                     <span>{user.name}</span>
                   </div>
@@ -170,7 +173,7 @@ const Profile: React.FC = () => {
                     placeholder="Enter your email address"
                   />
                 ) : (
-                  <div className="flex items-center space-x-2 text-gray-900">
+                  <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
                     <Mail className="w-4 h-4 text-gray-400" />
                     <span>{user.email || 'Not provided'}</span>
                   </div>
@@ -191,7 +194,7 @@ const Profile: React.FC = () => {
                     placeholder="Enter your phone number"
                   />
                 ) : (
-                  <div className="flex items-center space-x-2 text-gray-900">
+                  <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
                     <Phone className="w-4 h-4 text-gray-400" />
                     <span>{user.phoneNumber || 'Not provided'}</span>
                   </div>
@@ -201,7 +204,7 @@ const Profile: React.FC = () => {
 
             {/* Account Information */}
             <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">Account Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Account Information</h2>
 
               {/* Role */}
               <div>
@@ -219,7 +222,7 @@ const Profile: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Branch
                   </label>
-                  <div className="flex items-center space-x-2 text-gray-900">
+                  <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
                     <Building className="w-4 h-4 text-gray-400" />
                     <span>{user.branch.name}</span>
                   </div>
@@ -231,7 +234,7 @@ const Profile: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Member Since
                 </label>
-                <div className="flex items-center space-x-2 text-gray-900">
+                <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
                   <Calendar className="w-4 h-4 text-gray-400" />
                   <span>
                     {user.createdAt

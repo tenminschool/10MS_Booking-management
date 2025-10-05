@@ -142,13 +142,16 @@ router.post('/',
         });
       }
 
+      const now = new Date().toISOString();
       const { data: branch, error } = await supabase
         .from('branches')
         .insert([{
+          id: `branch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: branchData.name,
           address: branchData.address,
           contactNumber: branchData.contactNumber,
-          isActive: branchData.isActive ?? true
+          isActive: branchData.isActive ?? true,
+          updatedAt: now
         }])
         .select()
         .single();

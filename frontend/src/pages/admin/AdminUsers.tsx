@@ -6,6 +6,8 @@ import { UserRole, type User, type Branch } from '@/types'
 import { format } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { 
   Users, 
   Plus, 
@@ -21,7 +23,6 @@ import {
   Calendar,
   Shield,
   GraduationCap,
-  Star,
   Crown,
   Building,
   UserCog
@@ -29,7 +30,7 @@ import {
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -42,34 +43,6 @@ const CardDescription = ({ children }: { children: React.ReactNode }) => (
 )
 const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`p-6 pt-0 ${className}`}>{children}</div>
-)
-const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
-  <button 
-    className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
-      variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600' :
-      'bg-blue-600 text-white hover:bg-blue-700'
-    } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
-    disabled={disabled}
-    onClick={onClick}
-    {...props}
-  >
-    {children}
-  </button>
-)
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
-  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
-    variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
-    variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
-    variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
-    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
-  }`}>
-    {children}
-  </span>
 )
 
 const AdminUsers: React.FC = () => {
@@ -92,7 +65,7 @@ const AdminUsers: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage users across all branches.</p>
         </div>
@@ -119,7 +92,7 @@ const AdminUsers: React.FC = () => {
           page,
           limit
         })
-          return response.data
+          return (response as any).data
         },
   })
 
@@ -128,19 +101,19 @@ const AdminUsers: React.FC = () => {
     queryKey: ['branches'],
         queryFn: async () => {
           const response = await branchesAPI.getAll()
-          return response.data
+          return (response as any).data
         },
   })
 
   const users = usersData?.users || []
   const pagination = usersData?.pagination
-  const branches = branchesData || []
+  const branches = branchesData?.branches || []
 
   // Create user mutation
   const createUserMutation = useMutation({
         mutationFn: async (data: any) => {
           const response = await usersAPI.create(data)
-          return response.data
+          return (response as any).data
         },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
@@ -156,7 +129,7 @@ const AdminUsers: React.FC = () => {
   const updateUserMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string; data: any }) => {
           const response = await usersAPI.update(id, data)
-          return response.data
+          return (response as any).data
         },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
@@ -172,7 +145,7 @@ const AdminUsers: React.FC = () => {
   const deleteUserMutation = useMutation({
         mutationFn: async (id: string) => {
           const response = await usersAPI.delete(id)
-          return response.data
+          return (response as any).data
         },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
@@ -224,9 +197,9 @@ const AdminUsers: React.FC = () => {
       case UserRole.BRANCH_ADMIN:
         return 'default'
       case UserRole.TEACHER:
-        return 'success'
+        return 'default'
       case UserRole.STUDENT:
-        return 'warning'
+        return 'secondary'
       default:
         return 'outline'
     }
@@ -234,12 +207,12 @@ const AdminUsers: React.FC = () => {
 
   const getUserStats = () => {
     const total = users.length
-    const active = users.filter(u => u.isActive).length
-    const inactive = users.filter(u => !u.isActive).length
-    const superAdmins = users.filter(u => u.role === UserRole.SUPER_ADMIN).length
-    const branchAdmins = users.filter(u => u.role === UserRole.BRANCH_ADMIN).length
-    const teachers = users.filter(u => u.role === UserRole.TEACHER).length
-    const students = users.filter(u => u.role === UserRole.STUDENT).length
+    const active = users.filter((u: any) => u.isActive).length
+    const inactive = users.filter((u: any) => !u.isActive).length
+    const superAdmins = users.filter((u: any) => u.role === UserRole.SUPER_ADMIN).length
+    const branchAdmins = users.filter((u: any) => u.role === UserRole.BRANCH_ADMIN).length
+    const teachers = users.filter((u: any) => u.role === UserRole.TEACHER).length
+    const students = users.filter((u: any) => u.role === UserRole.STUDENT).length
 
     return { total, active, inactive, superAdmins, branchAdmins, teachers, students }
   }
@@ -266,7 +239,7 @@ const AdminUsers: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comprehensive User Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage all users across all branches with complete control and analytics
           </p>
@@ -279,25 +252,27 @@ const AdminUsers: React.FC = () => {
           >
             {viewMode === 'grid' ? 'Table View' : 'Grid View'}
           </Button>
-        <Button
-          onClick={() => setShowCreateForm(true)}
-            className="bg-red-600 hover:bg-red-700"
-            size="sm"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add User
-        </Button>
+          <Button
+            onClick={() => setShowCreateForm(true)}
+            variant="default"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add User
+          </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Users className="w-5 h-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Users</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <Users className="w-6 h-6 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Users</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
               </div>
             </div>
@@ -305,11 +280,13 @@ const AdminUsers: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <UserCheck className="w-5 h-5 text-green-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Users</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <UserCheck className="w-6 h-6 text-green-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Active Users</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active}</p>
               </div>
             </div>
@@ -317,11 +294,13 @@ const AdminUsers: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <GraduationCap className="w-5 h-5 text-purple-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Teachers</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <GraduationCap className="w-6 h-6 text-purple-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Teachers</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.teachers}</p>
               </div>
             </div>
@@ -329,11 +308,13 @@ const AdminUsers: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <UserCog className="w-5 h-5 text-orange-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Students</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <UserCog className="w-6 h-6 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Students</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.students}</p>
               </div>
             </div>
@@ -343,14 +324,14 @@ const AdminUsers: React.FC = () => {
 
       {/* Filters */}
       <Card>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
-              </div>
-              
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-5 h-5 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+            </div>
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
@@ -358,18 +339,18 @@ const AdminUsers: React.FC = () => {
                   placeholder="Search users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm w-64"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Roles</option>
-                    <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
-                    <option value={UserRole.BRANCH_ADMIN}>Branch Admin</option>
+                <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
+                <option value={UserRole.BRANCH_ADMIN}>Branch Admin</option>
                 <option value={UserRole.TEACHER}>Teacher</option>
                 <option value={UserRole.STUDENT}>Student</option>
               </select>
@@ -377,10 +358,10 @@ const AdminUsers: React.FC = () => {
               <select
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Branches</option>
-                {branches.map((branch) => (
+                {branches.map((branch: any) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
@@ -390,16 +371,12 @@ const AdminUsers: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | '')}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-            </div>
-
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {pagination?.total || 0} users total
             </div>
           </div>
         </CardContent>
@@ -408,7 +385,7 @@ const AdminUsers: React.FC = () => {
       {/* Users Grid/Table */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {users.map((user) => (
+          {users.map((user: any) => (
             <Card key={user.id} className="hover:shadow-md transition-shadow">
         <CardHeader>
                 <div className="flex items-start justify-between">
@@ -424,7 +401,7 @@ const AdminUsers: React.FC = () => {
                         ) : (
                           <UserX className="w-4 h-4 text-red-600" />
                         )}
-                        <Badge variant={user.isActive ? 'success' : 'destructive'}>
+                        <Badge variant={user.isActive ? 'default' : 'destructive'}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>
@@ -433,14 +410,14 @@ const AdminUsers: React.FC = () => {
                   <div className="flex items-center space-x-1">
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => setEditingUser(user)}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => handleDeleteUser(user.id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -484,10 +461,6 @@ const AdminUsers: React.FC = () => {
                   <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       ID: {user.id.slice(0, 8)}...
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-500" />
-                      <span className="text-sm font-medium">4.8</span>
                     </div>
                   </div>
                 </div>
@@ -537,7 +510,7 @@ const AdminUsers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
+                  {users.map((user: any) => (
                     <tr key={user.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
@@ -577,7 +550,7 @@ const AdminUsers: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge variant={user.isActive ? 'success' : 'destructive'}>
+                        <Badge variant={user.isActive ? 'default' : 'destructive'}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
@@ -590,14 +563,14 @@ const AdminUsers: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => setEditingUser(user)}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleDeleteUser(user.id)}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -625,7 +598,7 @@ const AdminUsers: React.FC = () => {
                     >
                       Previous
                     </Button>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
                       Page {page} of {pagination.pages}
                     </span>
                     <Button
@@ -705,7 +678,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-md p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {user ? 'Edit User' : 'Create New User'}
@@ -842,7 +815,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700"
+              variant="destructive"
             >
               {isLoading ? 'Saving...' : (user ? 'Update User' : 'Create User')}
             </Button>

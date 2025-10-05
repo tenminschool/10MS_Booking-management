@@ -20,15 +20,14 @@ import {
   Menu,
   X,
   Users,
-  Upload,
-  BarChart3,
   Sliders,
   Building,
   User,
   ChevronDown,
   Home,
   Crown,
-  Shield
+  Shield,
+  Layers
 } from 'lucide-react'
 import { UserRole } from '@/types'
 import { useState } from 'react'
@@ -48,19 +47,28 @@ const Layout: React.FC = () => {
   const getNavigation = () => {
     if (!user) return []
 
-    // Super Admins and Branch Admins get admin dashboard instead of regular dashboard
-    if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.BRANCH_ADMIN) {
+    // Super Admins get simplified navigation
+    if (user.role === UserRole.SUPER_ADMIN) {
+      return [
+        { name: 'Home', href: '/admin/dashboard', icon: Home },
+        { name: 'Slots', href: '/admin/slots', icon: Sliders },
+        { name: 'Users', href: '/admin/users', icon: Users },
+        { name: 'Bookings', href: '/admin/bookings', icon: BookOpen },
+        { name: 'Assessments', href: '/admin/assessments', icon: GraduationCap },
+        { name: 'Branches', href: '/admin/branches', icon: Building },
+        { name: 'Service Types', href: '/admin/service-types', icon: Layers },
+        { name: 'Notifications', href: '/admin/notifications', icon: Settings },
+      ]
+    }
+
+    // Branch Admins get admin dashboard instead of regular dashboard
+    if (user.role === UserRole.BRANCH_ADMIN) {
       return [
         { name: 'Admin Dashboard', href: '/admin/dashboard', icon: Home },
         { name: 'Slot Management', href: '/admin/slots', icon: Sliders },
         { name: 'User Management', href: '/admin/users', icon: Users },
         { name: 'Booking Management', href: '/admin/bookings', icon: BookOpen },
         { name: 'Assessment Management', href: '/admin/assessments', icon: GraduationCap },
-        // Super Admin only pages
-        ...(user.role === UserRole.SUPER_ADMIN ? [
-          { name: 'Branch Management', href: '/admin/branches', icon: Building },
-          { name: 'Notification Management', href: '/admin/notifications', icon: Settings },
-        ] : [])
       ]
     }
 
@@ -80,13 +88,13 @@ const Layout: React.FC = () => {
   const getRoleBadge = () => {
     switch (user?.role) {
       case UserRole.SUPER_ADMIN:
-        return <Badge variant="destructive" className="flex items-center space-x-1"><Crown className="w-3 h-3" />Super Admin</Badge>
+        return <Badge variant="default" className="flex items-center space-x-1 bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-400"><Crown className="w-3 h-3" />Super Admin</Badge>
       case UserRole.BRANCH_ADMIN:
         return <Badge variant="default" className="flex items-center space-x-1"><Shield className="w-3 h-3" />Branch Admin</Badge>
       case UserRole.TEACHER:
-        return <Badge variant="success" className="flex items-center space-x-1"><GraduationCap className="w-3 h-3" />Teacher</Badge>
+        return <Badge variant="default" className="flex items-center space-x-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400"><GraduationCap className="w-3 h-3" />Teacher</Badge>
       case UserRole.STUDENT:
-        return <Badge variant="warning" className="flex items-center space-x-1"><User className="w-3 h-3" />Student</Badge>
+        return <Badge variant="default" className="flex items-center space-x-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400"><User className="w-3 h-3" />Student</Badge>
       default:
         return null
     }
@@ -104,11 +112,11 @@ const Layout: React.FC = () => {
                 to={user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.BRANCH_ADMIN ? '/admin/dashboard' : '/dashboard'} 
                 className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
               >
-                <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">10MS</span>
                 </div>
                 <span className="font-semibold text-gray-900 dark:text-white hidden sm:block">
-                  10MS Speaking Test Booking
+                  Booking Management
                 </span>
               </Link>
             </div>
@@ -123,7 +131,7 @@ const Layout: React.FC = () => {
                     to={item.href}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
                       isActive(item.href)
-                        ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                        ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >
@@ -137,9 +145,6 @@ const Layout: React.FC = () => {
             {/* Right side - User menu and theme toggle */}
             <div className="flex items-center space-x-4">
               <ThemeToggle />
-              
-              {/* User role badge */}
-              {getRoleBadge()}
 
               {/* User dropdown */}
               <DropdownMenu>
@@ -170,7 +175,7 @@ const Layout: React.FC = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="flex items-center space-x-2 text-red-600 dark:text-red-400">
+                  <DropdownMenuItem onClick={handleLogout} className="flex items-center space-x-2 text-orange-600 dark:text-orange-400">
                     <LogOut className="w-4 h-4" />
                     <span>Sign out</span>
                   </DropdownMenuItem>
@@ -203,7 +208,7 @@ const Layout: React.FC = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center space-x-2 ${
                       isActive(item.href)
-                        ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                        ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >

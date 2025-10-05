@@ -23,8 +23,8 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
   <button 
     className={`px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
       variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      'bg-blue-600 text-white hover:bg-blue-700'
+      variant === 'destructive' ? 'bg-orange-500 text-white hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700' :
+      'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
     } ${size === 'sm' ? 'px-2 sm:px-3 py-1 text-xs sm:text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     disabled={disabled}
     onClick={onClick}
@@ -36,7 +36,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'destructive' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
     'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   } ${className}`}>
     {children}
@@ -64,19 +64,23 @@ import {
   Star
 } from 'lucide-react'
 import { format, isToday, isTomorrow } from 'date-fns'
-import { UserRole, type SlotFilters } from '@/types'
+import { UserRole, type SlotFilters, type Notification, type Booking } from '@/types'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
 
-  const { data: metrics, isLoading: metricsLoading } = useQuery({
+  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: () => dashboardAPI.getMetrics(),
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
-  const { data: notifications } = useQuery({
+  const { data: notifications, error: notificationsError } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => notificationsAPI.getMy(),
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
   // Teacher-specific data queries
@@ -105,20 +109,16 @@ const Dashboard: React.FC = () => {
     )
   }
 
-  const dashboardData = metrics?.data
-  const unreadNotifications = (notifications?.data?.notifications || notifications?.data || []).filter((n: any) => !n.isRead) || []
+  const dashboardData = (metrics as any)?.data
+  const unreadNotifications = ((notifications as any)?.data?.notifications || (notifications as any)?.data || []).filter((n: any) => !n.isRead) || []
 
   // Teacher-specific data processing
-  const todaySlots = teacherSlots?.data?.filter((slot: any) => 
+  const todaySlots = (teacherSlots as any)?.data?.filter((slot: any) => 
     isToday(new Date(slot.date))
   ) || []
   
-  const tomorrowSlots = teacherSlots?.data?.filter((slot: any) => 
+  const tomorrowSlots = (teacherSlots as any)?.data?.filter((slot: any) => 
     isTomorrow(new Date(slot.date))
-  ) || []
-
-  const todayBookings = teacherBookings?.data?.filter((booking: any) => 
-    booking.slot && isToday(new Date(booking.slot.date))
   ) || []
 
   // Render branch admin dashboard
@@ -214,7 +214,7 @@ const Dashboard: React.FC = () => {
               <CardContent>
                 {dashboardData?.upcomingBookings?.length ? (
                   <div className="space-y-4">
-                    {dashboardData.upcomingBookings.slice(0, 8).map((booking) => (
+                    {dashboardData.upcomingBookings.slice(0, 8).map((booking: Booking) => (
                       <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
@@ -356,7 +356,7 @@ const Dashboard: React.FC = () => {
               <CardContent>
                 {dashboardData?.recentNotifications?.length ? (
                   <div className="space-y-3">
-                    {dashboardData.recentNotifications.slice(0, 3).map((notification: any) => (
+                    {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
@@ -659,35 +659,6 @@ const Dashboard: React.FC = () => {
 
           {/* SECONDARY CONTENT - 1/3 width */}
           <div className="space-y-6">
-            {/* System Health */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>System Health</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Database</span>
-                    <Badge variant="success">Healthy</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">SMS Service</span>
-                    <Badge variant="success">Active</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Notifications</span>
-                    <Badge variant="success">Running</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Audit Logs</span>
-                    <Badge variant="success">Recording</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* System Alerts */}
             <Card>
@@ -742,7 +713,7 @@ const Dashboard: React.FC = () => {
               <CardContent>
                 {dashboardData?.recentNotifications?.length ? (
                   <div className="space-y-3">
-                    {dashboardData.recentNotifications.slice(0, 3).map((notification: any) => (
+                    {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
@@ -973,7 +944,7 @@ const Dashboard: React.FC = () => {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{teacherSlots?.data?.length || 0}</div>
+                  <div className="text-2xl font-bold">{(teacherSlots as any)?.data?.length || 0}</div>
                   <p className="text-xs text-muted-foreground">Total slots</p>
                 </CardContent>
               </Card>
@@ -995,7 +966,7 @@ const Dashboard: React.FC = () => {
               <CardContent>
                 {dashboardData?.recentNotifications?.length ? (
                   <div className="space-y-3">
-                    {dashboardData.recentNotifications.slice(0, 3).map((notification: any) => (
+                    {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
@@ -1135,7 +1106,7 @@ const Dashboard: React.FC = () => {
             <CardContent>
               {dashboardData?.upcomingBookings?.length ? (
                 <div className="space-y-4">
-                  {dashboardData.upcomingBookings.slice(0, 5).map((booking) => (
+                  {dashboardData.upcomingBookings.slice(0, 5).map((booking: Booking) => (
                     <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
@@ -1240,7 +1211,7 @@ const Dashboard: React.FC = () => {
             <CardContent>
               {dashboardData?.recentNotifications?.length ? (
                 <div className="space-y-3">
-                  {dashboardData.recentNotifications.slice(0, 3).map((notification) => (
+                  {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
                     <div 
                       key={notification.id} 
                       className={`p-3 rounded-lg border text-sm ${

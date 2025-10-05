@@ -6,12 +6,12 @@ import { UserRole, type User, type Branch } from '@/types'
 import { format } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
-import { 
-  Users, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
+import {
+  Users,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
   Filter,
   UserCheck,
   UserX,
@@ -19,19 +19,15 @@ import {
   Phone,
   MapPin,
   Calendar,
-  Clock,
   BarChart3,
-  MoreHorizontal,
-  Eye,
   Shield,
   GraduationCap,
-  Star,
-  AlertCircle
+  Star
 } from 'lucide-react'
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -42,14 +38,14 @@ const CardTitle = ({ children, className = '' }: { children: React.ReactNode; cl
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
       variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
+      variant === 'destructive' ? 'bg-orange-500 text-white hover:bg-orange-600' :
       variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
       variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600' :
       'bg-blue-600 text-white hover:bg-blue-700'
@@ -64,7 +60,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'destructive' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
     variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
     variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
     variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
@@ -116,8 +112,8 @@ const AdminTeachers: React.FC = () => {
     queryFn: () => branchesAPI.getAll(),
   })
 
-  const teachers = teachersData?.data?.users || []
-  const branches = branchesData?.data || []
+  const teachers = (teachersData as any)?.data?.users || []
+  const branches = (branchesData as any)?.data || []
 
   // Create teacher mutation
   const createTeacherMutation = useMutation({
@@ -180,9 +176,9 @@ const AdminTeachers: React.FC = () => {
   }
 
   const getTeacherStats = () => {
-    const activeTeachers = teachers.filter(t => t.isActive).length
-    const inactiveTeachers = teachers.filter(t => !t.isActive).length
-    const totalSlots = teachers.reduce((sum, t) => sum + (t._count?.slots || 0), 0)
+    const activeTeachers = teachers.filter((t: User) => t.isActive).length
+    const inactiveTeachers = teachers.filter((t: User) => !t.isActive).length
+    const totalSlots = teachers.reduce((sum: number, t: User) => sum + ((t as any)._count?.slots || 0), 0)
     const avgSlotsPerTeacher = teachers.length > 0 ? Math.round(totalSlots / teachers.length) : 0
 
     return {
@@ -231,7 +227,7 @@ const AdminTeachers: React.FC = () => {
           </Button>
           <Button
             onClick={() => setShowCreateForm(true)}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-orange-500 hover:bg-orange-600"
             size="sm"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -243,48 +239,56 @@ const AdminTeachers: React.FC = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Users className="w-5 h-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Teachers</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <Users className="w-6 h-6 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Teachers</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <UserCheck className="w-5 h-5 text-green-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Teachers</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <UserCheck className="w-6 h-6 text-green-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Active Teachers</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-5 h-5 text-purple-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Slots</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalSlots}</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <Calendar className="w-6 h-6 text-purple-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Slots</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalSlots}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <BarChart3 className="w-5 h-5 text-orange-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Slots/Teacher</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.avgSlotsPerTeacher}</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <BarChart3 className="w-6 h-6 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Avg Slots/Teacher</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.avgSlotsPerTeacher}</p>
               </div>
             </div>
           </CardContent>
@@ -293,14 +297,14 @@ const AdminTeachers: React.FC = () => {
 
       {/* Filters */}
       <Card>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium">Filters:</span>
-              </div>
-              
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-5 h-5 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+            </div>
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
@@ -308,17 +312,17 @@ const AdminTeachers: React.FC = () => {
                   placeholder="Search teachers..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-64"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <select
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Branches</option>
-                {branches.map((branch) => (
+                {branches.map((branch: Branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
@@ -328,16 +332,18 @@ const AdminTeachers: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | '')}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-            </div>
 
-            <div className="text-sm text-gray-500">
-              {teachers.length} teachers found
+              <input
+                type="date"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Select date..."
+              />
             </div>
           </div>
         </CardContent>
@@ -346,7 +352,7 @@ const AdminTeachers: React.FC = () => {
       {/* Teachers Grid/Table */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teachers.map((teacher) => (
+          {teachers.map((teacher: User) => (
             <Card key={teacher.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -414,7 +420,7 @@ const AdminTeachers: React.FC = () => {
 
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div className="text-sm text-gray-500">
-                      {teacher._count?.slots || 0} slots assigned
+                      {(teacher as any)._count?.slots || 0} slots assigned
                     </div>
                     <div className="flex items-center space-x-1">
                       <Star className="w-4 h-4 text-yellow-500" />
@@ -468,7 +474,7 @@ const AdminTeachers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {teachers.map((teacher) => (
+                  {teachers.map((teacher: User) => (
                     <tr key={teacher.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
@@ -508,7 +514,7 @@ const AdminTeachers: React.FC = () => {
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span className="text-sm font-medium">
-                            {teacher._count?.slots || 0}
+                            {(teacher as any)._count?.slots || 0}
                           </span>
                         </div>
                       </td>
@@ -591,14 +597,14 @@ const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
     e.preventDefault()
     const submitData = { ...formData }
     if (!submitData.password) {
-      delete submitData.password
+      delete (submitData as any).password
     }
     onSubmit(submitData)
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-md p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">
             {teacher ? 'Edit Teacher' : 'Create New Teacher'}
@@ -662,7 +668,7 @@ const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
               required
             >
               <option value="">Select Branch</option>
-              {branches.map((branch) => (
+              {branches.map((branch: Branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name}
                 </option>
@@ -711,7 +717,7 @@ const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-orange-500 hover:bg-orange-600"
             >
               {isLoading ? 'Saving...' : (teacher ? 'Update Teacher' : 'Create Teacher')}
             </Button>

@@ -27,6 +27,63 @@ export {
   NotificationType
 };
 
+// Service Types Enums
+export enum ServiceCategory {
+  PAID = 'paid',
+  FREE = 'free'
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  FREE = 'free'
+}
+
+export enum RoomType {
+  GENERAL = 'general',
+  COMPUTER_LAB = 'computer_lab',
+  COUNSELLING = 'counselling',
+  EXAM_HALL = 'exam_hall'
+}
+
+// Service Types Interfaces
+export interface ServiceType {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  category: ServiceCategory;
+  defaultCapacity: number;
+  durationMinutes: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServicePricing {
+  id: string;
+  serviceTypeId: string;
+  branchId?: string;
+  price: number;
+  currency: string;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string;
+}
+
+export interface Room {
+  id: string;
+  branchId: string;
+  roomNumber: string;
+  roomName: string;
+  roomType: RoomType;
+  capacity: number;
+  equipment: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Extended types with relations
 export interface UserWithBranch extends User {
   branch?: Branch | null;
@@ -74,21 +131,74 @@ export interface CreateUserRequest {
 export interface CreateSlotRequest {
   branchId: string;
   teacherId: string;
+  serviceTypeId: string; // NEW: Required service type
+  roomId?: string; // NEW: Optional room assignment
   date: string; // ISO date string
   startTime: string; // HH:MM format
   endTime: string; // HH:MM format
   capacity?: number;
+  price?: number; // NEW: Slot-specific pricing override
 }
 
 export interface CreateBookingRequest {
   studentId: string;
   slotId: string;
+  serviceTypeId: string; // NEW: Required service type
+  paymentStatus?: PaymentStatus; // NEW: Payment status
+  amountPaid?: number; // NEW: Amount paid
 }
 
 export interface CreateAssessmentRequest {
   bookingId: string;
   score: number; // 0-9 with 0.5 increments
   remarks?: string;
+}
+
+// NEW: Service Types Request Interfaces
+export interface CreateServiceTypeRequest {
+  name: string;
+  code: string;
+  description?: string;
+  category: ServiceCategory;
+  defaultCapacity: number;
+  durationMinutes: number;
+}
+
+export interface UpdateServiceTypeRequest {
+  name?: string;
+  code?: string;
+  description?: string;
+  category?: ServiceCategory;
+  defaultCapacity?: number;
+  durationMinutes?: number;
+  isActive?: boolean;
+}
+
+export interface CreateServicePricingRequest {
+  serviceTypeId: string;
+  branchId?: string;
+  price: number;
+  currency?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+}
+
+export interface CreateRoomRequest {
+  branchId: string;
+  roomNumber: string;
+  roomName: string;
+  roomType?: RoomType;
+  capacity: number;
+  equipment?: string[];
+}
+
+export interface UpdateRoomRequest {
+  roomNumber?: string;
+  roomName?: string;
+  roomType?: RoomType;
+  capacity?: number;
+  equipment?: string[];
+  isActive?: boolean;
 }
 
 export interface CreateNotificationRequest {
@@ -119,6 +229,9 @@ export interface UpdateSystemSettingRequest {
 export interface SlotFilters {
   branchId?: string;
   teacherId?: string;
+  serviceTypeId?: string; // NEW: Filter by service type
+  serviceCategory?: ServiceCategory; // NEW: Filter by paid/free
+  roomId?: string; // NEW: Filter by room
   date?: string;
   startDate?: string;
   endDate?: string;
@@ -129,6 +242,9 @@ export interface BookingFilters {
   slotId?: string;
   status?: BookingStatus;
   branchId?: string;
+  serviceTypeId?: string; // NEW: Filter by service type
+  serviceCategory?: ServiceCategory; // NEW: Filter by paid/free
+  paymentStatus?: PaymentStatus; // NEW: Filter by payment status
   startDate?: string;
   endDate?: string;
 }

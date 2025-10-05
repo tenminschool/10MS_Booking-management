@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 // Custom validation helpers
 const phoneRegex = /^\+8801[3-9]\d{8}$/;
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -11,11 +10,26 @@ export const loginFormSchema = z.object({
   email: z.string()
     .min(1, 'Email is required')
     .email('Please enter a valid email address')
-    .max(255, 'Email must be less than 255 characters'),
+    .max(255, 'Email must be less than 255 characters')
+    .optional()
+    .or(z.literal('')),
   password: z.string()
     .min(1, 'Password is required')
     .min(6, 'Password must be at least 6 characters')
-    .max(128, 'Password must be less than 128 characters'),
+    .max(128, 'Password must be less than 128 characters')
+    .optional()
+    .or(z.literal('')),
+  phoneNumber: z.string()
+    .min(1, 'Phone number is required')
+    .regex(phoneRegex, 'Please enter a valid Bangladesh phone number (+8801XXXXXXXXX)')
+    .optional()
+    .or(z.literal('')),
+  otp: z.string()
+    .min(1, 'OTP is required')
+    .length(6, 'OTP must be exactly 6 digits')
+    .regex(/^\d{6}$/, 'OTP must contain only numbers')
+    .optional()
+    .or(z.literal('')),
 });
 
 export const studentLoginFormSchema = z.object({
@@ -82,7 +96,35 @@ export const createUserFormSchema = z.object({
   path: ['branchId'],
 });
 
-export const updateUserFormSchema = createUserFormSchema.partial().extend({
+export const updateUserFormSchema = z.object({
+  name: z.string()
+    .min(1, 'Name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must be less than 100 characters')
+    .regex(/^[a-zA-Z\s.'-]+$/, 'Name can only contain letters, spaces, dots, apostrophes, and hyphens')
+    .optional(),
+  email: z.string()
+    .email('Please enter a valid email address')
+    .max(255, 'Email must be less than 255 characters')
+    .optional()
+    .or(z.literal('')),
+  phoneNumber: z.string()
+    .regex(phoneRegex, 'Please enter a valid Bangladesh phone number (+8801XXXXXXXXX)')
+    .optional()
+    .or(z.literal('')),
+  role: z.enum(['SUPER_ADMIN', 'BRANCH_ADMIN', 'TEACHER', 'STUDENT'], {
+    errorMap: () => ({ message: 'Please select a valid role' })
+  }).optional(),
+  branchId: z.string()
+    .min(1, 'Branch is required')
+    .optional()
+    .or(z.literal('')),
+  password: z.string()
+    .min(6, 'Password must be at least 6 characters')
+    .max(128, 'Password must be less than 128 characters')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one lowercase letter, one uppercase letter, and one number')
+    .optional()
+    .or(z.literal('')),
   isActive: z.boolean().optional(),
 });
 
@@ -101,7 +143,22 @@ export const createBranchFormSchema = z.object({
     .regex(phoneRegex, 'Please enter a valid Bangladesh phone number (+8801XXXXXXXXX)'),
 });
 
-export const updateBranchFormSchema = createBranchFormSchema.partial();
+export const updateBranchFormSchema = z.object({
+  name: z.string()
+    .min(1, 'Branch name is required')
+    .min(2, 'Branch name must be at least 2 characters')
+    .max(100, 'Branch name must be less than 100 characters')
+    .regex(/^[a-zA-Z0-9\s\-.,()]+$/, 'Branch name contains invalid characters')
+    .optional(),
+  address: z.string()
+    .min(1, 'Address is required')
+    .max(500, 'Address must be less than 500 characters')
+    .optional(),
+  contactNumber: z.string()
+    .min(1, 'Contact number is required')
+    .regex(phoneRegex, 'Please enter a valid Bangladesh phone number (+8801XXXXXXXXX)')
+    .optional(),
+});
 
 export const createSlotFormSchema = z.object({
   branchId: z.string()
@@ -170,7 +227,28 @@ export const createSlotFormSchema = z.object({
   path: ['endTime'],
 });
 
-export const updateSlotFormSchema = createSlotFormSchema.partial();
+export const updateSlotFormSchema = z.object({
+  branchId: z.string()
+    .min(1, 'Branch is required')
+    .optional(),
+  teacherId: z.string()
+    .min(1, 'Teacher is required')
+    .optional(),
+  date: z.string()
+    .min(1, 'Date is required')
+    .optional(),
+  startTime: z.string()
+    .min(1, 'Start time is required')
+    .optional(),
+  endTime: z.string()
+    .min(1, 'End time is required')
+    .optional(),
+  capacity: z.number()
+    .min(1, 'Capacity must be at least 1')
+    .max(10, 'Capacity cannot exceed 10 students per slot')
+    .default(1)
+    .optional(),
+});
 
 export const createBookingFormSchema = z.object({
   slotId: z.string()
@@ -261,7 +339,21 @@ export const slotFiltersFormSchema = z.object({
   path: ['endDate'],
 });
 
-export const bookingFiltersFormSchema = slotFiltersFormSchema.extend({
+export const bookingFiltersFormSchema = z.object({
+  branchId: z.string().optional(),
+  teacherId: z.string().optional(),
+  date: z.string()
+    .regex(dateRegex, 'Please enter a valid date (YYYY-MM-DD)')
+    .optional()
+    .or(z.literal('')),
+  startDate: z.string()
+    .regex(dateRegex, 'Please enter a valid start date (YYYY-MM-DD)')
+    .optional()
+    .or(z.literal('')),
+  endDate: z.string()
+    .regex(dateRegex, 'Please enter a valid end date (YYYY-MM-DD)')
+    .optional()
+    .or(z.literal('')),
   studentId: z.string().optional(),
   status: z.enum(['CONFIRMED', 'CANCELLED', 'COMPLETED', 'NO_SHOW']).optional(),
   attended: z.enum(['true', 'false']).optional(),

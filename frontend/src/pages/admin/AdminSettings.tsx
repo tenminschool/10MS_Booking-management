@@ -3,28 +3,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { systemAPI } from '@/lib/api'
 import { UserRole } from '@/types'
-import { 
-  Settings, 
-  Save, 
-  RotateCcw, 
-  Bell, 
-  Clock, 
-  Users, 
-  Calendar,
+import {
+  Settings,
+  Save,
+  RotateCcw,
+  Bell,
   AlertTriangle,
   CheckCircle,
   Info,
-  Search,
-  Filter,
-  Download,
   Eye,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  Filter
 } from 'lucide-react'
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -42,7 +38,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
       variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
+      variant === 'destructive' ? 'bg-orange-500 text-white hover:bg-orange-600' :
       variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -53,10 +49,10 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
     {children}
   </button>
 )
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
-  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
+  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${className} ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'destructive' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
     variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
     variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
     'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
@@ -225,8 +221,8 @@ const AdminSettings: React.FC = () => {
 
   const handleReset = () => {
     // Reset to original values from server
-    if (settingsData?.data) {
-      setSettings(settingsData.data)
+    if ((settingsData as any)?.data) {
+      setSettings((settingsData as any).data)
       setHasChanges(false)
     }
   }
@@ -274,7 +270,7 @@ const AdminSettings: React.FC = () => {
           <Button
             onClick={handleSave}
             disabled={!hasChanges || updateSettingsMutation.isPending}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-orange-500 hover:bg-orange-600"
           >
             <Save className="w-4 h-4 mr-2" />
             {updateSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
@@ -589,7 +585,7 @@ const AdminSettings: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-md">
                   <CheckCircle className="w-5 h-5 text-green-600" />
                   <div>
                     <div className="font-medium text-green-900">Database</div>
@@ -597,7 +593,7 @@ const AdminSettings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-md">
                   <CheckCircle className="w-5 h-5 text-green-600" />
                   <div>
                     <div className="font-medium text-green-900">SMS Service</div>
@@ -605,7 +601,7 @@ const AdminSettings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-md">
                   <CheckCircle className="w-5 h-5 text-green-600" />
                   <div>
                     <div className="font-medium text-green-900">Audit Logs</div>
@@ -629,7 +625,7 @@ const AdminSettings: React.FC = () => {
             </CardHeader>
             <CardContent>
               {/* Filters */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="mb-6 p-4 bg-gray-50 rounded-md">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
@@ -699,7 +695,7 @@ const AdminSettings: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {auditLogsData?.auditLogs?.map((log: any) => (
+                        {(auditLogsData as any)?.auditLogs?.map((log: any) => (
                           <tr key={log.id} className="hover:bg-gray-50">
                             <td className="border border-gray-200 px-4 py-2 text-sm">
                               {new Date(log.timestamp).toLocaleString()}
@@ -736,12 +732,12 @@ const AdminSettings: React.FC = () => {
                   </div>
 
                   {/* Pagination */}
-                  {auditLogsData?.pagination && (
+                  {(auditLogsData as any)?.pagination && (
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-700">
-                        Showing {((auditLogsData.pagination.page - 1) * auditLogsData.pagination.limit) + 1} to{' '}
-                        {Math.min(auditLogsData.pagination.page * auditLogsData.pagination.limit, auditLogsData.pagination.total)} of{' '}
-                        {auditLogsData.pagination.total} entries
+                        Showing {(((auditLogsData as any).pagination.page - 1) * (auditLogsData as any).pagination.limit) + 1} to{' '}
+                        {Math.min((auditLogsData as any).pagination.page * (auditLogsData as any).pagination.limit, (auditLogsData as any).pagination.total)} of{' '}
+                        {(auditLogsData as any).pagination.total} entries
                       </div>
                       
                       <div className="flex items-center space-x-2">
@@ -756,12 +752,12 @@ const AdminSettings: React.FC = () => {
                         </Button>
                         
                         <span className="text-sm text-gray-700">
-                          Page {auditLogsPage} of {auditLogsData.pagination.pages}
+                          Page {auditLogsPage} of {(auditLogsData as any).pagination.pages}
                         </span>
-                        
+
                         <Button
-                          onClick={() => setAuditLogsPage(prev => Math.min(auditLogsData.pagination.pages, prev + 1))}
-                          disabled={auditLogsPage >= auditLogsData.pagination.pages}
+                          onClick={() => setAuditLogsPage(prev => Math.min((auditLogsData as any).pagination.pages, prev + 1))}
+                          disabled={auditLogsPage >= (auditLogsData as any).pagination.pages}
                           variant="outline"
                           size="sm"
                         >
@@ -772,7 +768,7 @@ const AdminSettings: React.FC = () => {
                     </div>
                   )}
 
-                  {(!auditLogsData?.auditLogs || auditLogsData.auditLogs.length === 0) && (
+                  {(!(auditLogsData as any)?.auditLogs || (auditLogsData as any).auditLogs.length === 0) && (
                     <div className="text-center py-8 text-gray-500">
                       No audit logs found matching the current filters.
                     </div>

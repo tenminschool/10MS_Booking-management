@@ -10,10 +10,18 @@ router.get('/', authenticate, async (req, res) => {
     const user = req.user!;
     console.log('User object:', user);
     
-    // Query bookings from Supabase database
+    // Query bookings from Supabase database with related data
     let query = supabase
       .from('bookings')
-      .select('*')
+      .select(`
+        *,
+        student:users!bookings_studentId_fkey(id, name, phoneNumber, email),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name, email)
+        )
+      `)
       .order('bookedAt', { ascending: false });
 
     // Apply role-based filtering
@@ -41,7 +49,16 @@ router.get('/', authenticate, async (req, res) => {
       });
     }
 
-    res.json(bookings || []);
+    // Return data in the expected format with pagination info
+    res.json({
+      bookings: bookings || [],
+      pagination: {
+        total: bookings?.length || 0,
+        page: 1,
+        limit: 100,
+        pages: 1
+      }
+    });
   } catch (error: any) {
     console.error('Error fetching bookings:', error);
     res.status(500).json({

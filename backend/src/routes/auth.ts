@@ -173,6 +173,53 @@ router.get('/me', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
+    
+    // Check if it's a student token (custom format: student_{userId}_{timestamp})
+    if (token.startsWith('student_')) {
+      const tokenParts = token.split('_');
+      if (tokenParts.length >= 2) {
+        const userId = tokenParts[1];
+        
+        console.log('Student token detected, userId:', userId);
+        
+        // Get user details from users table using the userId from token
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (userError || !userData) {
+          console.log('Student user not found:', userError);
+          return res.status(401).json({
+            error: 'User not found',
+            message: 'Student not found'
+          });
+        }
+
+        console.log('Student user found:', userData);
+
+        return res.json({
+          data: {
+            id: userData.id,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            branchId: userData.branchId,
+            phoneNumber: userData.phoneNumber,
+            isActive: userData.isActive,
+            createdAt: userData.createdAt
+          }
+        });
+      } else {
+        return res.status(401).json({
+          error: 'Invalid token format',
+          message: 'Student token format is invalid'
+        });
+      }
+    }
+
+    // Handle Supabase tokens (for staff/admin users)
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {

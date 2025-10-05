@@ -95,6 +95,80 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// Get all notifications (Admin only)
+router.get('/admin', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const user = req.user!;
+      
+      // Check if user has permission to view all notifications
+      if (user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.BRANCH_ADMIN) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Only administrators can view all notifications'
+        });
+      }
+
+      const { page = 1, limit = 20, search, type, status, priority } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
+
+      // Build query
+      let query = supabase
+        .from('notifications')
+        .select(`
+          *,
+          user:users!notifications_userId_fkey(id, name, email, phoneNumber, role)
+        `, { count: 'exact' })
+        .order('createdAt', { ascending: false })
+        .range(offset, offset + Number(limit) - 1);
+
+      // Apply filters
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,message.ilike.%${search}%`);
+      }
+      if (type) {
+        query = query.eq('type', type);
+      }
+      if (status === 'read') {
+        query = query.eq('isRead', true);
+      } else if (status === 'unread') {
+        query = query.eq('isRead', false);
+      }
+      if (priority) {
+        query = query.eq('priority', priority);
+      }
+
+      // For branch admins, only show notifications for their branch users
+      if (user.role === UserRole.BRANCH_ADMIN) {
+        query = query.eq('user.branchId', user.branchId);
+      }
+
+      const { data: notifications, error, count } = await query;
+
+      if (error) {
+        throw new Error(`Failed to fetch notifications: ${error.message}`);
+      }
+
+      res.json({
+        data: notifications || [],
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: count || 0,
+          pages: Math.ceil((count || 0) / Number(limit))
+        }
+      });
+    } catch (error: any) {
+      console.error('Error fetching admin notifications:', error);
+      res.status(500).json({
+        error: 'Failed to fetch notifications',
+        message: error.message
+      });
+    }
+  }
+);
+
 // Mark notifications as read
 router.patch('/mark-read', authenticate, async (req, res) => {
   try {

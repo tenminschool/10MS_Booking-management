@@ -31,9 +31,6 @@ const CardTitle: React.FC<CardTitleProps> = ({ children, className = '' }) => (
   <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
 
-const CardDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
-)
 
 const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) => (
   <div className={`p-6 pt-0 ${className}`}>{children}</div>
@@ -88,7 +85,6 @@ import {
   BookOpen,
   X,
   RotateCcw,
-  Download,
   Plus,
   AlertCircle,
   CheckCircle,
@@ -113,7 +109,7 @@ const Bookings: React.FC = () => {
   const markAttendanceMutation = useMutation({
     mutationFn: async ({ id, attended }: { id: string; attended: boolean }) => {
       const response = await bookingsAPI.markAttendance(id, attended)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
@@ -126,7 +122,7 @@ const Bookings: React.FC = () => {
     queryKey: ['bookings'],
     queryFn: async () => {
       const response = await bookingsAPI.getMyBookings()
-      return response.data
+      return (response as any).data
     },
   })
 
@@ -135,7 +131,7 @@ const Bookings: React.FC = () => {
     queryKey: ['dashboard-metrics'],
     queryFn: async () => {
       const response = await dashboardAPI.getMetrics()
-      return response.data
+      return (response as any).data
     },
   })
 
@@ -145,7 +141,7 @@ const Bookings: React.FC = () => {
   const cancelBookingMutation = useMutation({
     mutationFn: async (data: { id: string; reason?: string }) => {
       const response = await bookingsAPI.cancel(data.id, data.reason)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
@@ -169,7 +165,7 @@ const Bookings: React.FC = () => {
     // Ensure bookings is an array
     const bookingsArray = Array.isArray(bookings) ? bookings : []
     const now = new Date()
-    switch (activeTab) {
+    switch (activeTab as 'all' | 'upcoming' | 'past') {
       case 'upcoming':
         return bookingsArray.filter(booking =>
           booking.status === BookingStatus.CONFIRMED &&
@@ -178,10 +174,6 @@ const Bookings: React.FC = () => {
       case 'past':
         return bookingsArray.filter(booking =>
           booking.slot && new Date(booking.slot.date) < now
-        )
-      case 'cancelled':
-        return bookingsArray.filter(booking =>
-          booking.status === BookingStatus.CANCELLED
         )
       default:
         return bookingsArray
@@ -330,6 +322,27 @@ const Bookings: React.FC = () => {
                           <MapPin className="w-4 h-4" />
                           <span>{booking.slot?.branch?.name}</span>
                         </div>
+                      </div>
+
+                      {/* Service Type and Room Information */}
+                      <div className="flex items-center space-x-4 text-sm">
+                        {booking.slot?.serviceType && (
+                          <div className="flex items-center space-x-1">
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                              {booking.slot.serviceType.name}
+                            </span>
+                            <span className="text-gray-500 text-xs">
+                              {booking.slot.serviceType.durationMinutes} min
+                            </span>
+                          </div>
+                        )}
+                        {booking.slot?.room && (
+                          <div className="flex items-center space-x-1">
+                            <span className="text-gray-600 text-xs">
+                              Room: {booking.slot.room.roomNumber} - {booking.slot.room.roomName}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {booking.cancellationReason && (

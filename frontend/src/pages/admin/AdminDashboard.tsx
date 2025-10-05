@@ -2,28 +2,22 @@ import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserRole } from '@/types'
-import { 
-  Users, 
-  Building, 
-  Calendar, 
-  BookOpen, 
-  Bell, 
+import {
+  Users,
+  Building,
+  Calendar,
+  Bell,
   BarChart3,
   TrendingUp,
-  Activity,
   Shield,
   Crown,
   GraduationCap,
-  UserCog,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Zap
+  UserCog
 } from 'lucide-react'
 
 // Mock UI components
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -40,7 +34,7 @@ const CardContent = ({ children, className = '' }: { children: React.ReactNode; 
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'destructive' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
     variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
     variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
     variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
@@ -58,7 +52,7 @@ const AdminDashboard: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Only administrators can access this dashboard.</p>
         </div>
@@ -70,14 +64,16 @@ const AdminDashboard: React.FC = () => {
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/dashboard', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/dashboard`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       })
       if (!response.ok) throw new Error('Failed to fetch dashboard data')
       return response.json()
-    }
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
   if (isLoading) {
@@ -225,52 +221,6 @@ const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Activity className="w-5 h-5" />
-              <span>System Health</span>
-            </CardTitle>
-            <CardDescription>
-              Current system status and performance
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Database</span>
-                </div>
-                <Badge variant="success">Connected</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Uptime</span>
-                </div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {dashboardData?.systemHealth?.uptime ? 
-                    `${Math.floor(dashboardData.systemHealth.uptime / 3600)}h ${Math.floor((dashboardData.systemHealth.uptime % 3600) / 60)}m` : 
-                    'N/A'
-                  }
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Zap className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Memory Usage</span>
-                </div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {dashboardData?.systemHealth?.memory ? 
-                    `${Math.round(dashboardData.systemHealth.memory.heapUsed / 1024 / 1024)}MB` : 
-                    'N/A'
-                  }
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Recent Activity */}
@@ -289,7 +239,7 @@ const AdminDashboard: React.FC = () => {
             <div className="space-y-3">
               {recentActivity.bookings?.length > 0 ? (
                 recentActivity.bookings.slice(0, 5).map((booking: any) => (
-                  <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {booking.student?.name || 'Unknown Student'}
@@ -326,7 +276,7 @@ const AdminDashboard: React.FC = () => {
             <div className="space-y-3">
               {recentActivity.users?.length > 0 ? (
                 recentActivity.users.slice(0, 5).map((user: any) => (
-                  <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {user.name}

@@ -25,6 +25,31 @@ export const NotificationType = {
 
 export type NotificationType = typeof NotificationType[keyof typeof NotificationType]
 
+// Service Types Enums
+export const ServiceCategory = {
+  PAID: 'paid',
+  FREE: 'free'
+} as const
+
+export type ServiceCategory = typeof ServiceCategory[keyof typeof ServiceCategory]
+
+export const PaymentStatus = {
+  PENDING: 'pending',
+  PAID: 'paid',
+  FREE: 'free'
+} as const
+
+export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus]
+
+export const RoomType = {
+  GENERAL: 'general',
+  COMPUTER_LAB: 'computer_lab',
+  COUNSELLING: 'counselling',
+  EXAM_HALL: 'exam_hall'
+} as const
+
+export type RoomType = typeof RoomType[keyof typeof RoomType]
+
 export interface User {
   id: string
   phoneNumber?: string
@@ -50,22 +75,30 @@ export interface Slot {
   id: string
   branchId: string
   teacherId: string
+  serviceTypeId?: string // NEW: Service type
+  roomId?: string // NEW: Room assignment
   date: string
   startTime: string
   endTime: string
   capacity: number
   bookedCount: number
+  price?: number // NEW: Slot-specific pricing
   isBooked?: boolean
   createdAt: string
   branch?: Branch
   teacher?: User
+  serviceType?: ServiceType // NEW: Service type details
+  room?: Room // NEW: Room details
 }
 
 export interface Booking {
   id: string
   studentId: string
   slotId: string
+  serviceTypeId?: string // NEW: Service type
   status: BookingStatus
+  paymentStatus?: PaymentStatus // NEW: Payment status
+  amountPaid?: number // NEW: Amount paid
   attended?: boolean
   cancellationReason?: string
   notes?: string
@@ -74,6 +107,7 @@ export interface Booking {
   createdAt: string
   slot?: Slot
   student?: User
+  serviceType?: ServiceType // NEW: Service type details
 }
 
 export interface Assessment {
@@ -98,11 +132,16 @@ export interface Assessment {
 
 export interface Notification {
   id: string
-  userId: string
+  userId?: string
   title: string
   message: string
-  type: NotificationType
-  isRead: boolean
+  type: NotificationType | string
+  status?: 'SENT' | 'SCHEDULED' | 'FAILED' | 'DRAFT'
+  isRead?: boolean
+  isUrgent?: boolean
+  targetUsers?: string[]
+  scheduledAt?: string
+  tags?: string[]
   createdAt: string
 }
 
@@ -116,6 +155,7 @@ export interface SlotFilters {
 export interface CreateBookingRequest {
   slotId: string
   studentPhoneNumber: string
+  serviceTypeId?: string
 }
 
 export interface AssessmentRequest {
@@ -158,6 +198,45 @@ export interface IELTSScoringGuidelines {
 
 export interface IELTSRubrics {
   criteria: IELTSCriterion[]
-  scoringGuidelines: IELTSScoringGuidelines
+  scoringGuidelines: IELTSBandDescriptor[]
   assessmentTips: string[]
+}
+
+// NEW: Service Types Interfaces
+export interface ServiceType {
+  id: string
+  name: string
+  code: string
+  description?: string
+  category: ServiceCategory
+  defaultCapacity: number
+  durationMinutes: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ServicePricing {
+  id: string
+  serviceTypeId: string
+  branchId?: string
+  price: number
+  currency: string
+  isActive: boolean
+  effectiveFrom: string
+  effectiveTo?: string
+}
+
+export interface Room {
+  id: string
+  branchId: string
+  roomNumber: string
+  roomName: string
+  roomType: RoomType
+  capacity: number
+  equipment: string[]
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  branch?: Branch
 }

@@ -1,251 +1,241 @@
+"use client"
+
 import * as React from "react"
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday, isWeekend } from "date-fns"
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Users } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react"
+import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+
 import { cn } from "@/lib/utils"
+import { Button, buttonVariants } from "@/components/ui/button"
 
-interface CalendarProps {
-  selectedDate?: Date
-  onDateSelect?: (date: Date) => void
-  onSlotClick?: (slot: any) => void
-  slots?: Array<{
-    id: string
-    date: string
-    startTime: string
-    endTime: string
-    capacity: number
-    bookedCount: number
-    branch?: { name: string }
-    teacher?: { name: string }
-  }>
-  className?: string
-}
-
-export const Calendar: React.FC<CalendarProps> = ({
-  selectedDate = new Date(),
+function Calendar({
+  className,
+  classNames,
+  showOutsideDays = true,
+  captionLayout = "label",
+  buttonVariant = "ghost",
+  formatters,
+  components,
+  selectedDate,
   onDateSelect,
   onSlotClick,
   slots = [],
-  className = ""
-}) => {
-  const [currentMonth, setCurrentMonth] = React.useState(selectedDate)
+  ...props
+}: React.ComponentProps<typeof DayPicker> & {
+  buttonVariant?: React.ComponentProps<typeof Button>["variant"]
+  selectedDate?: Date
+  onDateSelect?: (date: Date | undefined) => void
+  onSlotClick?: (slot: any) => void
+  slots?: any[]
+}) {
+  const defaultClassNames = getDefaultClassNames()
 
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(currentMonth)
-  const calendarStart = startOfWeek(monthStart)
-  const calendarEnd = endOfWeek(monthEnd)
+  // Custom day content renderer
+  const renderDayContent = (day: Date) => {
+    const daySlots = slots?.filter((slot: any) => {
+      const slotDate = new Date(slot.date)
+      return slotDate.toDateString() === day.toDateString()
+    }) || []
 
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
-
-  const getSlotsForDate = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd')
-    return slots.filter(slot => slot.date === dateStr)
-  }
-
-  const getSlotCount = (date: Date) => {
-    return getSlotsForDate(date).length
-  }
-
-  const getAvailableSlots = (date: Date) => {
-    return getSlotsForDate(date).filter(slot => (slot.bookedCount || 0) < slot.capacity).length
-  }
-
-  const getTotalCapacity = (date: Date) => {
-    return getSlotsForDate(date).reduce((total, slot) => total + slot.capacity, 0)
-  }
-
-  const getTotalBooked = (date: Date) => {
-    return getSlotsForDate(date).reduce((total, slot) => total + (slot.bookedCount || 0), 0)
-  }
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    setCurrentMonth(prev => 
-      direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1)
+    return (
+      <div className="relative w-full h-full flex flex-col items-center justify-center">
+        <span>{day.getDate()}</span>
+        {daySlots.length > 0 && (
+          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          </div>
+        )}
+      </div>
     )
   }
 
-  const handleDateClick = (date: Date) => {
-    if (onDateSelect) {
-      onDateSelect(date)
-    }
-  }
-
-  const handleSlotClick = (slot: any, event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (onSlotClick) {
-      onSlotClick(slot)
-    }
-  }
-
-  const getDateStatus = (date: Date) => {
-    const slotCount = getSlotCount(date)
-    const availableSlots = getAvailableSlots(date)
-    const totalCapacity = getTotalCapacity(date)
-    const totalBooked = getTotalBooked(date)
-    
-    if (slotCount === 0) return 'no-slots'
-    if (availableSlots === 0) return 'fully-booked'
-    if (availableSlots === slotCount) return 'all-available'
-    return 'partially-booked'
-  }
-
   return (
-    <div className={cn("bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden", className)}>
-      {/* Calendar Header */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => navigateMonth('prev')}
-          className="p-2 hover:bg-white/60 dark:hover:bg-gray-600/60 rounded-lg transition-all duration-200 hover:shadow-sm group"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
-        </button>
-        
-        <div className="flex items-center space-x-3">
-          <CalendarIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {format(currentMonth, 'MMMM yyyy')}
-          </h2>
-        </div>
-        
-        <button
-          onClick={() => navigateMonth('next')}
-          className="p-2 hover:bg-white/60 dark:hover:bg-gray-600/60 rounded-lg transition-all duration-200 hover:shadow-sm group"
-        >
-          <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
-        </button>
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="p-6">
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 gap-1 mb-4">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-center text-sm font-semibold text-gray-500 dark:text-gray-400 py-3">
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7 gap-1">
-          {calendarDays.map((day, index) => {
-            const isCurrentMonth = isSameMonth(day, currentMonth)
-            const isSelected = selectedDate && isSameDay(day, selectedDate)
-            const isCurrentDay = isToday(day)
-            const isWeekendDay = isWeekend(day)
-            const slotCount = getSlotCount(day)
-            const availableSlots = getAvailableSlots(day)
-            const totalCapacity = getTotalCapacity(day)
-            const totalBooked = getTotalBooked(day)
-            const dateStatus = getDateStatus(day)
-            const hasSlots = slotCount > 0
-
+    <DayPicker
+      showOutsideDays={showOutsideDays}
+      className={cn(
+        "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
+        String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
+        String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
+        className
+      )}
+      captionLayout={captionLayout}
+      formatters={{
+        formatMonthDropdown: (date) =>
+          date.toLocaleString("default", { month: "short" }),
+        ...formatters,
+      }}
+      components={{
+        Day: ({ day }) => renderDayContent(day.date),
+        Root: ({ className, rootRef, ...props }) => {
+          return (
+            <div
+              data-slot="calendar"
+              ref={rootRef}
+              className={cn(className)}
+              {...props}
+            />
+          )
+        },
+        Chevron: ({ className, orientation, ...props }) => {
+          if (orientation === "left") {
             return (
-              <button
-                key={day.toISOString()}
-                onClick={() => handleDateClick(day)}
-                className={cn(
-                  "relative p-3 h-20 text-sm rounded-lg transition-all duration-200",
-                  "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                  "group",
-                  !isCurrentMonth && "text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-500",
-                  isCurrentMonth && "text-gray-900 dark:text-white",
-                  isSelected && "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 font-semibold ring-2 ring-blue-500",
-                  isCurrentDay && !isSelected && "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium",
-                  isWeekendDay && isCurrentMonth && "text-gray-600 dark:text-gray-400",
-                  hasSlots && isCurrentMonth && "hover:bg-gray-50 dark:hover:bg-gray-700"
-                )}
-              >
-                <div className="flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={cn(
-                      "text-sm font-medium",
-                      isCurrentDay && "text-blue-600 dark:text-blue-400 font-bold"
-                    )}>
-                      {format(day, 'd')}
-                    </span>
-                    {isCurrentDay && (
-                      <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
-                    )}
-                  </div>
-                  
-                  {hasSlots && isCurrentMonth && (
-                    <div className="flex-1 flex flex-col space-y-1 overflow-hidden">
-                      {getSlotsForDate(day).slice(0, 3).map((slot, slotIndex) => {
-                        const bookedCount = slot.bookedCount || 0
-                        const isAvailable = bookedCount < slot.capacity
-                        const slotStatus = bookedCount === 0 ? 'available' : 
-                                         bookedCount < slot.capacity ? 'partial' : 'full'
-                        
-                        return (
-                          <button
-                            key={slot.id}
-                            onClick={(e) => handleSlotClick(slot, e)}
-                            className={cn(
-                              "w-full px-1 py-0.5 rounded text-xs font-medium transition-all duration-200",
-                              "hover:shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
-                              slotStatus === 'available' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
-                              slotStatus === 'partial' && "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50",
-                              slotStatus === 'full' && "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                            )}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="truncate">{slot.startTime}</span>
-                              <span className="text-xs opacity-75">
-                                {bookedCount}/{slot.capacity}
-                              </span>
-                            </div>
-                          </button>
-                        )
-                      })}
-                      {getSlotsForDate(day).length > 3 && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                          +{getSlotsForDate(day).length - 3} more
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Hover tooltip */}
-                {hasSlots && isCurrentMonth && (
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{slotCount} slot{slotCount > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="text-center">
-                      {availableSlots} available
-                    </div>
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                  </div>
-                )}
-              </button>
+              <ChevronLeftIcon className={cn("size-4", className)} {...props} />
             )
-          })}
-        </div>
-      </div>
+          }
 
-      {/* Legend */}
-      <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
-        <div className="flex items-center justify-center space-x-6 text-xs">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded"></div>
-            <span className="text-gray-600 dark:text-gray-300">All slots available</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded"></div>
-            <span className="text-gray-600 dark:text-gray-300">Partially booked</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded"></div>
-            <span className="text-gray-600 dark:text-gray-300">Fully booked</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded"></div>
-            <span className="text-gray-600 dark:text-gray-300">Selected date</span>
-          </div>
-        </div>
-      </div>
-    </div>
+          if (orientation === "right") {
+            return (
+              <ChevronRightIcon
+                className={cn("size-4", className)}
+                {...props}
+              />
+            )
+          }
+
+          return (
+            <ChevronDownIcon className={cn("size-4", className)} {...props} />
+          )
+        },
+        DayButton: CalendarDayButton,
+        WeekNumber: ({ children, ...props }) => {
+          return (
+            <td {...props}>
+              <div className="flex size-[--cell-size] items-center justify-center text-center">
+                {children}
+              </div>
+            </td>
+          )
+        },
+        ...components,
+      }}
+      classNames={{
+        root: cn("w-fit", defaultClassNames.root),
+        months: cn(
+          "relative flex flex-col gap-4 md:flex-row",
+          defaultClassNames.months
+        ),
+        month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
+        nav: cn(
+          "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
+          defaultClassNames.nav
+        ),
+        button_previous: cn(
+          buttonVariants({ variant: buttonVariant }),
+          "h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50",
+          defaultClassNames.button_previous
+        ),
+        button_next: cn(
+          buttonVariants({ variant: buttonVariant }),
+          "h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50",
+          defaultClassNames.button_next
+        ),
+        month_caption: cn(
+          "flex h-[--cell-size] w-full items-center justify-center px-[--cell-size]",
+          defaultClassNames.month_caption
+        ),
+        dropdowns: cn(
+          "flex h-[--cell-size] w-full items-center justify-center gap-1.5 text-sm font-medium",
+          defaultClassNames.dropdowns
+        ),
+        dropdown_root: cn(
+          "has-focus:border-ring border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] relative rounded-md border",
+          defaultClassNames.dropdown_root
+        ),
+        dropdown: cn(
+          "bg-popover absolute inset-0 opacity-0",
+          defaultClassNames.dropdown
+        ),
+        caption_label: cn(
+          "select-none font-medium",
+          captionLayout === "label"
+            ? "text-sm"
+            : "[&>svg]:text-muted-foreground flex h-8 items-center gap-1 rounded-md pl-2 pr-1 text-sm [&>svg]:size-3.5",
+          defaultClassNames.caption_label
+        ),
+        table: "w-full border-collapse",
+        weekdays: cn("flex", defaultClassNames.weekdays),
+        weekday: cn(
+          "text-muted-foreground flex-1 select-none rounded-md text-[0.8rem] font-normal",
+          defaultClassNames.weekday
+        ),
+        week: cn("mt-2 flex w-full", defaultClassNames.week),
+        week_number_header: cn(
+          "w-[--cell-size] select-none",
+          defaultClassNames.week_number_header
+        ),
+        week_number: cn(
+          "text-muted-foreground select-none text-[0.8rem]",
+          defaultClassNames.week_number
+        ),
+        day: cn(
+          "group/day relative aspect-square h-full w-full select-none p-0 text-center [&:first-child[data-selected=true]_button]:rounded-l-md [&:last-child[data-selected=true]_button]:rounded-r-md",
+          defaultClassNames.day
+        ),
+        range_start: cn(
+          "bg-accent rounded-l-md",
+          defaultClassNames.range_start
+        ),
+        range_middle: cn("rounded-none", defaultClassNames.range_middle),
+        range_end: cn("bg-accent rounded-r-md", defaultClassNames.range_end),
+        today: cn(
+          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
+          defaultClassNames.today
+        ),
+        outside: cn(
+          "text-muted-foreground aria-selected:text-muted-foreground",
+          defaultClassNames.outside
+        ),
+        disabled: cn(
+          "text-muted-foreground opacity-50",
+          defaultClassNames.disabled
+        ),
+        hidden: cn("invisible", defaultClassNames.hidden),
+        ...classNames,
+      }}
+      {...props}
+    />
   )
 }
+
+function CalendarDayButton({
+  className,
+  day,
+  modifiers,
+  ...props
+}: React.ComponentProps<typeof DayButton>) {
+  const defaultClassNames = getDefaultClassNames()
+
+  const ref = React.useRef<HTMLButtonElement>(null)
+  React.useEffect(() => {
+    if (modifiers.focused) ref.current?.focus()
+  }, [modifiers.focused])
+
+  return (
+    <Button
+      ref={ref}
+      variant="ghost"
+      size="icon"
+      data-day={day.date.toLocaleDateString()}
+      data-selected-single={
+        modifiers.selected &&
+        !modifiers.range_start &&
+        !modifiers.range_end &&
+        !modifiers.range_middle
+      }
+      data-range-start={modifiers.range_start}
+      data-range-end={modifiers.range_end}
+      data-range-middle={modifiers.range_middle}
+      className={cn(
+        "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 flex aspect-square h-auto w-full min-w-[--cell-size] flex-col gap-1 font-normal leading-none data-[range-end=true]:rounded-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] [&>span]:text-xs [&>span]:opacity-70",
+        defaultClassNames.day,
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Calendar, CalendarDayButton }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { assessmentsAPI, dashboardAPI, bookingsAPI } from '@/lib/api'
+import { assessmentsAPI, bookingsAPI } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 // Mock UI components - replace with actual shadcn/ui components when available
@@ -64,24 +64,24 @@ const DialogTitle = ({ children }: { children: React.ReactNode }) => (
 const DialogDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
-const Tabs = ({ children, defaultValue, value, onValueChange }: { children: React.ReactNode; defaultValue?: string; value?: string; onValueChange?: (value: string) => void }) => (
+const Tabs = ({ children, value, onValueChange }: { children: React.ReactNode; value?: string; onValueChange?: (value: string) => void }) => (
   <div className="w-full">{children}</div>
 )
 const TabsList = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg ${className}`}>{children}</div>
 )
-const TabsTrigger = ({ children, value, className = '', onClick }: { children: React.ReactNode; value: string; className?: string; onClick?: () => void }) => (
+const TabsTrigger = ({ children, value, className = '', onClick }: { children: React.ReactNode; value?: string; className?: string; onClick?: () => void }) => (
   <button className={`px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm text-gray-700 dark:text-gray-300 ${className}`} onClick={onClick}>
     {children}
   </button>
 )
-const TabsContent = ({ children, value, className = '' }: { children: React.ReactNode; value: string; className?: string }) => (
+const TabsContent = ({ children, value, className = '' }: { children: React.ReactNode; value?: string; className?: string }) => (
   <div className={`mt-4 ${className}`}>{children}</div>
 )
-const Accordion = ({ children, type = 'single', collapsible = true }: { children: React.ReactNode; type?: string; collapsible?: boolean }) => (
+const Accordion = ({ children, type, collapsible }: { children: React.ReactNode; type?: string; collapsible?: boolean }) => (
   <div className="space-y-2">{children}</div>
 )
-const AccordionItem = ({ children, value }: { children: React.ReactNode; value: string }) => (
+const AccordionItem = ({ children, value }: { children: React.ReactNode; value?: string }) => (
   <div className="border border-gray-200 dark:border-gray-700 rounded-lg">{children}</div>
 )
 const AccordionTrigger = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
@@ -100,15 +100,13 @@ import {
   MapPin,
   TrendingUp,
   Award,
-  BookOpen,
-  Download,
   Plus,
   Eye,
   FileText,
   Clock
 } from 'lucide-react'
 import { format } from 'date-fns'
-import type { Assessment, Booking, AssessmentRequest, IELTSRubrics } from '@/types'
+import type { Assessment, Booking, AssessmentRequest } from '@/types'
 import { BookingStatus, UserRole } from '@/types'
 
 const Assessments: React.FC = () => {
@@ -129,7 +127,7 @@ const Assessments: React.FC = () => {
   const createAssessmentMutation = useMutation({
     mutationFn: async (data: AssessmentRequest) => {
       const response = await assessmentsAPI.create(data)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assessments'] })
@@ -147,16 +145,7 @@ const Assessments: React.FC = () => {
     queryKey: ['assessments'],
     queryFn: async () => {
       const response = await assessmentsAPI.getMyAssessments()
-      return response.data
-    },
-  })
-
-  // Fetch dashboard data for stats (unused but kept for consistency)
-  const { } = useQuery({
-    queryKey: ['dashboard-metrics'],
-    queryFn: async () => {
-      const response = await dashboardAPI.getMetrics()
-      return response.data
+      return (response as any).data
     },
   })
 
@@ -165,7 +154,7 @@ const Assessments: React.FC = () => {
     queryKey: ['completed-bookings'],
     queryFn: async () => {
       const response = await bookingsAPI.getMyBookings()
-      return response.data?.filter((booking: Booking) =>
+      return (response as any).data?.filter((booking: Booking) =>
         booking.status === BookingStatus.COMPLETED &&
         !(booking as any).assessments?.length
       ) || []
@@ -178,7 +167,7 @@ const Assessments: React.FC = () => {
     queryKey: ['ielts-rubrics'],
     queryFn: async () => {
       const response = await assessmentsAPI.getRubrics()
-      return response.data
+      return (response as any).data
     },
     enabled: isTeacher,
   })
@@ -210,13 +199,13 @@ const Assessments: React.FC = () => {
 
   const allAssessments = (assessments as Assessment[]) || []
   const averageScore = allAssessments.length > 0
-    ? allAssessments.reduce((sum: number, assessment: Assessment) => sum + assessment.score, 0) / allAssessments.length
+    ? allAssessments.reduce((sum: number, assessment: Assessment) => sum + assessment.overallScore, 0) / allAssessments.length
     : 0
   const highestScore = allAssessments.length > 0
-    ? Math.max(...allAssessments.map((a: Assessment) => a.score))
+    ? Math.max(...allAssessments.map((a: Assessment) => a.overallScore))
     : 0
   const latestScore = allAssessments.length > 0
-    ? allAssessments.sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0].score
+    ? allAssessments.sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0].overallScore
     : 0
 
   const breadcrumbItems = [
@@ -268,7 +257,7 @@ const Assessments: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {(completedBookings as Booking[]).map((booking: Booking) => (
+                  {(completedBookings as Booking[]).map((booking: any) => (
                     <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
@@ -329,7 +318,7 @@ const Assessments: React.FC = () => {
                 <div className="space-y-4">
                   {allAssessments
                     .sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())
-                    .map((assessment: Assessment) => (
+                    .map((assessment: any) => (
                       <div key={assessment.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <div className="flex items-start justify-between">
                           <div className="space-y-3 flex-1">
@@ -340,8 +329,8 @@ const Assessments: React.FC = () => {
                                   {format(new Date(assessment.assessedAt), 'EEEE, MMMM dd, yyyy')}
                                 </span>
                               </div>
-                              <Badge variant={getScoreBadgeVariant(assessment.score)}>
-                                Score: {assessment.score}/9
+                              <Badge variant={getScoreBadgeVariant(assessment.overallScore)}>
+                                Score: {assessment.overallScore}/9
                               </Badge>
                             </div>
 
@@ -366,8 +355,8 @@ const Assessments: React.FC = () => {
                           </div>
 
                           <div className="ml-4">
-                            <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(assessment.score)}`}>
-                              {assessment.score}
+                            <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(assessment.overallScore)}`}>
+                              {assessment.overallScore}
                             </div>
                           </div>
                         </div>
@@ -455,8 +444,8 @@ const Assessments: React.FC = () => {
                     const sortedAssessments = allAssessments.sort((a: Assessment, b: Assessment) =>
                       new Date(a.assessedAt).getTime() - new Date(b.assessedAt).getTime()
                     )
-                    const firstScore = sortedAssessments[0].score
-                    const lastScore = sortedAssessments[sortedAssessments.length - 1].score
+                    const firstScore = sortedAssessments[0].overallScore
+                    const lastScore = sortedAssessments[sortedAssessments.length - 1].overallScore
                     const improvement = lastScore - firstScore
 
                     return (
@@ -533,8 +522,8 @@ const Assessments: React.FC = () => {
             <div className="space-y-6">
               {/* Score Display */}
               <div className="text-center p-6 bg-gray-50 rounded-lg">
-                <div className={`text-4xl font-bold mb-2 ${getScoreColor(selectedAssessment.score).split(' ')[0]}`}>
-                  {selectedAssessment.score}/9
+                <div className={`text-4xl font-bold mb-2 ${getScoreColor(selectedAssessment.overallScore).split(' ')[0]}`}>
+                  {selectedAssessment.overallScore}/9
                 </div>
                 <div className="text-sm text-gray-600">
                   IELTS Speaking Band Score
@@ -701,21 +690,21 @@ const Assessments: React.FC = () => {
                         <TabsList className="grid w-full grid-cols-3">
                           <TabsTrigger 
                             value="scoring" 
-                            className={activeRubricTab === 'scoring' ? 'bg-white shadow-sm' : ''}
+                            className={activeRubricTab === 'scoring' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}
                             onClick={() => setActiveRubricTab('scoring')}
                           >
                             Band Scores
                           </TabsTrigger>
                           <TabsTrigger 
                             value="criteria" 
-                            className={activeRubricTab === 'criteria' ? 'bg-white shadow-sm' : ''}
+                            className={activeRubricTab === 'criteria' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}
                             onClick={() => setActiveRubricTab('criteria')}
                           >
                             Criteria
                           </TabsTrigger>
                           <TabsTrigger 
                             value="tips" 
-                            className={activeRubricTab === 'tips' ? 'bg-white shadow-sm' : ''}
+                            className={activeRubricTab === 'tips' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}
                             onClick={() => setActiveRubricTab('tips')}
                           >
                             Tips
@@ -729,7 +718,7 @@ const Assessments: React.FC = () => {
                             <div className="space-y-3">
                               <p className="text-sm text-gray-600 mb-4">{rubrics.scoringGuidelines.description}</p>
                               <div className="grid gap-2">
-                                {rubrics.scoringGuidelines.bandDescriptors.slice(0, 10).map((band) => (
+                                {rubrics.scoringGuidelines.bandDescriptors.slice(0, 10).map((band: any) => (
                                   <div key={band.score} className="flex items-start space-x-3 p-2 rounded hover:bg-gray-50">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                                       band.score >= 7 ? 'bg-green-100 text-green-700' :
@@ -753,7 +742,7 @@ const Assessments: React.FC = () => {
                         {activeRubricTab === 'criteria' && (
                           <TabsContent value="criteria">
                             <Accordion type="single" collapsible>
-                              {rubrics.criteria.map((criterion, index) => (
+                              {rubrics.criteria.map((criterion: any, index: number) => (
                                 <AccordionItem key={index} value={`criterion-${index}`}>
                                   <AccordionTrigger className="text-left">
                                     <div>
@@ -763,7 +752,7 @@ const Assessments: React.FC = () => {
                                   </AccordionTrigger>
                                   <AccordionContent>
                                     <div className="space-y-2">
-                                      {criterion.bands.map((band) => (
+                                      {criterion.bands.map((band: any) => (
                                         <div key={band.score} className="flex items-start space-x-3 p-2 rounded hover:bg-gray-50">
                                           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                                             band.score >= 7 ? 'bg-green-100 text-green-700' :
@@ -790,7 +779,7 @@ const Assessments: React.FC = () => {
                             <div className="space-y-3">
                               <h5 className="font-medium text-gray-900">Assessment Guidelines</h5>
                               <ul className="space-y-2">
-                                {rubrics.assessmentTips.map((tip, index) => (
+                                {rubrics.assessmentTips.map((tip: string, index: number) => (
                                   <li key={index} className="flex items-start space-x-2 text-sm text-gray-700">
                                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
                                     <span>{tip}</span>

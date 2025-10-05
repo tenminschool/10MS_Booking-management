@@ -11,7 +11,11 @@ import type {
   CreateBookingRequest,
   AssessmentRequest,
   DashboardMetrics,
-  IELTSRubrics
+  IELTSRubrics,
+  ServiceType,
+  Room,
+  ServiceCategory,
+  RoomType
 } from '@/types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -22,6 +26,11 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+// Utility function to convert axios IPromise to Promise
+const toPromise = <T>(axiosPromise: any): Promise<T> => {
+  return Promise.resolve(axiosPromise) as Promise<T>
+}
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
@@ -59,166 +68,188 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   loginStudent: (phoneNumber: string, otp: string) =>
-    api.post('/api/auth/student/verify-otp', { phoneNumber, otp }),
+    toPromise(api.post('/api/auth/student/verify-otp', { phoneNumber, otp })),
 
   loginStaff: (email: string, password: string) =>
-    api.post('/api/auth/staff/login', { email, password }),
+    toPromise(api.post('/api/auth/staff/login', { email, password })),
 
   sendOTP: (phoneNumber: string) =>
-    api.post('/api/auth/student/request-otp', { phoneNumber }),
+    toPromise(api.post('/api/auth/student/request-otp', { phoneNumber })),
 
   getCurrentUser: () =>
-    api.get<User>('/api/auth/me'),
+    toPromise(api.get<User>('/api/auth/me')),
 
   logout: () =>
-    api.post('/api/auth/logout'),
+    toPromise(api.post('/api/auth/logout')),
 }
 
 // Branches API
 export const branchesAPI = {
   getAll: () =>
-    api.get<Branch[]>('/api/branches'),
+    toPromise(api.get<{ branches: Branch[]; pagination: any }>('/api/branches')),
 
   getById: (id: string) =>
-    api.get<Branch>(`/api/branches/${id}`),
+    toPromise(api.get<Branch>(`/api/branches/${id}`)),
 
   create: (data: any) =>
-    api.post<Branch>('/api/branches', data),
+    toPromise(api.post<Branch>('/api/branches', data)),
 
   update: (id: string, data: any) =>
-    api.put<Branch>(`/api/branches/${id}`, data),
+    toPromise(api.put<Branch>(`/api/branches/${id}`, data)),
 
   delete: (id: string) =>
-    api.delete(`/api/branches/${id}`),
+    toPromise(api.delete(`/api/branches/${id}`)),
 }
 
 // Slots API
 export const slotsAPI = {
   getAvailable: (filters?: SlotFilters) =>
-    api.get<Slot[]>('/api/slots', { params: filters }),
+    toPromise(api.get<Slot[]>('/api/slots', { params: filters })),
 
-  getAll: (params?: any) =>
-    api.get<{ slots: Slot[]; pagination: any }>('/api/slots', { params }),
+  getAll: (params?: any) => {
+    console.log('slotsAPI.getAll() called with params:', params)
+    return toPromise(api.get<Slot[]>('/api/slots/admin', { params })
+      .then(response => {
+        console.log('slotsAPI.getAll() response:', response)
+        return response
+      })
+      .catch(error => {
+        console.error('slotsAPI.getAll() error:', error)
+        throw error
+      }))
+  },
 
   getById: (id: string) =>
-    api.get<Slot>(`/api/slots/${id}`),
+    toPromise(api.get<Slot>(`/api/slots/${id}`)),
 
   create: (data: any) =>
-    api.post<Slot>('/api/slots', data),
+    toPromise(api.post<Slot>('/api/slots', data)),
 
   update: (id: string, data: any) =>
-    api.put<Slot>(`/api/slots/${id}`, data),
+    toPromise(api.put<Slot>(`/api/slots/${id}`, data)),
 
   delete: (id: string) =>
-    api.delete(`/api/slots/${id}`),
+    toPromise(api.delete(`/api/slots/${id}`)),
 
   bulkCreate: (data: { slots: any[] }) =>
-    api.post('/api/slots/bulk', data),
+    toPromise(api.post('/api/slots/bulk', data)),
 }
 
 // Bookings API
 export const bookingsAPI = {
   create: (data: CreateBookingRequest) =>
-    api.post<Booking>('/api/bookings', data),
+    toPromise(api.post<Booking>('/api/bookings', data)),
 
   getAll: (params?: any) =>
-    api.get<{ bookings: Booking[]; pagination: any }>('/api/bookings', { params }),
+    toPromise(api.get<{ bookings: Booking[]; pagination: any }>('/api/bookings', { params })),
 
   getMyBookings: () =>
-    api.get<Booking[]>('/api/bookings/my'),
+    toPromise(api.get<Booking[]>('/api/bookings/my')),
 
   update: (id: string, data: any) =>
-    api.put<Booking>(`/api/bookings/${id}`, data),
+    toPromise(api.put<Booking>(`/api/bookings/${id}`, data)),
 
   cancel: (id: string, reason?: string) =>
-    api.put(`/api/bookings/${id}/cancel`, { reason }),
+    toPromise(api.put(`/api/bookings/${id}/cancel`, { reason })),
 
   reschedule: (id: string, newSlotId: string) =>
-    api.put(`/api/bookings/${id}/reschedule`, { newSlotId }),
+    toPromise(api.put(`/api/bookings/${id}/reschedule`, { newSlotId })),
 
   getById: (id: string) =>
-    api.get<Booking>(`/api/bookings/${id}`),
+    toPromise(api.get<Booking>(`/api/bookings/${id}`)),
 
   markAttendance: (id: string, attended: boolean) =>
-    api.put(`/api/bookings/${id}/attendance`, { attended }),
+    toPromise(api.put(`/api/bookings/${id}/attendance`, { attended })),
 }
 
 // Assessments API
 export const assessmentsAPI = {
   getAll: (params?: any) =>
-    api.get<{ assessments: Assessment[]; pagination: any }>('/api/assessments', { params }),
+    toPromise(api.get<{ assessments: Assessment[]; pagination: any }>('/api/assessments', { params })),
 
   getMyAssessments: () =>
-    api.get<Assessment[]>('/api/assessments/my'),
+    toPromise(api.get<Assessment[]>('/api/assessments/my')),
 
   getById: (id: string) =>
-    api.get<Assessment>(`/api/assessments/${id}`),
+    toPromise(api.get<Assessment>(`/api/assessments/${id}`)),
 
   create: (data: AssessmentRequest) =>
-    api.post<Assessment>('/api/assessments', data),
+    toPromise(api.post<Assessment>('/api/assessments', data)),
 
   update: (id: string, data: any) =>
-    api.put<Assessment>(`/api/assessments/${id}`, data),
+    toPromise(api.put<Assessment>(`/api/assessments/${id}`, data)),
 
   delete: (id: string) =>
-    api.delete(`/api/assessments/${id}`),
+    toPromise(api.delete(`/api/assessments/${id}`)),
 
   getRubrics: () =>
-    api.get<IELTSRubrics>('/api/assessments/rubrics'),
+    toPromise(api.get<IELTSRubrics>('/api/assessments/rubrics')),
 }
 
 // Notifications API
 export const notificationsAPI = {
   getMy: () =>
-    api.get<Notification[]>('/api/notifications/my'),
+    toPromise(api.get<Notification[]>('/api/notifications')),
+
+  getAll: (params?: any) =>
+    toPromise(api.get<{ data: Notification[]; pagination: any }>('/api/notifications/admin', { params })),
+
+  create: (data: any) =>
+    toPromise(api.post<Notification>('/api/notifications', data)),
+
+  update: (id: string, data: any) =>
+    toPromise(api.put<Notification>(`/api/notifications/${id}`, data)),
+
+  delete: (id: string) =>
+    toPromise(api.delete(`/api/notifications/${id}`)),
 
   markAsRead: (id: string) =>
-    api.put(`/api/notifications/${id}/read`),
+    toPromise(api.put(`/api/notifications/${id}/read`)),
 
   markAllAsRead: () =>
-    api.put('/api/notifications/mark-all-read'),
+    toPromise(api.put('/api/notifications/mark-all-read')),
 }
 
 // Dashboard API
 export const dashboardAPI = {
   getMetrics: () =>
-    api.get<DashboardMetrics>('/api/dashboard/metrics'),
+    toPromise(api.get<DashboardMetrics>('/api/dashboard')),
 }
 
 // Users API (Admin)
 export const usersAPI = {
   getAll: (params?: any) =>
-    api.get<{ users: User[]; pagination: any }>('/api/users', { params }),
+    toPromise(api.get<{ users: User[]; pagination: any }>('/api/users', { params })),
 
   getByBranch: (branchId: string, params?: any) =>
-    api.get<{ users: User[]; pagination: any }>(`/api/users/branch/${branchId}`, { params }),
+    toPromise(api.get<{ users: User[]; pagination: any }>(`/api/users/branch/${branchId}`, { params })),
 
   getById: (id: string) =>
-    api.get<{ user: User }>(`/api/users/${id}`),
+    toPromise(api.get<{ user: User }>(`/api/users/${id}`)),
 
   create: (data: any) =>
-    api.post<{ user: User }>('/api/users', data),
+    toPromise(api.post<{ user: User }>('/api/users', data)),
 
   update: (id: string, data: any) =>
-    api.put<{ user: User }>(`/api/users/${id}`, data),
+    toPromise(api.put<{ user: User }>(`/api/users/${id}`, data)),
 
   delete: (id: string) =>
-    api.delete(`/api/users/${id}`),
+    toPromise(api.delete(`/api/users/${id}`)),
 }
 
 // Slots API (Admin)
 export const slotsAdminAPI = {
   create: (data: any) =>
-    api.post<{ slot: Slot }>('/api/slots', data),
+    toPromise(api.post<{ slot: Slot }>('/api/slots', data)),
 
   update: (id: string, data: any) =>
-    api.put<{ slot: Slot }>(`/api/slots/${id}`, data),
+    toPromise(api.put<{ slot: Slot }>(`/api/slots/${id}`, data)),
 
   delete: (id: string) =>
-    api.delete(`/api/slots/${id}`),
+    toPromise(api.delete(`/api/slots/${id}`)),
 
   bulkCreate: (data: { slots: any[] }) =>
-    api.post('/api/slots/bulk', data),
+    toPromise(api.post('/api/slots/bulk', data)),
 }
 
 // Import API
@@ -226,57 +257,131 @@ export const importAPI = {
   importStudents: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.post('/api/import/students', formData, {
+    return toPromise(api.post('/api/import/students', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    })
+    }))
   },
 
   downloadTemplate: () =>
-    api.get('/api/import/template', { responseType: 'blob' }),
+    toPromise(api.get('/api/import/template', { responseType: 'blob' })),
 }
 
 // Reports API
 export const reportsAPI = {
   getReports: (params: any) =>
-    api.get('/api/reports', { params }),
+    toPromise(api.get('/api/reports', { params })),
 
   exportReports: (params: any) =>
-    api.get('/api/reports/export', { params, responseType: 'blob' }),
+    toPromise(api.get('/api/reports/export', { params, responseType: 'blob' })),
 
   getDashboardMetrics: (params?: any) =>
-    api.get('/api/reports/dashboard', { params }),
+    toPromise(api.get('/api/reports/dashboard', { params })),
 
   getAttendanceReport: (params: any) =>
-    api.get('/api/reports/attendance', { params }),
+    toPromise(api.get('/api/reports/attendance', { params })),
 
   getUtilizationReport: (params: any) =>
-    api.get('/api/reports/utilization', { params }),
+    toPromise(api.get('/api/reports/utilization', { params })),
 
   getAnalytics: (params?: any) =>
-    api.get('/api/reports/analytics', { params }),
+    toPromise(api.get('/api/reports/analytics', { params })),
 
   getRealTimeMetrics: (params?: any) =>
-    api.get('/api/reports/real-time', { params }),
+    toPromise(api.get('/api/reports/real-time', { params })),
 
   getNoShowAnalysis: (params?: any) =>
-    api.get('/api/reports/no-show-analysis', { params }),
+    toPromise(api.get('/api/reports/no-show-analysis', { params })),
 }
 
 // System API (Super Admin)
 export const systemAPI = {
   getSettings: () =>
-    api.get('/api/system/settings'),
+    toPromise(api.get('/api/system/settings')),
 
   updateSettings: (data: any) =>
-    api.put('/api/system/settings', data),
+    toPromise(api.put('/api/system/settings', data)),
 
   getAuditLogs: (params?: any) =>
-    api.get('/api/system/audit-logs', { params }),
+    toPromise(api.get('/api/system/audit-logs', { params })),
 
   getSystemMetrics: () =>
-    api.get('/api/system/metrics'),
+    toPromise(api.get('/api/system/metrics')),
+}
+
+// Service Types API
+export const serviceTypesAPI = {
+  getAll: (params?: { category?: ServiceCategory; isActive?: boolean }) =>
+    toPromise(api.get<ServiceType[]>('/api/service-types', { params })),
+
+  getPaid: () =>
+    toPromise(api.get<ServiceType[]>('/api/service-types/paid')),
+
+  getFree: () =>
+    toPromise(api.get<ServiceType[]>('/api/service-types/free')),
+
+  getById: (id: string) =>
+    toPromise(api.get<ServiceType>(`/api/service-types/${id}`)),
+
+  create: (data: {
+    name: string;
+    code: string;
+    description?: string;
+    category: ServiceCategory;
+    defaultCapacity: number;
+    durationMinutes: number;
+  }) =>
+    toPromise(api.post<ServiceType>('/api/service-types', data)),
+
+  update: (id: string, data: {
+    name?: string;
+    code?: string;
+    description?: string;
+    category?: ServiceCategory;
+    defaultCapacity?: number;
+    durationMinutes?: number;
+    isActive?: boolean;
+  }) =>
+    toPromise(api.put<ServiceType>(`/api/service-types/${id}`, data)),
+
+  delete: (id: string) =>
+    toPromise(api.delete(`/api/service-types/${id}`)),
+}
+
+// Rooms API
+export const roomsAPI = {
+  getAll: (params?: { branchId?: string; roomType?: RoomType; isActive?: boolean }) =>
+    toPromise(api.get<Room[]>('/api/rooms', { params })),
+
+  getByBranch: (branchId: string, params?: { roomType?: RoomType; isActive?: boolean }) =>
+    toPromise(api.get<Room[]>(`/api/rooms/branch/${branchId}`, { params })),
+
+  getById: (id: string) =>
+    toPromise(api.get<Room>(`/api/rooms/${id}`)),
+
+  create: (data: {
+    branchId: string;
+    roomNumber: string;
+    roomName: string;
+    roomType?: RoomType;
+    capacity: number;
+    equipment?: string[];
+  }) =>
+    toPromise(api.post<Room>('/api/rooms', data)),
+
+  update: (id: string, data: {
+    roomNumber?: string;
+    roomName?: string;
+    roomType?: RoomType;
+    capacity?: number;
+    equipment?: string[];
+    isActive?: boolean;
+  }) =>
+    toPromise(api.put<Room>(`/api/rooms/${id}`, data)),
+
+  delete: (id: string) =>
+    toPromise(api.delete(`/api/rooms/${id}`)),
 }
 
 export default api

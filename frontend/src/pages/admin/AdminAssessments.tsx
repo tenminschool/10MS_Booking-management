@@ -1,11 +1,31 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
-import { assessmentsAPI, bookingsAPI, usersAPI, branchesAPI } from '@/lib/api'
-import { UserRole, type Assessment, type Booking, type User, type Branch } from '@/types'
-import { format } from 'date-fns'
+import { assessmentsAPI, bookingsAPI, branchesAPI } from '@/lib/api'
+import { UserRole, type Assessment, type Booking } from '@/types'
+import { format, isValid, parseISO } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
+
+// Safe date formatting function - moved outside component to be accessible by child components
+const safeFormatDate = (dateString: string | null | undefined, formatString: string): string => {
+  if (!dateString) return 'N/A'
+  
+  try {
+    // Try to parse the date string
+    const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString)
+    
+    // Check if the date is valid
+    if (!isValid(date)) {
+      return 'Invalid Date'
+    }
+    
+    return format(date, formatString)
+  } catch (error) {
+    console.error('Date formatting error:', error, 'Input:', dateString)
+    return 'Invalid Date'
+  }
+}
 import { 
   ClipboardList, 
   Plus, 
@@ -14,7 +34,6 @@ import {
   Search, 
   Filter,
   CheckCircle,
-  XCircle,
   Clock,
   Shield,
   AlertCircle,
@@ -27,7 +46,7 @@ import {
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -38,14 +57,14 @@ const CardTitle = ({ children, className = '' }: { children: React.ReactNode; cl
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
       variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
+      variant === 'destructive' ? 'bg-orange-500 text-white hover:bg-orange-600' :
       variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
       variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600' :
       'bg-blue-600 text-white hover:bg-blue-700'
@@ -60,7 +79,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'destructive' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
     variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
     variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
     variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
@@ -90,7 +109,7 @@ const AdminAssessments: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage assessments across all branches.</p>
         </div>
@@ -117,7 +136,7 @@ const AdminAssessments: React.FC = () => {
             page,
             limit
           })
-          return response.data
+          return (response as any).data
         },
   })
 
@@ -126,7 +145,7 @@ const AdminAssessments: React.FC = () => {
     queryKey: ['branches'],
         queryFn: async () => {
           const response = await branchesAPI.getAll()
-          return response.data
+          return (response as any).data
         },
   })
 
@@ -135,20 +154,20 @@ const AdminAssessments: React.FC = () => {
     queryKey: ['bookings-for-assessment'],
         queryFn: async () => {
           const response = await bookingsAPI.getAll({ status: 'confirmed' })
-          return response.data
+          return (response as any).data
         },
   })
 
   const assessments = assessmentsData?.assessments || []
   const pagination = assessmentsData?.pagination
-  const branches = branchesData || []
+  const branches = branchesData?.branches || []
   const bookings = bookingsData?.bookings || []
 
   // Create assessment mutation
   const createAssessmentMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await assessmentsAPI.create(data)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
@@ -164,7 +183,7 @@ const AdminAssessments: React.FC = () => {
   const updateAssessmentMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const response = await assessmentsAPI.update(id, data)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
@@ -180,7 +199,7 @@ const AdminAssessments: React.FC = () => {
   const deleteAssessmentMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await assessmentsAPI.delete(id)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
@@ -250,11 +269,11 @@ const AdminAssessments: React.FC = () => {
 
   const getAssessmentStats = () => {
     const total = assessments.length
-    const completed = assessments.filter(a => a.status === 'completed').length
-    const pending = assessments.filter(a => a.status === 'pending').length
-    const draft = assessments.filter(a => a.status === 'draft').length
-    const averageScore = assessments.length > 0 
-      ? (assessments.reduce((sum, a) => sum + (a.overallScore || 0), 0) / assessments.length).toFixed(1)
+    const completed = assessments.filter((a: any) => a.status === 'completed').length
+    const pending = assessments.filter((a: any) => a.status === 'pending').length
+    const draft = assessments.filter((a: any) => a.status === 'draft').length
+    const averageScore = assessments.length > 0
+      ? (assessments.reduce((sum: number, a: any) => sum + (a.overallScore || 0), 0) / assessments.length).toFixed(1)
       : 0
 
     return { total, completed, pending, draft, averageScore }
@@ -282,7 +301,7 @@ const AdminAssessments: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comprehensive Assessment Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Assessment Management</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage all assessments across all branches with complete control and analytics
           </p>
@@ -297,8 +316,8 @@ const AdminAssessments: React.FC = () => {
           </Button>
           <Button
             onClick={() => setShowCreateForm(true)}
-            className="bg-red-600 hover:bg-red-700"
-            size="sm"
+            variant="default"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Assessment
@@ -309,11 +328,13 @@ const AdminAssessments: React.FC = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <ClipboardList className="w-5 h-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Assessments</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <ClipboardList className="w-6 h-6 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Assessments</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
               </div>
             </div>
@@ -321,11 +342,13 @@ const AdminAssessments: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Completed</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Completed</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
               </div>
             </div>
@@ -333,11 +356,13 @@ const AdminAssessments: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Clock className="w-5 h-5 text-yellow-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <Clock className="w-6 h-6 text-yellow-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Pending</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pending}</p>
               </div>
             </div>
@@ -345,11 +370,13 @@ const AdminAssessments: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <BookOpen className="w-5 h-5 text-purple-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Draft</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <BookOpen className="w-6 h-6 text-purple-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Draft</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.draft}</p>
               </div>
             </div>
@@ -357,11 +384,13 @@ const AdminAssessments: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Star className="w-5 h-5 text-orange-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Score</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+              <Star className="w-6 h-6 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Avg Score</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.averageScore}</p>
               </div>
             </div>
@@ -371,14 +400,14 @@ const AdminAssessments: React.FC = () => {
 
       {/* Filters */}
       <Card>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
-              </div>
-              
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-5 h-5 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+            </div>
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
@@ -386,14 +415,14 @@ const AdminAssessments: React.FC = () => {
                   placeholder="Search assessments..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm w-64 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Status</option>
                 <option value="completed">Completed</option>
@@ -404,30 +433,28 @@ const AdminAssessments: React.FC = () => {
               <select
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Branches</option>
-                {branches.map((branch) => (
+                {branches && branches.length > 0 ? branches.map((branch: any) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
-                ))}
+                )) : (
+                  <option value="" disabled>Loading branches...</option>
+                )}
               </select>
 
               <select
                 value={scoreFilter}
                 onChange={(e) => setScoreFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Scores</option>
                 <option value="7-9">High (7-9)</option>
                 <option value="6-6.9">Medium (6-6.9)</option>
                 <option value="0-5.9">Low (0-5.9)</option>
               </select>
-            </div>
-
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {pagination?.total || 0} assessments total
             </div>
           </div>
         </CardContent>
@@ -436,9 +463,9 @@ const AdminAssessments: React.FC = () => {
       {/* Assessments Grid/Table */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assessments.map((assessment) => (
+          {assessments && assessments.length > 0 ? assessments.map((assessment: any) => (
             <Card key={assessment.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
+            <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -476,7 +503,7 @@ const AdminAssessments: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                     <Calendar className="w-4 h-4" />
-                    <span>{format(new Date(assessment.booking?.slot?.startTime || ''), 'MMM dd, yyyy')}</span>
+                    <span>{safeFormatDate(assessment.booking?.slot?.startTime, 'MMM dd, yyyy')}</span>
                   </div>
 
                   <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
@@ -516,13 +543,13 @@ const AdminAssessments: React.FC = () => {
                       ID: {assessment.id.slice(0, 8)}...
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {format(new Date(assessment.createdAt), 'MMM dd')}
+                      {safeFormatDate(assessment.createdAt, 'MMM dd')}
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )) : null}
 
           {assessments.length === 0 && (
             <div className="col-span-full">
@@ -566,7 +593,7 @@ const AdminAssessments: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {assessments.map((assessment) => (
+                  {assessments && assessments.length > 0 ? assessments.map((assessment: any) => (
                     <tr key={assessment.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
@@ -583,10 +610,10 @@ const AdminAssessments: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {format(new Date(assessment.booking?.slot?.startTime || ''), 'MMM dd, yyyy')}
+                          {safeFormatDate(assessment.booking?.slot?.startTime, 'MMM dd, yyyy')}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {format(new Date(assessment.booking?.slot?.startTime || ''), 'h:mm a')}
+                          {safeFormatDate(assessment.booking?.slot?.startTime, 'h:mm a')}
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -647,7 +674,19 @@ const AdminAssessments: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center">
+                        <div className="flex flex-col items-center space-y-4">
+                          <ClipboardList className="w-16 h-16 text-gray-400" />
+                          <p className="text-gray-500 dark:text-gray-400">No assessments found</p>
+                          <Button onClick={() => setShowCreateForm(true)}>
+                            Create First Assessment
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -755,7 +794,7 @@ const AssessmentFormModal: React.FC<AssessmentFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-md p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {assessment ? 'Edit Assessment' : 'Create New Assessment'}
@@ -780,11 +819,13 @@ const AssessmentFormModal: React.FC<AssessmentFormModalProps> = ({
               required
             >
               <option value="">Select Booking</option>
-              {bookings.map((booking) => (
+              {bookings && bookings.length > 0 ? bookings.map((booking) => (
                 <option key={booking.id} value={booking.id}>
-                  {booking.student?.name} - {format(new Date(booking.slot?.startTime || ''), 'MMM dd, yyyy h:mm a')} ({booking.slot?.teacher?.name})
+                  {booking.student?.name} - {safeFormatDate(booking.slot?.startTime, 'MMM dd, yyyy h:mm a')} ({booking.slot?.teacher?.name})
                 </option>
-              ))}
+              )) : (
+                <option value="" disabled>No bookings available</option>
+              )}
             </select>
           </div>
 
@@ -793,8 +834,8 @@ const AssessmentFormModal: React.FC<AssessmentFormModalProps> = ({
               <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Selected Booking Details:</h4>
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                 <div>Student: {selectedBooking.student?.name}</div>
-                <div>Date: {format(new Date(selectedBooking.slot?.startTime || ''), 'MMM dd, yyyy')}</div>
-                <div>Time: {format(new Date(selectedBooking.slot?.startTime || ''), 'h:mm a')} - {format(new Date(selectedBooking.slot?.endTime || ''), 'h:mm a')}</div>
+                <div>Date: {safeFormatDate(selectedBooking.slot?.startTime, 'MMM dd, yyyy')}</div>
+                <div>Time: {safeFormatDate(selectedBooking.slot?.startTime, 'h:mm a')} - {safeFormatDate(selectedBooking.slot?.endTime, 'h:mm a')}</div>
                 <div>Teacher: {selectedBooking.slot?.teacher?.name}</div>
                 <div>Branch: {selectedBooking.slot?.branch?.name}</div>
               </div>
@@ -901,7 +942,7 @@ const AssessmentFormModal: React.FC<AssessmentFormModalProps> = ({
             </label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'pending' | 'completed' })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
             >
@@ -936,7 +977,7 @@ const AssessmentFormModal: React.FC<AssessmentFormModalProps> = ({
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-orange-500 hover:bg-orange-600"
             >
               {isLoading ? 'Saving...' : (assessment ? 'Update Assessment' : 'Create Assessment')}
             </Button>

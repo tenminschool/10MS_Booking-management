@@ -23,6 +23,7 @@ interface DropdownMenuItemProps {
   className?: string
   onClick?: () => void
   disabled?: boolean
+  asChild?: boolean
 }
 
 const DropdownMenuContext = React.createContext<{
@@ -74,9 +75,10 @@ const DropdownMenuTrigger: React.FC<DropdownMenuTriggerProps> = ({
   }
 
   if (asChild) {
-    return React.cloneElement(children as React.ReactElement, {
+    const childElement = children as React.ReactElement<any>
+    return React.cloneElement(childElement, {
       onClick: handleClick,
-      className: cn(className, (children as React.ReactElement).props.className)
+      className: cn(className, childElement.props.className)
     })
   }
 
@@ -122,7 +124,8 @@ const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   children, 
   className,
   onClick,
-  disabled = false
+  disabled = false,
+  asChild = false
 }) => {
   const { setIsOpen } = React.useContext(DropdownMenuContext)
 
@@ -131,6 +134,18 @@ const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
       onClick()
       setIsOpen(false)
     }
+  }
+
+  if (asChild) {
+    const childElement = children as React.ReactElement<any>
+    return React.cloneElement(childElement, {
+      onClick: handleClick,
+      className: cn(
+        'w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2',
+        className,
+        childElement.props.className
+      )
+    })
   }
 
   return (

@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { slotsAPI, branchesAPI, bookingsAPI, dashboardAPI } from '@/lib/api'
+import { slotsAPI, branchesAPI, bookingsAPI, dashboardAPI, serviceTypesAPI } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserRole } from '@/types'
-import type { SlotFilters, Slot } from '@/types'
+import type { SlotFilters, Slot, ServiceType } from '@/types'
 import { Link } from 'react-router-dom'
 import { format, addDays, subDays } from 'date-fns'
 import { 
@@ -63,7 +63,7 @@ const Badge = ({ children, variant = 'default', className = '' }: { children: Re
 const Dialog = ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) => (
   open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => onOpenChange(false)}>
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -134,6 +134,25 @@ const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact 
                 <MapPin className="w-4 h-4" />
                 <span>{slot.branch?.name}</span>
               </div>
+
+              {/* Show service type info */}
+              {slot.serviceType && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                    {slot.serviceType.name}
+                  </span>
+                  <span className="text-gray-500 text-xs">
+                    {slot.serviceType.durationMinutes} min
+                  </span>
+                </div>
+              )}
+
+              {/* Show room info if assigned */}
+              {slot.room && (
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span className="text-xs">Room: {slot.room.roomNumber} - {slot.room.roomName}</span>
+                </div>
+              )}
               
               {/* Show additional info for admins */}
               {isAdmin && (
@@ -218,6 +237,7 @@ const Schedule: React.FC = () => {
     // For teachers, automatically filter to their slots
     ...(user?.role === UserRole.TEACHER && { teacherId: user.id })
   })
+  const [selectedServiceType, setSelectedServiceType] = useState<string>('')
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
@@ -227,16 +247,28 @@ const Schedule: React.FC = () => {
     queryKey: ['branches'],
     queryFn: async () => {
       const response = await branchesAPI.getAll()
-      return response.data
+      return (response as any).data
+    },
+  })
+
+  // Fetch service types for filter
+  const { data: serviceTypes } = useQuery({
+    queryKey: ['service-types'],
+    queryFn: async () => {
+      const response = await serviceTypesAPI.getAll()
+      return (response as any).data
     },
   })
 
   // Fetch available slots
   const { data: slots, isLoading } = useQuery({
-    queryKey: ['slots', filters],
+    queryKey: ['slots', filters, selectedServiceType],
     queryFn: async () => {
-      const response = await slotsAPI.getAvailable(filters)
-      return response.data
+      const response = await slotsAPI.getAvailable({
+        ...filters,
+        ...(selectedServiceType && { serviceTypeId: selectedServiceType })
+      })
+      return (response as any).data
     },
   })
 
@@ -245,7 +277,7 @@ const Schedule: React.FC = () => {
     queryKey: ['dashboard-metrics'],
     queryFn: async () => {
       const response = await dashboardAPI.getMetrics()
-      return response.data
+      return (response as any).data
     },
   })
 
@@ -254,9 +286,10 @@ const Schedule: React.FC = () => {
     mutationFn: async (slotId: string) => {
       const response = await bookingsAPI.create({ 
         slotId, 
-        studentPhoneNumber: user?.phoneNumber || '' 
+        studentPhoneNumber: user?.phoneNumber || '',
+        serviceTypeId: selectedSlot?.serviceTypeId || ''
       })
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['slots'] })
@@ -474,7 +507,7 @@ const Schedule: React.FC = () => {
                 {format(selectedDate, 'MMMM yyyy')} - Available Slots
               </h3>
               <div className="grid gap-4">
-                {slots?.map((slot) => (
+                {slots?.map((slot: any) => (
                   <SlotCard 
                     key={slot.id} 
                     slot={slot} 
@@ -528,6 +561,32 @@ const Schedule: React.FC = () => {
                         onClick={() => handleBranchFilter(branch.id)}
                       >
                         {branch.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Service Type Filter */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-600">Service Type</label>
+                  <div className="space-y-1">
+                    <Button
+                      variant={!selectedServiceType ? 'default' : 'outline'}
+                      size="sm"
+                      className="w-full justify-start text-xs h-8"
+                      onClick={() => setSelectedServiceType('')}
+                    >
+                      All Services
+                    </Button>
+                    {Array.isArray(serviceTypes) && serviceTypes.map((serviceType: ServiceType) => (
+                      <Button
+                        key={serviceType.id}
+                        variant={selectedServiceType === serviceType.id ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-full justify-start text-xs h-8"
+                        onClick={() => setSelectedServiceType(serviceType.id)}
+                      >
+                        {serviceType.name} ({serviceType.durationMinutes}min)
                       </Button>
                     ))}
                   </div>
@@ -643,6 +702,23 @@ const Schedule: React.FC = () => {
                   <MapPin className="w-4 h-4 text-gray-500" />
                   <span>{selectedSlot.branch?.name}</span>
                 </div>
+                {selectedSlot.serviceType && (
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                      {selectedSlot.serviceType.name}
+                    </span>
+                    <span className="text-gray-500 text-xs">
+                      {selectedSlot.serviceType.durationMinutes} minutes
+                    </span>
+                  </div>
+                )}
+                {selectedSlot.room && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">
+                      Room: {selectedSlot.room.roomNumber} - {selectedSlot.room.roomName}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2">
                   <Users className="w-4 h-4 text-gray-500" />
                   <span>{selectedSlot.bookedCount + 1} / {selectedSlot.capacity} students</span>

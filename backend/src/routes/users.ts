@@ -14,7 +14,21 @@ router.get('/',
   requireRole(['SUPER_ADMIN']), 
   async (req, res) => {
     try {
-      const { page = 1, limit = 10, sortBy, sortOrder } = validateRequest(paginationSchema, req.query);
+      let page = 1, limit = 10, sortBy, sortOrder = 'desc';
+      try {
+        const validated = validateRequest(paginationSchema, req.query);
+        page = validated.page || 1;
+        limit = validated.limit || 10;
+        sortBy = validated.sortBy;
+        sortOrder = validated.sortOrder || 'desc';
+      } catch (validationError) {
+        console.error('Validation error:', validationError);
+        // Use defaults if validation fails
+        page = 1;
+        limit = 10;
+        sortBy = undefined;
+        sortOrder = 'desc';
+      }
       const { branchId, role, search } = req.query;
 
       const skip = ((page || 1) - 1) * (limit || 10);
@@ -82,9 +96,11 @@ router.get('/',
       });
     } catch (error: any) {
       console.error('Error fetching users:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({
         error: 'Failed to fetch users',
-        message: error.message
+        message: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }

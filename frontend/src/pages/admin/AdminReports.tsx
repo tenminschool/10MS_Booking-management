@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { reportsAPI, branchesAPI } from '@/lib/api'
 import { UserRole } from '@/types'
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth } from 'date-fns'
 import {
   BarChart3,
   TrendingUp,
@@ -132,7 +132,7 @@ interface NoShowData {
 
 // Mock UI components with proper TypeScript types
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 
 const CardHeader: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -172,7 +172,7 @@ const Button: React.FC<ButtonProps> = ({
   const variantClasses = {
     default: 'bg-blue-600 text-white hover:bg-blue-700',
     outline: 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white',
-    destructive: 'bg-red-600 text-white hover:bg-red-700',
+    destructive: 'bg-orange-500 text-white hover:bg-orange-600',
     ghost: 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
   }
   const sizeClasses = {
@@ -228,7 +228,7 @@ const AdminReports: React.FC = () => {
     queryFn: async (): Promise<ReportData> => {
       try {
         const response = await reportsAPI.getReports(filters)
-        return response.data as ReportData
+        return (response as any).data as ReportData
       } catch (error) {
         console.error('Failed to fetch reports:', error)
         return {} as ReportData
@@ -237,12 +237,12 @@ const AdminReports: React.FC = () => {
   })
 
   // Fetch analytics data
-  const { data: analyticsData, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
+  const { data: analyticsData } = useQuery<AnalyticsData>({
     queryKey: ['admin-analytics', filters.branchId],
     queryFn: async (): Promise<AnalyticsData> => {
       try {
         const response = await reportsAPI.getAnalytics({ branchId: filters.branchId })
-        return response.data as AnalyticsData
+        return (response as any).data as AnalyticsData
       } catch (error) {
         console.error('Failed to fetch analytics:', error)
         return {} as AnalyticsData
@@ -252,12 +252,12 @@ const AdminReports: React.FC = () => {
   })
 
   // Fetch real-time metrics
-  const { data: realTimeData, isLoading: realTimeLoading } = useQuery<RealTimeData>({
+  const { data: realTimeData } = useQuery<RealTimeData>({
     queryKey: ['real-time-metrics', filters.branchId],
     queryFn: async (): Promise<RealTimeData> => {
       try {
         const response = await reportsAPI.getRealTimeMetrics({ branchId: filters.branchId })
-        return response.data as RealTimeData
+        return (response as any).data as RealTimeData
       } catch (error) {
         console.error('Failed to fetch real-time metrics:', error)
         return {} as RealTimeData
@@ -268,12 +268,12 @@ const AdminReports: React.FC = () => {
   })
 
   // Fetch no-show analysis
-  const { data: noShowData, isLoading: noShowLoading } = useQuery<NoShowData>({
+  const { data: noShowData } = useQuery<NoShowData>({
     queryKey: ['no-show-analysis', filters.branchId],
     queryFn: async (): Promise<NoShowData> => {
       try {
         const response = await reportsAPI.getNoShowAnalysis({ branchId: filters.branchId, days: 30 })
-        return response.data as NoShowData
+        return (response as any).data as NoShowData
       } catch (error) {
         console.error('Failed to fetch no-show analysis:', error)
         return {} as NoShowData
@@ -288,7 +288,7 @@ const AdminReports: React.FC = () => {
     queryFn: async (): Promise<Branch[]> => {
       try {
         const response = await branchesAPI.getAll()
-        return response.data as Branch[]
+        return (response as any).data as Branch[]
       } catch (error) {
         console.error('Failed to fetch branches:', error)
         return [] as Branch[]
@@ -304,18 +304,18 @@ const AdminReports: React.FC = () => {
   const realTime = realTimeData || {}
   const noShowAnalysis = noShowData || {}
 
-  const handleExport = async (format: 'csv' | 'pdf') => {
+  const handleExport = async (exportFormat: 'csv' | 'pdf') => {
     try {
-      const response = await reportsAPI.exportReports({ ...filters, format })
+      const response = await reportsAPI.exportReports({ ...filters, format: exportFormat })
 
       // Create download link
-      const blob = new Blob([response.data], {
-        type: format === 'csv' ? 'text/csv' : 'application/pdf'
+      const blob = new Blob([(response as any).data], {
+        type: exportFormat === 'csv' ? 'text/csv' : 'application/pdf'
       })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `report_${format(new Date(), 'yyyy-MM-dd')}.${format}`
+      a.download = `report_${format(new Date(), 'yyyy-MM-dd')}.${exportFormat}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -416,7 +416,7 @@ const AdminReports: React.FC = () => {
             </div>
 
             {/* Report Type Toggle */}
-            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex items-center space-x-1 bg-gray-100 rounded-md p-1">
               {(['overview', 'attendance', 'utilization', 'assessments'] as const).map((type) => (
                 <button
                   key={type}
@@ -513,25 +513,25 @@ const AdminReports: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="text-center p-3 bg-blue-50 rounded-md">
                     <div className="text-xl font-bold text-blue-600">
                       {realTime.todayMetrics.bookings}
                     </div>
                     <div className="text-sm text-blue-800">Today's Bookings</div>
                   </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="text-center p-3 bg-green-50 rounded-md">
                     <div className="text-xl font-bold text-green-600">
                       {realTime.todayMetrics.attendance}
                     </div>
                     <div className="text-sm text-green-800">Attended Sessions</div>
                   </div>
-                  <div className="text-center p-3 bg-purple-50 rounded-lg">
+                  <div className="text-center p-3 bg-purple-50 rounded-md">
                     <div className="text-xl font-bold text-purple-600">
                       {realTime.todayMetrics.activeSlots}
                     </div>
                     <div className="text-sm text-purple-800">Active Slots</div>
                   </div>
-                  <div className="text-center p-3 bg-orange-50 rounded-lg">
+                  <div className="text-center p-3 bg-orange-50 rounded-md">
                     <div className="text-xl font-bold text-orange-600">
                       {realTime.todayMetrics.pendingBookings}
                     </div>
@@ -557,7 +557,7 @@ const AdminReports: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                       <div>
                         <p className="font-medium">Booking Growth</p>
                         <p className="text-sm text-gray-600">vs. last month</p>
@@ -569,7 +569,7 @@ const AdminReports: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                       <div>
                         <p className="font-medium">Attendance Growth</p>
                         <p className="text-sm text-gray-600">vs. last month</p>
@@ -634,7 +634,7 @@ const AdminReports: React.FC = () => {
                 {analytics.teacherPerformance && analytics.teacherPerformance.length > 0 ? (
                   <div className="space-y-3">
                     {analytics.teacherPerformance.slice(0, 5).map((teacher, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                         <div>
                           <p className="font-medium">{teacher.name}</p>
                           <p className="text-sm text-gray-600">{teacher.totalSessions} sessions</p>
@@ -670,13 +670,13 @@ const AdminReports: React.FC = () => {
                 {noShowAnalysis.summary ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-3 bg-red-50 rounded-lg">
+                      <div className="text-center p-3 bg-red-50 rounded-md">
                         <div className="text-xl font-bold text-red-600">
                           {noShowAnalysis.summary.totalNoShows || 0}
                         </div>
                         <div className="text-sm text-red-800">Total No-Shows</div>
                       </div>
-                      <div className="text-center p-3 bg-orange-50 rounded-lg">
+                      <div className="text-center p-3 bg-orange-50 rounded-md">
                         <div className="text-xl font-bold text-orange-600">
                           {noShowAnalysis.summary.averageNoShowsPerStudent || 0}
                         </div>
@@ -741,7 +741,7 @@ const AdminReports: React.FC = () => {
               <CardContent>
                 <div className="space-y-4">
                   {reports.branchPerformance.map((branch, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-md">
                       <div>
                         <p className="font-medium">{branch.name}</p>
                         <p className="text-sm text-gray-500">{branch.bookings} bookings • {branch.slots} slots</p>
@@ -776,7 +776,7 @@ const AdminReports: React.FC = () => {
               <CardContent>
                 <div className="space-y-3">
                   {realTime.recentActivity.slice(0, 10).map((activity, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                       <div className="flex items-center space-x-3">
                         <div className={`w-2 h-2 rounded-full ${activity.type === 'booking' ? 'bg-green-500' : 'bg-red-500'
                           }`} />
@@ -809,7 +809,7 @@ const AdminReports: React.FC = () => {
           <CardContent>
             <div className="space-y-2">
               {realTime.systemAlerts.map((alert, index) => (
-                <div key={index} className={`p-3 rounded-lg border-l-4 ${alert.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                <div key={index} className={`p-3 rounded-md border-l-4 ${alert.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
                     alert.type === 'error' ? 'bg-red-50 border-red-400' :
                       'bg-blue-50 border-blue-400'
                   }`}>
@@ -842,7 +842,7 @@ const AdminReports: React.FC = () => {
             {reports.attendanceDetails && reports.attendanceDetails.length > 0 ? (
               <div className="space-y-4">
                 {reports.attendanceDetails.map((record, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-md">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">{record.studentName}</span>
@@ -886,7 +886,7 @@ const AdminReports: React.FC = () => {
             {reports.utilizationDetails && reports.utilizationDetails.length > 0 ? (
               <div className="space-y-4">
                 {reports.utilizationDetails.map((slot, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-md">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">{slot.teacherName}</span>
@@ -938,25 +938,25 @@ const AdminReports: React.FC = () => {
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3">Score Distribution</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-center p-4 bg-green-50 rounded-md">
                       <div className="text-2xl font-bold text-green-600">
                         {reports.assessmentSummary.averageScore || 0}
                       </div>
                       <div className="text-sm text-green-800">Average Score</div>
                     </div>
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-center p-4 bg-blue-50 rounded-md">
                       <div className="text-2xl font-bold text-blue-600">
                         {reports.assessmentSummary.totalAssessments || 0}
                       </div>
                       <div className="text-sm text-blue-800">Total Assessments</div>
                     </div>
-                    <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                    <div className="text-center p-4 bg-yellow-50 rounded-md">
                       <div className="text-2xl font-bold text-yellow-600">
                         {reports.assessmentSummary.highestScore || 0}
                       </div>
                       <div className="text-sm text-yellow-800">Highest Score</div>
                     </div>
-                    <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-center p-4 bg-purple-50 rounded-md">
                       <div className="text-2xl font-bold text-purple-600">
                         {reports.assessmentSummary.improvementRate || 0}%
                       </div>
@@ -971,7 +971,7 @@ const AdminReports: React.FC = () => {
                     <h4 className="font-medium text-gray-900 mb-3">Recent Assessments</h4>
                     <div className="space-y-3">
                       {reports.recentAssessments.map((assessment, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2">
                               <span className="font-medium">{assessment.studentName}</span>

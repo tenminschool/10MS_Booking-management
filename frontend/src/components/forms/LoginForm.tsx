@@ -4,13 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { FormError } from '@/components/ui/form-error';
 import { useFormSubmission } from '@/hooks/useApiCall';
 import { authAPI } from '@/lib/api';
 import { loginFormSchema, type LoginFormData } from '@/lib/formValidation';
-import { parseApiError, type ApiError } from '@/lib/errorHandling';
 
 interface LoginFormProps {
   onSuccess: (data: any) => void;
@@ -156,7 +154,7 @@ export const StudentLoginForm: React.FC<StudentLoginFormProps> = ({ onSuccess, o
     const phoneResult = await form.trigger('phoneNumber');
     if (phoneResult) {
       await executeOTPRequest(phoneNumber);
-      onRequestOTP(phoneNumber);
+      onRequestOTP(phoneNumber || '');
     }
   };
 

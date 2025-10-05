@@ -33,7 +33,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
   <button 
     className={`px-4 py-2 rounded-md font-medium transition-colors ${
       variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
+      variant === 'destructive' ? 'bg-orange-500 text-white hover:bg-orange-600' :
       variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
       'bg-blue-600 text-white hover:bg-blue-700'
     } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
@@ -47,7 +47,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'destructive' ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400' :
     variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
     'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
   }`}>
@@ -77,7 +77,7 @@ const AdminImport: React.FC = () => {
   const importMutation = useMutation({
     mutationFn: (file: File) => importAPI.importStudents(file),
     onSuccess: (response) => {
-      setImportResult(response.data)
+      setImportResult((response as any).data)
       setSelectedFile(null)
     },
     onError: (error: any) => {
@@ -245,7 +245,7 @@ const AdminImport: React.FC = () => {
                   <Button
                     onClick={handleImport}
                     disabled={importMutation.isPending}
-                    className="bg-red-600 hover:bg-red-700"
+                    className="bg-orange-500 hover:bg-orange-600"
                   >
                     {importMutation.isPending ? (
                       <>
@@ -376,7 +376,7 @@ const AdminImport: React.FC = () => {
                       setImportResult(null)
                       setSelectedFile(null)
                     }}
-                    className="bg-red-600 hover:bg-red-700"
+                    className="bg-orange-500 hover:bg-orange-600"
                   >
                     Import More Students
                   </Button>

@@ -15,7 +15,9 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 ### System Components
 - **Multi-branch Support**: Centralized system supporting multiple physical branches
 - **Role-based Access**: 4 user roles (Super Admin, Branch Admin, Teacher, Student)
-- **Real-time Booking**: Live slot availability and booking management
+- **Service Types Management**: Multiple test/service types (CBT, PBT, Speaking, Counselling, Exam Accelerator)
+- **Room Management**: Branch-based room assignment and capacity management
+- **Real-time Booking**: Live slot availability and booking management with service types
 - **Assessment System**: IELTS scoring with detailed rubrics
 - **Notification System**: Multi-channel notifications (SMS + in-app)
 - **Reporting Dashboard**: Comprehensive analytics and reporting
@@ -27,6 +29,9 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 - **Access**: All branches and system-wide operations
 - **Capabilities**: 
   - Manage all branches, users, and system settings
+  - Create and manage service types (CBT, PBT, Speaking, Counselling, Exam Accelerator)
+  - Manage rooms across all branches
+  - Create slots with service types and room assignments
   - View comprehensive reports across all branches
   - System configuration and maintenance
   - Full audit trail access
@@ -35,7 +40,8 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 - **Access**: Single branch operations
 - **Capabilities**:
   - Manage branch users (teachers and students)
-  - Create and manage slots for their branch
+  - Create and manage rooms for their branch
+  - Create and manage slots with service types and room assignments
   - View branch-specific reports and analytics
   - Handle branch-level bookings and assessments
 
@@ -50,14 +56,17 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 ### Student
 - **Access**: Own bookings and assessments
 - **Capabilities**:
-  - Browse and book available slots across branches
-  - View booking history and status
+  - Browse and filter slots by service type (CBT, PBT, Speaking, Counselling, Exam Accelerator)
+  - Book slots with service type and room information
+  - View booking history with service and room details
   - Receive notifications and reminders
   - Access personal assessment history
 
 ## Core Features
 
 ### 1. Booking Management
+- **Service Type Selection**: Students can filter and book by service type (CBT, PBT, Speaking, Counselling, Exam Accelerator)
+- **Room Assignment**: Slots can be assigned to specific rooms within branches
 - **Cross-branch Booking**: Students can book slots in any branch
 - **Real-time Availability**: Live slot capacity and availability updates
 - **Business Rules**: Monthly booking limits, 24-hour cancellation policy
@@ -72,6 +81,8 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 - **Teacher Feedback**: Required remarks for each assessment
 
 ### 3. Slot Management
+- **Service Type Integration**: Slots created with specific service types (CBT, PBT, Speaking, Counselling, Exam Accelerator)
+- **Room Assignment**: Slots can be assigned to specific rooms with capacity management
 - **Flexible Scheduling**: Date, time, and capacity management
 - **Teacher Assignment**: Slots assigned to specific teachers
 - **Capacity Control**: Multiple students per slot with capacity limits
@@ -85,7 +96,15 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 - **Template Management**: Customizable notification templates
 - **Delivery Tracking**: Notification status and read receipts
 
-### 5. Reporting & Analytics
+### 5. Service Types & Room Management
+- **Service Types**: CBT Full Mock, PBT Full Mock, Speaking Mock Test, 1:1 Counselling, Exam Accelerator Service
+- **Duration Management**: Each service type has configurable duration (15-180 minutes)
+- **Capacity Settings**: Default capacity per service type with override capability
+- **Room Assignment**: Branch-based room management with capacity tracking
+- **Room Types**: General, Computer Lab, Counselling, Exam Hall with equipment tracking
+- **Integration**: Seamless integration with slot creation and booking management
+
+### 6. Reporting & Analytics
 - **Real-time Dashboard**: Live metrics and key performance indicators
 - **Performance Analytics**: Teacher performance and utilization rates
 - **Attendance Tracking**: Detailed attendance patterns and statistics
@@ -93,7 +112,7 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 - **Export Capabilities**: CSV and PDF report generation
 - **Cross-branch Comparison**: Multi-branch performance analysis
 
-### 6. System Administration
+### 7. System Administration
 - **User Management**: Create, update, and manage user accounts
 - **Branch Management**: Multi-branch configuration and settings
 - **System Settings**: Configurable business rules and parameters

@@ -2,10 +2,25 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { bookingsAPI, usersAPI, branchesAPI, slotsAPI } from '@/lib/api'
-import { UserRole, type Booking, type Branch, type Slot } from '@/types'
+import { UserRole, type User, type Booking, type Branch, type Slot } from '@/types'
 import { format } from 'date-fns'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+
+// Helper function to safely format dates
+const safeFormatDate = (dateString: string | null | undefined, formatString: string): string => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return 'Invalid Date'
+  try {
+    return format(date, formatString)
+  } catch (error) {
+    console.error('Date formatting error:', error)
+    return 'Invalid Date'
+  }
+}
 import { useSuccessToast, useErrorToast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { 
   Calendar, 
   Plus, 
@@ -20,12 +35,13 @@ import {
   CheckSquare,
   CalendarDays,
   Building,
-  GraduationCap
+  GraduationCap,
+  Phone
 } from 'lucide-react'
 
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -36,36 +52,8 @@ const CardTitle = ({ children, className = '' }: { children: React.ReactNode; cl
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
-)
-const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
-  <button 
-    className={`px-4 py-2 rounded-md font-medium transition-colors ${
-      variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white' :
-      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
-      variant === 'ghost' ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white' :
-      variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600' :
-      'bg-blue-600 text-white hover:bg-blue-700'
-    } ${size === 'sm' ? 'px-3 py-1 text-sm' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
-    disabled={disabled}
-    onClick={onClick}
-    {...props}
-  >
-    {children}
-  </button>
-)
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
-  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-    variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
-    variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
-    variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
-    variant === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400' :
-    variant === 'outline' ? 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' :
-    'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
-  }`}>
-    {children}
-  </span>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 
 const AdminBookings: React.FC = () => {
@@ -83,12 +71,13 @@ const AdminBookings: React.FC = () => {
   const [page, setPage] = useState(1)
   const limit = 20
 
+
   // Only super admins can access this page
   if (user?.role !== UserRole.SUPER_ADMIN) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage bookings across all branches.</p>
         </div>
@@ -115,7 +104,7 @@ const AdminBookings: React.FC = () => {
             page,
             limit
           })
-          return response.data
+          return (response as any).data
         },
   })
 
@@ -124,7 +113,7 @@ const AdminBookings: React.FC = () => {
     queryKey: ['branches'],
         queryFn: async () => {
           const response = await branchesAPI.getAll()
-          return response.data
+          return (response as any).data
         },
   })
 
@@ -133,7 +122,7 @@ const AdminBookings: React.FC = () => {
     queryKey: ['students'],
     queryFn: async () => {
       const response = await usersAPI.getAll({ role: UserRole.STUDENT })
-      return response.data
+      return (response as any).data
     },
   })
 
@@ -142,13 +131,13 @@ const AdminBookings: React.FC = () => {
     queryKey: ['available-slots'],
     queryFn: async () => {
       const response = await slotsAPI.getAvailable()
-      return response.data
+      return (response as any).data
     },
   })
 
   const bookings = bookingsData?.bookings || []
   const pagination = bookingsData?.pagination
-  const branches = branchesData || []
+  const branches = branchesData?.branches || []
   const students = studentsData?.users || []
   const slots = slotsData || []
 
@@ -156,7 +145,7 @@ const AdminBookings: React.FC = () => {
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await bookingsAPI.create(data)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-bookings'] })
@@ -172,7 +161,7 @@ const AdminBookings: React.FC = () => {
   const updateBookingMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const response = await bookingsAPI.update(id, data)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-bookings'] })
@@ -188,7 +177,7 @@ const AdminBookings: React.FC = () => {
   const cancelBookingMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await bookingsAPI.cancel(id)
-      return response.data
+      return (response as any).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-bookings'] })
@@ -234,23 +223,25 @@ const AdminBookings: React.FC = () => {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'success'
+        return 'default'
       case 'cancelled':
         return 'destructive'
       case 'completed':
         return 'default'
       default:
-        return 'warning'
+        return 'secondary'
     }
   }
 
   const getBookingStats = () => {
     const total = bookings.length
-    const confirmed = bookings.filter(b => b.status === 'confirmed').length
-    const cancelled = bookings.filter(b => b.status === 'cancelled').length
-    const completed = bookings.filter(b => b.status === 'completed').length
-    const today = bookings.filter(b => {
-      const bookingDate = new Date(b.slot?.startTime || '')
+    const confirmed = bookings.filter((b: any) => b.status === 'confirmed').length
+    const cancelled = bookings.filter((b: any) => b.status === 'cancelled').length
+    const completed = bookings.filter((b: any) => b.status === 'completed').length
+    const today = bookings.filter((b: any) => {
+      if (!b.slot?.startTime) return false
+      const bookingDate = new Date(b.slot.startTime)
+      if (isNaN(bookingDate.getTime())) return false
       const today = new Date()
       return bookingDate.toDateString() === today.toDateString()
     }).length
@@ -280,7 +271,7 @@ const AdminBookings: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comprehensive Booking Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Booking Management</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage all bookings across all branches with complete control and analytics
           </p>
@@ -295,8 +286,8 @@ const AdminBookings: React.FC = () => {
           </Button>
           <Button
             onClick={() => setShowCreateForm(true)}
-            className="bg-red-600 hover:bg-red-700"
-            size="sm"
+            variant="default"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Booking
@@ -307,11 +298,13 @@ const AdminBookings: React.FC = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-5 h-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Bookings</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <Calendar className="w-6 h-6 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Bookings</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
               </div>
             </div>
@@ -319,11 +312,13 @@ const AdminBookings: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Confirmed</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <CheckCircle className="w-6 h-6 text-green-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Confirmed</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.confirmed}</p>
               </div>
             </div>
@@ -331,11 +326,13 @@ const AdminBookings: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <XCircle className="w-5 h-5 text-red-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Cancelled</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <XCircle className="w-6 h-6 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Cancelled</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.cancelled}</p>
               </div>
             </div>
@@ -343,11 +340,13 @@ const AdminBookings: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <CheckSquare className="w-5 h-5 text-purple-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Completed</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <CheckSquare className="w-6 h-6 text-purple-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Completed</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
               </div>
             </div>
@@ -355,11 +354,13 @@ const AdminBookings: React.FC = () => {
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <CalendarDays className="w-5 h-5 text-orange-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Today</p>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <CalendarDays className="w-6 h-6 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Today</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.today}</p>
               </div>
             </div>
@@ -369,14 +370,14 @@ const AdminBookings: React.FC = () => {
 
       {/* Filters */}
       <Card>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
-              </div>
-              
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-5 h-5 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+            </div>
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
@@ -384,14 +385,14 @@ const AdminBookings: React.FC = () => {
                   placeholder="Search bookings..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm w-64 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Status</option>
                 <option value="confirmed">Confirmed</option>
@@ -402,10 +403,10 @@ const AdminBookings: React.FC = () => {
               <select
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Branches</option>
-                {branches.map((branch) => (
+                {branches.map((branch: any) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
@@ -416,12 +417,8 @@ const AdminBookings: React.FC = () => {
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {pagination?.total || 0} bookings total
             </div>
           </div>
         </CardContent>
@@ -430,7 +427,7 @@ const AdminBookings: React.FC = () => {
       {/* Bookings Grid/Table */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {bookings.map((booking) => (
+          {bookings.map((booking: any) => (
             <Card key={booking.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -451,14 +448,14 @@ const AdminBookings: React.FC = () => {
                   <div className="flex items-center space-x-1">
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => setEditingBooking(booking)}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => handleCancelBooking(booking.id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -470,12 +467,12 @@ const AdminBookings: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                     <Calendar className="w-4 h-4" />
-                    <span>{format(new Date(booking.slot?.startTime || ''), 'MMM dd, yyyy')}</span>
+                    <span>{safeFormatDate(booking.slot?.startTime, 'MMM dd, yyyy')}</span>
                   </div>
 
                   <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                     <Clock className="w-4 h-4" />
-                    <span>{format(new Date(booking.slot?.startTime || ''), 'h:mm a')} - {format(new Date(booking.slot?.endTime || ''), 'h:mm a')}</span>
+                    <span>{safeFormatDate(booking.slot?.startTime, 'h:mm a')} - {safeFormatDate(booking.slot?.endTime, 'h:mm a')}</span>
                   </div>
 
                   <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
@@ -500,7 +497,7 @@ const AdminBookings: React.FC = () => {
                       ID: {booking.id.slice(0, 8)}...
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {format(new Date(booking.createdAt), 'MMM dd')}
+                      {safeFormatDate(booking.createdAt, 'MMM dd')}
                     </div>
                   </div>
                 </div>
@@ -550,7 +547,7 @@ const AdminBookings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((booking) => (
+                  {bookings.map((booking: any) => (
                     <tr key={booking.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
@@ -568,10 +565,10 @@ const AdminBookings: React.FC = () => {
                       <td className="py-3 px-4">
                         <div className="space-y-1">
                           <div className="text-sm text-gray-900 dark:text-white">
-                            {format(new Date(booking.slot?.startTime || ''), 'MMM dd, yyyy')}
+                            {safeFormatDate(booking.slot?.startTime, 'MMM dd, yyyy')}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {format(new Date(booking.slot?.startTime || ''), 'h:mm a')} - {format(new Date(booking.slot?.endTime || ''), 'h:mm a')}
+                            {safeFormatDate(booking.slot?.startTime, 'h:mm a')} - {safeFormatDate(booking.slot?.endTime, 'h:mm a')}
                           </div>
                         </div>
                       </td>
@@ -601,21 +598,21 @@ const AdminBookings: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {format(new Date(booking.createdAt), 'MMM dd, yyyy')}
+                          {safeFormatDate(booking.createdAt, 'MMM dd, yyyy')}
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => setEditingBooking(booking)}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleCancelBooking(booking.id)}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -695,7 +692,6 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
   booking,
   students,
   slots,
-  branches,
   onSubmit,
   onClose,
   isLoading
@@ -713,14 +709,16 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
   }
 
   const selectedSlot = slots.find(slot => slot.id === formData.slotId)
-  const availableSlots = slots.filter(slot => 
-    !slot.isBooked && 
-    new Date(slot.startTime) > new Date()
-  )
+  const availableSlots = slots.filter(slot => {
+    if (!slot.startTime) return false
+    const slotDate = new Date(slot.startTime)
+    if (isNaN(slotDate.getTime())) return false
+    return !slot.isBooked && slotDate > new Date()
+  })
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-md p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {booking ? 'Edit Booking' : 'Create New Booking'}
@@ -766,7 +764,7 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
               <option value="">Select Slot</option>
               {availableSlots.map((slot) => (
                 <option key={slot.id} value={slot.id}>
-                  {format(new Date(slot.startTime), 'MMM dd, yyyy h:mm a')} - {slot.teacher?.name} ({slot.branch?.name})
+                  {safeFormatDate(slot.startTime, 'MMM dd, yyyy h:mm a')} - {slot.teacher?.name} ({slot.branch?.name})
                 </option>
               ))}
             </select>
@@ -776,8 +774,8 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
             <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
               <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Selected Slot Details:</h4>
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                <div>Date: {format(new Date(selectedSlot.startTime), 'MMM dd, yyyy')}</div>
-                <div>Time: {format(new Date(selectedSlot.startTime), 'h:mm a')} - {format(new Date(selectedSlot.endTime), 'h:mm a')}</div>
+                <div>Date: {safeFormatDate(selectedSlot.startTime, 'MMM dd, yyyy')}</div>
+                <div>Time: {safeFormatDate(selectedSlot.startTime, 'h:mm a')} - {safeFormatDate(selectedSlot.endTime, 'h:mm a')}</div>
                 <div>Teacher: {selectedSlot.teacher?.name}</div>
                 <div>Branch: {selectedSlot.branch?.name}</div>
               </div>
@@ -825,7 +823,7 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700"
+              variant="destructive"
             >
               {isLoading ? 'Saving...' : (booking ? 'Update Booking' : 'Create Booking')}
             </Button>
