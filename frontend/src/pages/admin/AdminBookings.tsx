@@ -72,14 +72,14 @@ const AdminBookings: React.FC = () => {
   const limit = 20
 
 
-  // Only super admins can access this page
-  if (user?.role !== UserRole.SUPER_ADMIN) {
+  // Only super admins and branch admins can access this page
+  if (user?.role !== UserRole.SUPER_ADMIN && user?.role !== UserRole.BRANCH_ADMIN) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage bookings across all branches.</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins and Branch Admins can manage bookings.</p>
         </div>
       </div>
     )
@@ -90,7 +90,7 @@ const AdminBookings: React.FC = () => {
     queryKey: ['admin-bookings', {
       search: searchTerm || undefined,
       status: statusFilter || undefined,
-      branchId: branchFilter || undefined,
+      branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : (branchFilter || undefined),
       date: dateFilter || undefined,
       page,
       limit
@@ -99,7 +99,7 @@ const AdminBookings: React.FC = () => {
           const response = await bookingsAPI.getAll({
             search: searchTerm || undefined,
             status: statusFilter || undefined,
-            branchId: branchFilter || undefined,
+            branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : (branchFilter || undefined),
             date: dateFilter || undefined,
             page,
             limit

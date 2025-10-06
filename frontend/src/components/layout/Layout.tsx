@@ -56,7 +56,6 @@ const Layout: React.FC = () => {
         { name: 'Bookings', href: '/admin/bookings', icon: BookOpen },
         { name: 'Assessments', href: '/admin/assessments', icon: GraduationCap },
         { name: 'Branches', href: '/admin/branches', icon: Building },
-        { name: 'Service Types', href: '/admin/service-types', icon: Layers },
         { name: 'Notifications', href: '/admin/notifications', icon: Settings },
       ]
     }
@@ -65,14 +64,23 @@ const Layout: React.FC = () => {
     if (user.role === UserRole.BRANCH_ADMIN) {
       return [
         { name: 'Admin Dashboard', href: '/admin/dashboard', icon: Home },
-        { name: 'Slot Management', href: '/admin/slots', icon: Sliders },
-        { name: 'User Management', href: '/admin/users', icon: Users },
-        { name: 'Booking Management', href: '/admin/bookings', icon: BookOpen },
-        { name: 'Assessment Management', href: '/admin/assessments', icon: GraduationCap },
+        { name: 'Slots', href: '/admin/slots', icon: Sliders },
+        { name: 'Users', href: '/admin/users', icon: Users },
+        { name: 'Bookings', href: '/admin/bookings', icon: BookOpen },
+        { name: 'Assessments', href: '/admin/assessments', icon: GraduationCap },
       ]
     }
 
     // Teachers and Students get regular pages
+    if (user.role === UserRole.STUDENT) {
+      return [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'Schedule', href: '/schedule', icon: Calendar },
+        { name: 'Assessments', href: '/assessments', icon: GraduationCap },
+      ]
+    }
+    
+    // Teachers get all pages including bookings
     return [
       { name: 'Dashboard', href: '/dashboard', icon: Home },
       { name: 'Schedule', href: '/schedule', icon: Calendar },

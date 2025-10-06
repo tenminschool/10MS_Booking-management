@@ -44,8 +44,7 @@ router.get('/', authenticate, async (req, res) => {
           `)
           .eq('studentId', user.userId)
           .eq('status', 'CONFIRMED')
-          .gte('slot.date', new Date().toISOString().split('T')[0])
-          .order('slot.date', { ascending: true }),
+          .order('bookedAt', { ascending: true }),
         
         supabase
           .from('bookings')
@@ -70,6 +69,12 @@ router.get('/', authenticate, async (req, res) => {
           .limit(5)
       ]);
 
+      // Filter upcoming bookings by slot date
+      const today = new Date().toISOString().split('T')[0];
+      const actualUpcomingBookings = upcomingBookings?.filter(booking => 
+        booking.slot && booking.slot.date >= today
+      ) || [];
+
       res.json({
         user: {
           id: user.userId,
@@ -79,12 +84,12 @@ router.get('/', authenticate, async (req, res) => {
         },
         stats: {
           totalBookings: bookings?.length || 0,
-          upcomingBookings: upcomingBookings?.length || 0,
+          upcomingBookings: actualUpcomingBookings.length,
           completedBookings: completedBookings?.length || 0,
           totalAssessments: assessments?.length || 0
         },
         recentBookings: bookings?.slice(0, 5) || [],
-        upcomingBookings: upcomingBookings || [],
+        upcomingBookings: actualUpcomingBookings,
         completedBookings: completedBookings || [],
         recentAssessments: assessments || []
       });

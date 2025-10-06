@@ -1,5 +1,5 @@
-import React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { dashboardAPI, notificationsAPI, slotsAPI, bookingsAPI } from '@/lib/api'
@@ -61,22 +61,31 @@ import {
   Building,
   XCircle,
   AlertTriangle,
-  Star
+  Star,
+  X,
+  RotateCcw
 } from 'lucide-react'
 import { format, isToday, isTomorrow } from 'date-fns'
-import { UserRole, type SlotFilters, type Notification, type Booking } from '@/types'
+import { UserRole, BookingStatus, type SlotFilters, type Notification, type Booking } from '@/types'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  
+  // Student booking state
+  const [activeBookingTab, setActiveBookingTab] = useState<'upcoming' | 'past' | 'all'>('upcoming')
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
 
-  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useQuery({
+  const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: () => dashboardAPI.getMetrics(),
     retry: false,
     refetchOnWindowFocus: false,
   })
 
-  const { data: notifications, error: notificationsError } = useQuery({
+  const { data: notifications } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => notificationsAPI.getMy(),
     retry: false,
@@ -95,11 +104,89 @@ const Dashboard: React.FC = () => {
     enabled: user?.role === UserRole.TEACHER
   })
 
-  const { data: teacherBookings } = useQuery({
-    queryKey: ['teacher-bookings'],
-    queryFn: () => bookingsAPI.getMyBookings(),
-    enabled: user?.role === UserRole.TEACHER
+
+  // Student booking queries
+  const { data: studentBookings } = useQuery({
+    queryKey: ['student-bookings'],
+    queryFn: async () => {
+      const response = await bookingsAPI.getMyBookings()
+      return (response as any).data
+    },
+    enabled: user?.role === UserRole.STUDENT
   })
+
+  // Cancel booking mutation
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (data: { id: string; reason?: string }) => {
+      const response = await bookingsAPI.cancel(data.id, data.reason)
+      return (response as any).data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
+      setIsCancelDialogOpen(false)
+      setSelectedBooking(null)
+      setCancelReason('')
+    },
+  })
+
+  // Booking helper functions
+  const filterBookings = (bookings: any) => {
+    const bookingsArray = Array.isArray(bookings) ? bookings : []
+    const now = new Date()
+    switch (activeBookingTab) {
+      case 'upcoming':
+        return bookingsArray.filter(booking =>
+          booking.status === BookingStatus.CONFIRMED &&
+          booking.slot && new Date(booking.slot.date) >= now
+        )
+      case 'past':
+        return bookingsArray.filter(booking =>
+          booking.slot && new Date(booking.slot.date) < now
+        )
+      default:
+        return bookingsArray
+    }
+  }
+
+  const getStatusColor = (status: BookingStatus) => {
+    switch (status) {
+      case BookingStatus.CONFIRMED:
+        return 'default'
+      case BookingStatus.COMPLETED:
+        return 'secondary'
+      case BookingStatus.CANCELLED:
+        return 'destructive'
+      case BookingStatus.NO_SHOW:
+        return 'outline'
+      default:
+        return 'secondary'
+    }
+  }
+
+  const getStatusIcon = (status: BookingStatus) => {
+    switch (status) {
+      case BookingStatus.CONFIRMED:
+        return <CheckCircle className="w-4 h-4" />
+      case BookingStatus.COMPLETED:
+        return <GraduationCap className="w-4 h-4" />
+      case BookingStatus.CANCELLED:
+        return <X className="w-4 h-4" />
+      case BookingStatus.NO_SHOW:
+        return <AlertCircle className="w-4 h-4" />
+      default:
+        return <BookOpen className="w-4 h-4" />
+    }
+  }
+
+  const handleCancelBooking = () => {
+    if (selectedBooking) {
+      cancelBookingMutation.mutate({
+        id: selectedBooking.id,
+        reason: cancelReason || undefined
+      })
+    }
+  }
 
   if (metricsLoading) {
     return (
@@ -120,6 +207,11 @@ const Dashboard: React.FC = () => {
   const tomorrowSlots = (teacherSlots as any)?.data?.filter((slot: any) => 
     isTomorrow(new Date(slot.date))
   ) || []
+
+  // Student booking data
+  const allStudentBookings = Array.isArray(studentBookings) ? studentBookings : []
+  const filteredStudentBookings = filterBookings(allStudentBookings)
+  const upcomingStudentBookings = (dashboardData as any)?.upcomingBookings || []
 
   // Render branch admin dashboard
   if (user?.role === UserRole.BRANCH_ADMIN) {
@@ -1045,8 +1137,34 @@ const Dashboard: React.FC = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData?.totalBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <div className="text-2xl font-bold">{allStudentBookings.length}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {allStudentBookings.filter((b: Booking) => b.status === BookingStatus.COMPLETED).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Tests taken</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {allStudentBookings.filter((b: Booking) => b.status === BookingStatus.CONFIRMED).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Scheduled</p>
           </CardContent>
         </Card>
 
@@ -1057,33 +1175,13 @@ const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {dashboardData?.attendanceRate ? `${Math.round(dashboardData.attendanceRate)}%` : '0%'}
+              {(() => {
+                const completedBookings = allStudentBookings.filter((b: Booking) => b.status === BookingStatus.COMPLETED);
+                const attendedBookings = completedBookings.filter((b: Booking) => b.attended === true);
+                return completedBookings.length > 0 ? `${Math.round((attendedBookings.length / completedBookings.length) * 100)}%` : '0%';
+              })()}
             </div>
             <p className="text-xs text-muted-foreground">Overall</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboardData?.averageScore ? dashboardData.averageScore.toFixed(1) : '0.0'}
-            </div>
-            <p className="text-xs text-muted-foreground">Out of 10</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Tests</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboardData?.upcomingBookings?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Scheduled</p>
           </CardContent>
         </Card>
       </div>
@@ -1092,108 +1190,149 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* PRIMARY CONTENT - 2/3 width */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Upcoming Bookings - Primary Content */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="w-5 h-5" />
-                <span>Upcoming Bookings</span>
-              </CardTitle>
-              <CardDescription>
-                Your next scheduled speaking tests
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {dashboardData?.upcomingBookings?.length ? (
-                <div className="space-y-4">
-                  {dashboardData.upcomingBookings.slice(0, 5).map((booking: Booking) => (
-                    <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                      <div className="space-y-2">
+
+          {/* Booking Management Tabs */}
+          <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+            <Button
+              variant={activeBookingTab === 'upcoming' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveBookingTab('upcoming')}
+            >
+              Upcoming
+            </Button>
+            <Button
+              variant={activeBookingTab === 'past' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveBookingTab('past')}
+            >
+              Past
+            </Button>
+            <Button
+              variant={activeBookingTab === 'all' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveBookingTab('all')}
+            >
+              All
+            </Button>
+          </div>
+
+          {/* Bookings List */}
+          {filteredStudentBookings.length > 0 ? (
+            filteredStudentBookings.map((booking) => (
+              <Card key={booking.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-3 flex-1">
+                      <div className="flex items-center space-x-3">
                         <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-gray-500" />
+                          <Calendar className="w-4 h-4 text-gray-500" />
                           <span className="font-medium">
-                            {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd, yyyy')}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {booking.slot?.startTime} - {booking.slot?.endTime}
+                            {booking.slot?.date && format(new Date(booking.slot.date), 'EEEE, MMMM dd, yyyy')}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <div className="flex items-center space-x-1">
-                            <User className="w-4 h-4" />
-                            <span>{booking.slot?.teacher?.name}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{booking.slot?.branch?.name}</span>
-                          </div>
+                        <Badge variant={getStatusColor(booking.status)} className="flex items-center space-x-1">
+                          {getStatusIcon(booking.status)}
+                          <span>{booking.status}</span>
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4" />
+                          <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <User className="w-4 h-4" />
+                          <span>{booking.slot?.teacher?.name || 'TBD'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="w-4 h-4" />
+                          <span>{booking.slot?.branch?.name || 'TBD'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Building className="w-4 h-4" />
+                          <span>Room {booking.slot?.roomNumber || 'TBD'}</span>
                         </div>
                       </div>
-                      <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
-                        {booking.status}
-                      </Badge>
                     </div>
-                  ))}
-                  <Link to="/bookings">
-                    <Button variant="outline" className="w-full">
-                      View All Bookings
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">No upcoming bookings</p>
+
+                    {/* Action Buttons */}
+                    {booking.status === BookingStatus.CONFIRMED && (
+                      <div className="flex space-x-2 ml-4">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBooking(booking)
+                            setIsCancelDialogOpen(true)
+                          }}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                        <Link to={`/schedule?reschedule=${booking.id}`}>
+                          <Button variant="outline" size="sm">
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                            Reschedule
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="text-center py-12">
+                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {activeBookingTab === 'upcoming' ? 'No upcoming bookings' :
+                    activeBookingTab === 'past' ? 'No past bookings' : 'No bookings found'}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {activeBookingTab === 'upcoming' ? 'Book your first speaking test to get started' :
+                    'Your booking history will appear here'}
+                </p>
+                {activeBookingTab === 'upcoming' && (
                   <Link to="/schedule">
                     <Button>Book Your First Test</Button>
                   </Link>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Book Section - Primary Content */}
-          {user?.role === UserRole.STUDENT && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Plus className="w-5 h-5" />
-                  <span>Quick Book</span>
-                </CardTitle>
-                <CardDescription>
-                  Find and book your next speaking test
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <Link to="/schedule">
-                      <Button variant="outline" className="w-full h-20 flex-col space-y-2">
-                        <Calendar className="w-6 h-6" />
-                        <span>Browse Slots</span>
-                      </Button>
-                    </Link>
-                    <Link to="/schedule?view=today">
-                      <Button variant="outline" className="w-full h-20 flex-col space-y-2">
-                        <Clock className="w-6 h-6" />
-                        <span>Today's Slots</span>
-                      </Button>
-                    </Link>
-                  </div>
-                  <Link to="/schedule">
-                    <Button className="w-full bg-red-600 hover:bg-red-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Book New Test
-                    </Button>
-                  </Link>
-                </div>
+                )}
               </CardContent>
             </Card>
           )}
+
         </div>
 
         {/* SECONDARY CONTENT - 1/3 width */}
         <div className="space-y-6">
+
+
+          {/* Upcoming Reminders */}
+          {upcomingStudentBookings.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Upcoming Reminders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {upcomingStudentBookings.slice(0, 3).map((booking: any) => (
+                    <div key={booking.id} className="p-3 bg-blue-50 rounded-lg">
+                      <div className="text-sm space-y-1">
+                        <div className="font-medium">
+                          {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd')}
+                        </div>
+                        <div className="text-gray-600">
+                          {booking.slot?.startTime} - {booking.slot?.teacher?.name}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Notifications */}
           <Card>
@@ -1260,38 +1399,53 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          {user?.role === UserRole.STUDENT && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Link to="/bookings">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      My Bookings
-                    </Button>
-                  </Link>
-                  <Link to="/assessments">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <GraduationCap className="w-4 h-4 mr-2" />
-                      My Scores
-                    </Button>
-                  </Link>
-                  <Link to="/notifications">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Bell className="w-4 h-4 mr-2" />
-                      Notifications
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
+
+      {/* Cancel Booking Dialog */}
+      {isCancelDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setIsCancelDialogOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Cancel Booking</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Are you sure you want to cancel this booking? This action cannot be undone.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Reason for cancellation (optional)
+                  </label>
+                  <textarea
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    rows={3}
+                    placeholder="Please provide a reason for cancellation..."
+                  />
+                </div>
+                <div className="flex space-x-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCancelDialogOpen(false)}
+                    className="flex-1"
+                  >
+                    Keep Booking
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleCancelBooking}
+                    disabled={cancelBookingMutation.isPending}
+                    className="flex-1"
+                  >
+                    {cancelBookingMutation.isPending ? 'Cancelling...' : 'Cancel Booking'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
     </div>

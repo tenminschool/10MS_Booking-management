@@ -39,22 +39,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (token && savedUser) {
         try {
-          // Verify token is still valid
-          console.log('Verifying token...')
-          const response = await authAPI.getCurrentUser()
-          console.log('Token verification successful:', response)
-          setUser((response as any).data)
-          console.log('User set from verified data:', (response as any).data)
-        } catch (error) {
-          console.log('Token verification failed:', error)
-          
-          // Parse the stored user data
+          // Parse the stored user data first
           const parsedUser = JSON.parse(savedUser)
           
-          // For student tokens, check if token format is valid
+          // For student tokens, use stored data directly (no server verification needed)
           if (token.startsWith('student_')) {
             console.log('Student token detected, using stored user data')
             setUser(parsedUser)
+          } else {
+            // For staff tokens, verify with server
+            console.log('Staff token detected, verifying with server...')
+            const response = await authAPI.getCurrentUser()
+            console.log('Token verification successful:', response)
+            setUser((response as any).data)
+            console.log('User set from verified data:', (response as any).data)
+          }
+        } catch (error) {
+          console.log('Token verification failed:', error)
+          
+          // For student tokens, still try to use stored data
+          if (token.startsWith('student_')) {
+            try {
+              const parsedUser = JSON.parse(savedUser)
+              console.log('Student token verification failed, but using stored user data')
+              setUser(parsedUser)
+            } catch (parseError) {
+              console.log('Failed to parse stored user data, clearing auth')
+              localStorage.removeItem('token')
+              localStorage.removeItem('user')
+              setUser(null)
+            }
           } else {
             // For other tokens, clear auth data on verification failure
             console.log('Non-student token verification failed, clearing auth data')
@@ -89,6 +103,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('User set in context:', userData)
       console.log('Token stored:', localStorage.getItem('token') ? 'yes' : 'no')
       console.log('User stored:', localStorage.getItem('user') ? 'yes' : 'no')
+      console.log('isAuthenticated will be:', !!userData)
     } catch (error) {
       console.error('Error storing login data:', error)
     }
@@ -114,8 +129,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: !!user,
   }
 
-  // Debug logging (commented out for production)
-  // console.log('AuthContext render - user:', user, 'isAuthenticated:', !!user, 'isLoading:', isLoading)
+  // Debug logging
+  console.log('AuthContext render - user:', user, 'isAuthenticated:', !!user, 'isLoading:', isLoading)
 
   return (
     <AuthContext.Provider value={value}>

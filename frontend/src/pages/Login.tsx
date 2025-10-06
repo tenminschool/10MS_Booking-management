@@ -3,12 +3,11 @@ import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { authAPI } from '@/lib/api'
-import { getRoleBasedDashboardRoute } from '@/lib/roleRouting'
-import { UserRole } from '@/types'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import NeuralNetworkBackground from '@/components/ui/neural-network-background'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
+  <div className={`bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-200/50 dark:border-white/10 rounded-lg shadow-2xl ${className}`}>{children}</div>
 )
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="p-6 pb-4">{children}</div>
@@ -16,11 +15,11 @@ const CardHeader = ({ children }: { children: React.ReactNode }) => (
 const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>{children}</h3>
 )
-const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
+const CardDescription = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <p className={`text-sm text-gray-600 dark:text-gray-400 mt-1 ${className}`}>{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, type, ...props }: any) => (
   <button 
@@ -96,10 +95,9 @@ const Login: React.FC = () => {
   const studentLoginMutation = useMutation({
     mutationFn: (data: { phoneNumber: string; otp: string }) => 
       authAPI.loginStudent(data.phoneNumber, data.otp),
-    onSuccess: (response) => {
+    onSuccess: (response: any) => {
       console.log('Student login response:', response)
       console.log('Student response data:', response.data)
-      console.log('Student response data.data:', response.data.data)
       
       if (!response.data || !response.data.data) {
         console.error('Invalid student response format:', response)
@@ -129,10 +127,9 @@ const Login: React.FC = () => {
   const staffLoginMutation = useMutation({
     mutationFn: (data: { email: string; password: string }) => 
       authAPI.loginStaff(data.email, data.password),
-    onSuccess: (response) => {
+    onSuccess: (response: any) => {
       console.log('Login response:', response)
       console.log('Response data:', response.data)
-      console.log('Response data.data:', response.data.data)
       
       if (!response.data || !response.data.data) {
         console.error('Invalid response format:', response)
@@ -153,7 +150,7 @@ const Login: React.FC = () => {
       console.log('Navigating to dashboard...')
       navigate('/dashboard')
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Login error:', error)
       console.error('Error response:', error.response?.data)
       console.error('Error status:', error.response?.status)
@@ -182,13 +179,17 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-2 sm:p-4">
-      {/* Theme Toggle - Top Right */}
-      <div className="absolute top-4 right-4">
+    <>
+      {/* Neural Network Background - Outside of main container */}
+      <NeuralNetworkBackground />
+      
+      <div className="min-h-screen flex items-center justify-center p-2 sm:p-4 relative" style={{ zIndex: 1 }}>
+        {/* Theme Toggle - Top Right */}
+        <div className="absolute top-4 right-4" style={{ zIndex: 10 }}>
         <ThemeToggle />
       </div>
       
-      <div className="w-full max-w-md mx-auto">
+      <div className="w-full max-w-md mx-auto relative" style={{ zIndex: 10 }}>
         {/* Logo and Header */}
         <div className="text-center mb-6 sm:mb-8">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
@@ -206,6 +207,17 @@ const Login: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Demo Credentials */}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+              <h3 className="text-orange-800 font-semibold mb-2">🎯 Demo Student (Showcase)</h3>
+              <div className="text-sm text-orange-700 space-y-1">
+                <p><strong>Email:</strong> demo.student@example.com</p>
+                <p><strong>Password:</strong> password</p>
+                <p><strong>Phone:</strong> +8801712345998</p>
+                <p><strong>OTP:</strong> 123456</p>
+              </div>
+            </div>
+            
             <Tabs defaultValue="student" className="w-full">
               <TabsList className="grid w-full grid-cols-2 text-sm sm:text-base">
                 <TabsTrigger value="student" className="text-xs sm:text-sm">Student</TabsTrigger>
@@ -226,7 +238,7 @@ const Login: React.FC = () => {
                         type="tel"
                         placeholder="+880 1234 567890"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhoneNumber(e.target.value)}
                         className="px-3 h-10 sm:h-11 text-sm sm:text-base"
                         required
                       />
@@ -260,7 +272,7 @@ const Login: React.FC = () => {
                         type="text"
                         placeholder="123456"
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtp(e.target.value)}
                         maxLength={6}
                         className="px-3 h-10 sm:h-11 text-sm sm:text-base text-center tracking-widest"
                         required
@@ -304,7 +316,7 @@ const Login: React.FC = () => {
                       type="email"
                       placeholder="your.email@10minuteschool.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                       className="px-3 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
@@ -321,7 +333,7 @@ const Login: React.FC = () => {
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Enter your password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                         className="px-3 pr-10 h-10 sm:h-11 text-sm sm:text-base"
                         required
                       />
@@ -400,6 +412,9 @@ const Login: React.FC = () => {
             <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
               <div className="text-xs font-semibold text-purple-800 mb-1">Student</div>
               <div className="text-xs text-purple-700 space-y-1">
+                <div><strong>Email:</strong> student@10minuteschool.com</div>
+                <div><strong>Password:</strong> student123</div>
+                <div className="text-xs text-purple-600 mt-2">Or use phone/OTP:</div>
                 <div><strong>Phone:</strong> +8801712345678</div>
                 <div><strong>OTP:</strong> 123456 (any 6-digit number)</div>
               </div>
@@ -413,7 +428,8 @@ const Login: React.FC = () => {
           <p className="font-medium break-all sm:break-normal">support@10minuteschool.com</p>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 

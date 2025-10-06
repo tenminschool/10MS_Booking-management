@@ -104,14 +104,14 @@ const AdminAssessments: React.FC = () => {
   const [page, setPage] = useState(1)
   const limit = 20
 
-  // Only super admins can access this page
-  if (user?.role !== UserRole.SUPER_ADMIN) {
+  // Only super admins and branch admins can access this page
+  if (user?.role !== UserRole.SUPER_ADMIN && user?.role !== UserRole.BRANCH_ADMIN) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage assessments across all branches.</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins and Branch Admins can manage assessments.</p>
         </div>
       </div>
     )
@@ -122,7 +122,7 @@ const AdminAssessments: React.FC = () => {
     queryKey: ['admin-assessments', {
       search: searchTerm || undefined,
       status: statusFilter || undefined,
-      branchId: branchFilter || undefined,
+      branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : (branchFilter || undefined),
       score: scoreFilter || undefined,
       page,
       limit
@@ -131,7 +131,7 @@ const AdminAssessments: React.FC = () => {
           const response = await assessmentsAPI.getAll({
             search: searchTerm || undefined,
             status: statusFilter || undefined,
-            branchId: branchFilter || undefined,
+            branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : (branchFilter || undefined),
             score: scoreFilter || undefined,
             page,
             limit
@@ -159,6 +159,11 @@ const AdminAssessments: React.FC = () => {
   })
 
   const assessments = assessmentsData?.assessments || []
+  
+  // Debug logging to help identify the issue
+  console.log('AdminAssessments - assessmentsData:', assessmentsData)
+  console.log('AdminAssessments - assessments:', assessments)
+  console.log('AdminAssessments - assessmentsLoading:', assessmentsLoading)
   const pagination = assessmentsData?.pagination
   const branches = branchesData?.branches || []
   const bookings = bookingsData?.bookings || []
@@ -463,7 +468,7 @@ const AdminAssessments: React.FC = () => {
       {/* Assessments Grid/Table */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assessments && assessments.length > 0 ? assessments.map((assessment: any) => (
+          {assessments && assessments.length > 0 ? assessments.filter((assessment: any) => assessment && assessment.id).map((assessment: any) => (
             <Card key={assessment.id} className="hover:shadow-md transition-shadow">
             <CardHeader>
                 <div className="flex items-start justify-between">
@@ -476,7 +481,7 @@ const AdminAssessments: React.FC = () => {
                       <div className="flex items-center space-x-2 mt-1">
                         {getStatusIcon(assessment.status)}
                         <Badge variant={getStatusBadgeVariant(assessment.status)}>
-                          {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
+                          {assessment.status ? assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1) : 'Unknown'}
                         </Badge>
                       </div>
                     </div>
@@ -593,7 +598,7 @@ const AdminAssessments: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {assessments && assessments.length > 0 ? assessments.map((assessment: any) => (
+                  {assessments && assessments.length > 0 ? assessments.filter((assessment: any) => assessment && assessment.id).map((assessment: any) => (
                     <tr key={assessment.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
@@ -651,7 +656,7 @@ const AdminAssessments: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           {getStatusIcon(assessment.status)}
                           <Badge variant={getStatusBadgeVariant(assessment.status)}>
-                            {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
+                            {assessment.status ? assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1) : 'Unknown'}
                           </Badge>
                         </div>
                       </td>

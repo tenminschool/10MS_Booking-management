@@ -60,14 +60,14 @@ const AdminUsers: React.FC = () => {
   const [page, setPage] = useState(1)
   const limit = 20
 
-  // Only super admins can access this page
-  if (user?.role !== UserRole.SUPER_ADMIN) {
+  // Only super admins and branch admins can access this page
+  if (user?.role !== UserRole.SUPER_ADMIN && user?.role !== UserRole.BRANCH_ADMIN) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins can manage users across all branches.</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Only Super Admins and Branch Admins can manage users.</p>
         </div>
       </div>
     )
@@ -78,7 +78,7 @@ const AdminUsers: React.FC = () => {
     queryKey: ['admin-users', {
       role: roleFilter || undefined,
       search: searchTerm || undefined,
-      branchId: branchFilter || undefined,
+      branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : (branchFilter || undefined),
       isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
       page,
       limit
@@ -87,7 +87,7 @@ const AdminUsers: React.FC = () => {
           const response = await usersAPI.getAll({
           role: roleFilter || undefined,
           search: searchTerm || undefined,
-            branchId: branchFilter || undefined,
+            branchId: user?.role === UserRole.BRANCH_ADMIN ? user.branchId : (branchFilter || undefined),
             isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
           page,
           limit
@@ -96,12 +96,19 @@ const AdminUsers: React.FC = () => {
         },
   })
 
-  // Fetch branches
+  // Fetch branches (only user's branch for Branch Admins)
   const { data: branchesData } = useQuery({
     queryKey: ['branches'],
         queryFn: async () => {
           const response = await branchesAPI.getAll()
-          return (response as any).data
+          const branches = (response as any).data?.branches || []
+          
+          // For Branch Admins, only return their branch
+          if (user?.role === UserRole.BRANCH_ADMIN) {
+            return { branches: branches.filter((branch: any) => branch.id === user.branchId) }
+          }
+          
+          return { branches }
         },
   })
 
@@ -193,13 +200,13 @@ const AdminUsers: React.FC = () => {
   const getRoleBadgeVariant = (role: UserRole) => {
     switch (role) {
       case UserRole.SUPER_ADMIN:
-        return 'destructive'
+        return 'secondary'  // Changed from 'destructive' to lighter color
       case UserRole.BRANCH_ADMIN:
-        return 'default'
+        return 'outline'    // Changed from 'default' to lighter outline
       case UserRole.TEACHER:
-        return 'default'
+        return 'outline'    // Changed from 'default' to lighter outline
       case UserRole.STUDENT:
-        return 'secondary'
+        return 'secondary'  // Keep secondary as it's already light
       default:
         return 'outline'
     }
@@ -401,7 +408,7 @@ const AdminUsers: React.FC = () => {
                         ) : (
                           <UserX className="w-4 h-4 text-red-600" />
                         )}
-                        <Badge variant={user.isActive ? 'default' : 'destructive'}>
+                        <Badge variant={user.isActive ? 'success' : 'outline'}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>
@@ -550,7 +557,7 @@ const AdminUsers: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge variant={user.isActive ? 'default' : 'destructive'}>
+                        <Badge variant={user.isActive ? 'success' : 'outline'}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>

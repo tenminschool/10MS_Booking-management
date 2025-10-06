@@ -4,6 +4,63 @@ import { supabase } from '../lib/supabase';
 
 const router = express.Router();
 
+// GET /api/bookings/my - Get user's bookings (role-based)
+router.get('/my', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+    console.log('User object:', user);
+    
+    // Query bookings from Supabase database with related data
+    let query = supabase
+      .from('bookings')
+      .select(`
+        *,
+        student:users!bookings_studentId_fkey(id, name, phoneNumber, email),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name, email)
+        )
+      `)
+      .order('bookedAt', { ascending: false });
+
+    // Apply role-based filtering
+    if (user.role === 'STUDENT') {
+      query = query.eq('studentId', user.userId);
+    } else if (user.role === 'TEACHER') {
+      // Teachers can see bookings for their slots - simplified for now
+      // query = query.eq('slot.teacherId', user.userId);
+    } else if (user.role === 'BRANCH_ADMIN') {
+      // Branch admins can see bookings for their branch - simplified for now
+      // query = query.eq('slot.branchId', user.branchId);
+    }
+    // Super admin can see all bookings (no additional filter)
+
+    console.log('Executing query...');
+    const { data: bookings, error } = await query;
+    console.log('Query result:', { bookings: bookings?.length, error });
+
+    if (error) {
+      console.error('Error fetching bookings:', error);
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch bookings',
+        details: error.message
+      });
+    }
+
+    // Return data in the expected format
+    res.json(bookings || []);
+  } catch (error: any) {
+    console.error('Error fetching bookings:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch bookings',
+      details: error.message
+    });
+  }
+});
+
 // GET /api/bookings - Get user's bookings (role-based)
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -152,6 +209,7 @@ router.post('/', authenticate, async (req, res) => {
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .insert({
+        id: `booking-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         studentId: user.userId,
         slotId: slotId,
         status: 'CONFIRMED',

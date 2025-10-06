@@ -173,55 +173,6 @@ const AdminDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* User Role Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BarChart3 className="w-5 h-5" />
-              <span>User Distribution</span>
-            </CardTitle>
-            <CardDescription>
-              Breakdown of users by role and status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <UserCog className="w-4 h-4 text-orange-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Students</span>
-                </div>
-                <Badge variant="warning">{stats.users?.students || 0}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <GraduationCap className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Teachers</span>
-                </div>
-                <Badge variant="success">{stats.users?.teachers || 0}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Building className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch Admins</span>
-                </div>
-                <Badge variant="default">{stats.users?.branchAdmins || 0}</Badge>
-              </div>
-              {isSuperAdmin && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Crown className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Super Admins</span>
-                  </div>
-                  <Badge variant="destructive">{stats.users?.superAdmins || 0}</Badge>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-      </div>
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
