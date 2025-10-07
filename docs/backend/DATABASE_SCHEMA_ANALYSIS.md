@@ -1,8 +1,15 @@
-# Database Schema Analysis - Root Cause of camelCase vs snake_case Confusion
+# Database Schema Analysis
 
-## 🚨 ROOT CAUSE IDENTIFIED
+## ✅ Database Naming Convention
 
-The persistent confusion between camelCase and snake_case is caused by **INCONSISTENT DATABASE QUERY USAGE** in the application code.
+This project uses **snake_case** in the database and **camelCase** in TypeScript code, which is standard practice with Supabase + TypeScript.
+
+### How It Works:
+- **Database columns**: `student_id`, `booked_at`, `created_at` (snake_case)
+- **TypeScript code**: `studentId`, `bookedAt`, `createdAt` (camelCase)
+- **Supabase Client**: Automatically converts between the two formats
+
+This is **NOT a bug** - it's how Supabase's TypeScript client works by design.
 
 ## 📊 Current State Analysis
 
@@ -30,123 +37,103 @@ CREATE TABLE public.bookings (
 );
 ```
 
-### 2. **Application Code** (MIXED - WRONG) ❌
+### 2. **Application Code** (camelCase) ✅
 ```typescript
-// backend/src/routes/dashboard.ts - WRONG USAGE
-.eq('studentId', user.userId)           // ❌ Should be 'student_id'
-.order('bookedAt', { ascending: false }) // ❌ Should be 'booked_at'
+// backend/src/routes/dashboard.ts - CORRECT
+.eq('studentId', user.userId)           // ✅ Supabase converts to student_id
+.order('bookedAt', { ascending: false }) // ✅ Supabase converts to booked_at
 
-// backend/src/routes/users.ts - WRONG USAGE  
-.eq('branchId', branchId as string)     // ❌ Should be 'branch_id'
-
-// backend/src/routes/bookings.ts - WRONG USAGE
-.eq('studentId', user.userId)           // ❌ Should be 'student_id'
+// backend/src/routes/bookings.ts - CORRECT
+.eq('studentId', user.userId)           // ✅ Works correctly
 ```
 
-### 3. **TypeScript Interfaces** (camelCase) ⚠️
+### 3. **TypeScript Interfaces** (camelCase) ✅
 ```typescript
-// backend/src/types/database.ts - INCONSISTENT
+// backend/src/types/database.ts - CORRECT
 export interface User {
   id: string;
-  phoneNumber?: string;  // ❌ Should match DB: phone_number
+  phoneNumber?: string;  // ✅ Matches Supabase client output
   role: UserRole;
-  branchId?: string;     // ❌ Should match DB: branch_id
+  branchId?: string;     // ✅ Matches Supabase client output
 }
 ```
 
-## 🔧 THE FIX
+## 📋 Database Schema Overview
 
-### Step 1: Update All Supabase Queries to Use snake_case
+### Core Tables
 
-**Files that need fixing:**
-- `backend/src/routes/dashboard.ts`
-- `backend/src/routes/users.ts` 
-- `backend/src/routes/bookings.ts`
-- `backend/src/routes/slots.ts`
-- `backend/src/routes/rooms.ts`
-- `backend/src/routes/notifications.ts`
-- `backend/src/routes/assessments.ts`
-- `backend/src/routes/auth.ts`
-
-### Step 2: Update TypeScript Interfaces
-
-**Files that need fixing:**
-- `backend/src/types/database.ts`
-
-### Step 3: Create Consistent Naming Convention
-
-**Decision: Use snake_case everywhere**
-- Database columns: `student_id`, `booked_at`, `branch_id`
-- Supabase queries: `'student_id'`, `'booked_at'`, `'branch_id'`
-- TypeScript interfaces: `student_id`, `booked_at`, `branch_id`
-
-## 📋 Specific Changes Needed
-
-### 1. Dashboard Routes
-```typescript
-// WRONG (current)
-.eq('studentId', user.userId)
-.order('bookedAt', { ascending: false })
-
-// CORRECT (should be)
-.eq('student_id', user.userId)
-.order('booked_at', { ascending: false })
+#### Users Table
+```sql
+CREATE TABLE public.users (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  email text,
+  phone_number text,
+  role "UserRole" NOT NULL,
+  branch_id text,
+  hashed_password text,
+  is_active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 ```
 
-### 2. User Routes
-```typescript
-// WRONG (current)
-.eq('branchId', branchId as string)
-
-// CORRECT (should be)
-.eq('branch_id', branchId as string)
+#### Bookings Table
+```sql
+CREATE TABLE public.bookings (
+  id text PRIMARY KEY,
+  student_id text NOT NULL REFERENCES users(id),
+  slot_id text NOT NULL REFERENCES slots(id),
+  status "BookingStatus" DEFAULT 'CONFIRMED',
+  attended boolean,
+  booked_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 ```
 
-### 3. Booking Routes
-```typescript
-// WRONG (current)
-.eq('studentId', user.userId)
-.eq('slotId', slotId)
-
-// CORRECT (should be)
-.eq('student_id', user.userId)
-.eq('slot_id', slotId)
+#### Slots Table
+```sql
+CREATE TABLE public.slots (
+  id text PRIMARY KEY,
+  teacher_id text REFERENCES users(id),
+  room_id text REFERENCES rooms(id),
+  branch_id text REFERENCES branches(id),
+  date date NOT NULL,
+  start_time time NOT NULL,
+  end_time time NOT NULL,
+  capacity integer DEFAULT 1,
+  is_available boolean DEFAULT true
+);
 ```
 
-### 4. TypeScript Interfaces
-```typescript
-// WRONG (current)
-export interface User {
-  phoneNumber?: string;
-  branchId?: string;
-}
-
-// CORRECT (should be)
-export interface User {
-  phone_number?: string;
-  branch_id?: string;
-}
+#### Assessments Table
+```sql
+CREATE TABLE public.assessments (
+  id text PRIMARY KEY,
+  booking_id text REFERENCES bookings(id),
+  student_id text REFERENCES users(id),
+  teacher_id text REFERENCES users(id),
+  score float NOT NULL,
+  fluency_score float,
+  coherence_score float,
+  grammar_score float,
+  vocabulary_score float,
+  pronunciation_score float,
+  remarks text,
+  assessed_at timestamptz DEFAULT now()
+);
 ```
 
-## 🎯 Why This Happened
+## 🔍 Key Points
 
-1. **Mixed Database Systems**: The project uses both Supabase (snake_case) and Prisma (camelCase)
-2. **Copy-Paste Errors**: Developers copied camelCase patterns from Prisma to Supabase queries
-3. **No Schema Validation**: No automated checks to ensure query column names match actual database schema
-4. **Inconsistent Documentation**: The actual schema wasn't clearly documented
+1. **Database uses snake_case**: `student_id`, `booked_at`, `created_at`
+2. **Supabase client converts automatically**: Can use either `studentId` or `student_id` in queries
+3. **TypeScript interfaces use camelCase**: Matches JavaScript conventions
+4. **Both approaches work**: The current implementation is correct
 
-## ✅ Prevention Strategy
+## 📚 Best Practices
 
-1. **Always check actual database schema** before writing queries
-2. **Use consistent naming convention** across the entire project
-3. **Add schema validation** to catch mismatches early
-4. **Document the actual schema** clearly
-5. **Use TypeScript strict mode** to catch type mismatches
-
-## 🚀 Next Steps
-
-1. Fix all Supabase queries to use snake_case
-2. Update TypeScript interfaces to match database schema
-3. Test all endpoints to ensure they work correctly
-4. Add schema validation to prevent future issues
-5. Update documentation to reflect the correct schema
+1. **In Supabase queries**: Use camelCase (matches TypeScript)
+2. **In raw SQL**: Use snake_case (matches database)
+3. **In TypeScript types**: Use camelCase (matches JavaScript)
+4. **Be consistent**: Choose one approach per context

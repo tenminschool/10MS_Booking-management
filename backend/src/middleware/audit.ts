@@ -1,5 +1,6 @@
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import { Request, Response, NextFunction } from 'express';
-import prisma from '../lib/prisma';
+// import prisma from '../lib/prisma';
 
 interface AuditableRequest extends Request {
   auditData?: {

@@ -1,5 +1,6 @@
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import cron from 'node-cron';
-import prisma from '../lib/prisma';
+// import prisma from '../lib/prisma';
 import { notificationService } from './notification';
 
 interface BookingReminderData {

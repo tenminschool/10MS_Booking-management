@@ -7,7 +7,7 @@ Multi-branch speaking test booking system for 10 Minute School with role-based a
 
 ### Technology Stack
 - **Backend**: Node.js, Express.js, TypeScript
-- **Database**: PostgreSQL with Prisma ORM
+- **Database**: PostgreSQL with Supabase
 - **Frontend**: React, TypeScript, Vite
 - **Authentication**: JWT-based with role-based access control
 - **Deployment**: Docker, PM2, Nginx

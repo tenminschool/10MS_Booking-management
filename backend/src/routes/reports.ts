@@ -1,8 +1,9 @@
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import express from 'express';
 import { z } from 'zod';
-import prisma from '../lib/prisma';
+// import prisma from '../lib/prisma';
 import { authenticate, requireRole } from '../middleware/auth';
-import { UserRole } from '@prisma/client';
+// import { UserRole } from '../lib/supabase';
 import { format as formatDate, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
 const router = express.Router();

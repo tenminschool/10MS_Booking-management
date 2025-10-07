@@ -22,9 +22,9 @@ Run a lightweight check to confirm basic system health and functionality.
 
 3. **Supabase Connection Check**
    - Test database connectivity
-   - Verify Prisma can connect to Supabase
+   - Verify Supabase can connect to Supabase
    - Check if database schema is up to date
-   - Run `npx prisma db push` to ensure schema sync
+   - Run `npx supabase db push` to ensure schema sync
 
 4. **Main Pages Load Check**
    - Navigate to `/` (home page)

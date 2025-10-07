@@ -1,9 +1,10 @@
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, requireRole } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
-import prisma from '../lib/prisma';
-import { UserRole } from '@prisma/client';
+// import prisma from '../lib/prisma';
+// import { UserRole } from '../lib/supabase';
 
 const router = Router();
 

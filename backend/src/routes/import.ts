@@ -1,11 +1,12 @@
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import { Router } from 'express';
 import multer from 'multer';
 import csvParser from 'csv-parser';
 import { authenticate, requireRole, requireBranchAccess } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 import { validateBangladeshPhone } from '../middleware/phoneValidation';
-import prisma from '../lib/prisma';
-import { UserRole } from '@prisma/client';
+// import prisma from '../lib/prisma';
+// import { UserRole } from '../lib/supabase';
 import { Readable } from 'stream';
 
 const router = Router();

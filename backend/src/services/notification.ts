@@ -1,6 +1,7 @@
-import prisma from '../lib/prisma';
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
+// import prisma from '../lib/prisma';
 import { smsService } from './sms';
-import { NotificationType } from '@prisma/client';
+// import { NotificationType } from '../lib/supabase';
 
 interface NotificationTemplate {
   sms: string;

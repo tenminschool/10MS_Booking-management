@@ -1,4 +1,5 @@
-import prisma from '../lib/prisma';
+// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
+// import prisma from '../lib/prisma';
 import { notificationService } from './notification';
 
 export interface WaitingListEntry {

@@ -53,7 +53,7 @@ graph TB
 - Node.js with Express.js (monolithic API)
 - TypeScript for type safety
 - JWT for authentication
-- Prisma ORM for database operations
+- Supabase ORM for database operations
 - Multer for CSV file uploads
 
 **Database:**
@@ -458,7 +458,7 @@ interface ErrorResponse {
 - HTTPS in production
 
 **Data Protection:**
-- Parameterized queries (Prisma ORM)
+- Parameterized queries (Supabase ORM)
 - Input validation on client and server
 - Role-based route protection
 - Basic rate limiting

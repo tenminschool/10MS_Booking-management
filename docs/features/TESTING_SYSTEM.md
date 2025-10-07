@@ -217,7 +217,7 @@ tsx src/tests/run-individual-tests.ts mobile
 1. **Database**: PostgreSQL database running (Docker Compose recommended)
 2. **Environment Variables**: Proper `.env` configuration
 3. **Dependencies**: All npm packages installed
-4. **Database Schema**: Prisma schema applied (`npm run db:push`)
+4. **Database Schema**: Supabase schema applied (`npm run db:push`)
 
 ### Environment Variables
 ```env

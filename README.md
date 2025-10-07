@@ -4,15 +4,30 @@ A comprehensive booking management system for speaking test appointments at 10 M
 
 ## 🚀 Quick Start
 
-### Current Server Status
-- **Backend API**: http://localhost:3001 ✅ Running
-- **Frontend**: http://localhost:5175 ✅ Running  
-- **Database**: Mock data fallback (fully functional)
-- **Authentication**: Working with mock system
+### Development Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Start development servers
+npm run dev
+```
+
+- **Backend API**: http://localhost:3001
+- **Frontend**: http://localhost:5173
 
 ### Test Credentials
 - **Staff**: admin@10minuteschool.com / admin123
 - **Student**: +8801712345678 / any 6-digit OTP
+
+### 🚀 Production Deployment
+
+**See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment guide** including:
+- Supabase database setup
+- Railway/Vercel deployment
+- Environment configuration
+- Post-deployment checklist
 
 ## 📁 Project Structure
 
@@ -50,12 +65,13 @@ A comprehensive booking management system for speaking test appointments at 10 M
 
 ### Backend
 - **Node.js** + **Express.js** + **TypeScript**
-- **Prisma ORM** + **PostgreSQL** (with mock fallback)
+- **Supabase** (PostgreSQL database + JavaScript client)
 - **JWT** authentication + **Zod** validation
 
 ### Frontend  
 - **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** + **React Query** + **React Router**
+- **Tailwind CSS** + **shadcn/ui** + **React Query** + **React Router**
+- **Three.js** + **React Three Fiber** (Neural network background)
 
 ## 📖 Documentation
 

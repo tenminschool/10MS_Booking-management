@@ -119,7 +119,7 @@ The system includes comprehensive mock data fallback:
 
 ### Backend Components
 - Express.js API server
-- Prisma ORM for database
+- Supabase for database
 - JWT authentication
 - Mock data services
 

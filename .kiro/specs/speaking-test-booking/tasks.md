@@ -3,13 +3,13 @@
 - [x] 1. Set up project foundation and development environment
   - Initialize React TypeScript project with Vite
   - Set up Express.js TypeScript backend with proper folder structure
-  - Configure Prisma ORM with PostgreSQL database schema
+  - Configure Supabase ORM with PostgreSQL database schema
   - Install and configure Shadcn/ui components with 10MS branding (red, white, dark theme)
   - Set up basic development environment with Docker Compose for database
   - _Requirements: 16.1, 16.3, 16.4_
 
 - [x] 2. Implement enhanced database models with audit trails and system settings
-  - Create comprehensive Prisma schema with Branch, User, Slot, Booking, Assessment, Notification, AuditLog, and SystemSetting models
+  - Create comprehensive Supabase schema with Branch, User, Slot, Booking, Assessment, Notification, AuditLog, and SystemSetting models
   - Implement database indexes for optimal query performance on frequently accessed fields
   - Add business rule constraints (unique booking per student per slot, role-based branch assignments)
   - Implement database migrations and enhanced seed script with multiple branches, system settings, and sample data

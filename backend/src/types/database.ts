@@ -1,18 +1,15 @@
-import { 
+// Import Supabase types
+import type { 
   User, 
   Branch, 
   Slot, 
   Booking, 
   Assessment, 
   Notification, 
-  AuditLog, 
-  SystemSetting,
-  UserRole,
-  BookingStatus,
-  NotificationType
-} from '@prisma/client';
+  WaitingList 
+} from '../lib/supabase';
 
-// Export Prisma types
+// Re-export Supabase types
 export {
   User,
   Branch,
@@ -20,12 +17,55 @@ export {
   Booking,
   Assessment,
   Notification,
-  AuditLog,
-  SystemSetting,
-  UserRole,
-  BookingStatus,
-  NotificationType
+  WaitingList
 };
+
+// Define enums for type safety
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  BRANCH_ADMIN = 'BRANCH_ADMIN',
+  TEACHER = 'TEACHER',
+  STUDENT = 'STUDENT'
+}
+
+export enum BookingStatus {
+  CONFIRMED = 'CONFIRMED',
+  CANCELLED = 'CANCELLED',
+  COMPLETED = 'COMPLETED',
+  NO_SHOW = 'NO_SHOW'
+}
+
+export enum NotificationType {
+  BOOKING_CONFIRMED = 'BOOKING_CONFIRMED',
+  BOOKING_REMINDER = 'BOOKING_REMINDER',
+  BOOKING_CANCELLED = 'BOOKING_CANCELLED',
+  SYSTEM_ALERT = 'SYSTEM_ALERT',
+  ANNOUNCEMENT = 'ANNOUNCEMENT',
+  REMINDER = 'REMINDER',
+  URGENT = 'URGENT',
+  MAINTENANCE = 'MAINTENANCE'
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  entityType: string;
+  entityId: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  oldValues?: any;
+  newValues?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: string;
+}
+
+export interface SystemSetting {
+  id: string;
+  key: string;
+  value: string;
+  description?: string;
+  updatedAt: string;
+}
 
 // Service Types Enums
 export enum ServiceCategory {

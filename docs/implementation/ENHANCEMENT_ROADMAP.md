@@ -103,7 +103,7 @@ This document outlines the implementation plan for enhancing the current speakin
 **Solution**: 
 - Verify Supabase connection settings
 - Test database connectivity
-- Update Prisma configuration if needed
+- Update Supabase configuration if needed
 
 ### 2. Mobile Responsiveness Enhancement
 **Current Status**: Basic responsive design

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
 
 export interface AppError extends Error {
   statusCode: number;
@@ -322,12 +321,13 @@ export const businessRules = {
     // Check for monthly bypass if studentId provided
     if (studentId) {
       try {
-        const { PrismaClient } = await import('@prisma/client');
-        const prisma = new PrismaClient();
+        const { supabase } = await import('../lib/supabase');
         
-        const bypassSetting = await prisma.systemSetting.findUnique({
-          where: { key: `monthly_bypass_${studentId}` }
-        });
+        const { data: bypassSetting } = await supabase
+          .from('system_settings')
+          .select('*')
+          .eq('key', `monthly_bypass_${studentId}`)
+          .single();
 
         if (bypassSetting) {
           const bypassData = JSON.parse(bypassSetting.value);
@@ -336,13 +336,12 @@ export const businessRules = {
             return; // Bypass is active
           } else {
             // Clean up expired bypass
-            await prisma.systemSetting.delete({
-              where: { key: `monthly_bypass_${studentId}` }
-            });
+            await supabase
+              .from('system_settings')
+              .delete()
+              .eq('key', `monthly_bypass_${studentId}`);
           }
         }
-        
-        await prisma.$disconnect();
       } catch (error) {
         console.error('Error checking monthly bypass:', error);
       }
@@ -359,12 +358,13 @@ export const businessRules = {
     if (studentBranchId === slotBranchId) return; // Same branch, no issue
 
     try {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
+      const { supabase } = await import('../lib/supabase');
       
-      const systemSettings = await prisma.systemSetting.findUnique({
-        where: { key: 'system_config' }
-      });
+      const { data: systemSettings } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('key', 'system_config')
+        .single();
 
       let allowCrossBranch = true;
       if (systemSettings?.value) {
@@ -375,8 +375,6 @@ export const businessRules = {
           console.error('Error parsing system settings:', error);
         }
       }
-
-      await prisma.$disconnect();
 
       if (!allowCrossBranch) {
         throw new BusinessRuleError(
@@ -393,14 +391,13 @@ export const businessRules = {
   // Check if slot is blocked
   validateSlotNotBlocked: async (slotId: string): Promise<void> => {
     try {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
+      const { supabase } = await import('../lib/supabase');
       
-      const blockedSlot = await prisma.systemSetting.findUnique({
-        where: { key: `blocked_slot_${slotId}` }
-      });
-
-      await prisma.$disconnect();
+      const { data: blockedSlot } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('key', `blocked_slot_${slotId}`)
+        .single();
 
       if (blockedSlot) {
         const blockData = JSON.parse(blockedSlot.value);
