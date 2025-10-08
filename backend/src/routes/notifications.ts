@@ -49,6 +49,7 @@ router.get('/', authenticate, async (req, res) => {
     const user = req.user!;
     const { type, isRead, limit = 20, offset = 0 } = notificationFiltersSchema.parse(req.query);
 
+
     // Build query
     let query = supabase
       .from('notifications')
@@ -66,6 +67,7 @@ router.get('/', authenticate, async (req, res) => {
     }
 
     const { data: notifications, error } = await query;
+
 
     if (error) {
       throw new Error(`Failed to fetch notifications: ${error.message}`);

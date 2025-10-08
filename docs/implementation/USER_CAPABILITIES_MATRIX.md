@@ -1,357 +1,435 @@
-# User Capabilities Matrix - Speaking Test Booking System
+# User Capabilities Matrix
 
-## Overview
-This document provides a comprehensive breakdown of what each user type can see and do across different pages and features in the system.
+This document outlines the specific capabilities and functionalities available to each user role in the 10MS Booking Management System.
 
-## Legend
-- ✅ **Can Do**: User has full access to this action
-- ❌ **Cannot Do**: User has no access to this action
-- ⚠️ **Limited**: User has restricted access to this action
-- 🔒 **Own Only**: User can only access their own data
-- 🌐 **All**: User can access all data within their scope
+## Role Overview
 
----
+| Role | Description | Access Level |
+|------|-------------|--------------|
+| **STUDENT** | End users who book speaking tests | Limited to personal data and booking |
+| **TEACHER** | Staff who conduct assessments | Branch-specific teaching data |
+| **BRANCH_ADMIN** | Branch managers with admin privileges | Branch-wide management |
+| **SUPER_ADMIN** | System administrators | Global system access |
 
-## 1. SUPER ADMIN Capabilities
+## Dashboard Capabilities
 
-### Dashboard Page
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **System Overview** | 🌐 All | View system-wide statistics and metrics |
-| **Branch Performance** | 🌐 All | Compare performance across all branches |
-| **User Statistics** | 🌐 All | Total users, active users, role distribution |
-| **Booking Analytics** | 🌐 All | Cross-branch booking trends and patterns |
-| **Revenue Reports** | 🌐 All | Financial metrics and revenue tracking |
-| **System Health** | 🌐 All | Database status, server performance, error rates |
+### STUDENT Dashboard
+- **View**: Personal booking statistics
+- **Actions**: 
+  - Book new speaking tests
+  - View upcoming bookings
+  - Cancel/reschedule bookings
+  - View assessment results
+- **Data**: Only own bookings and assessments
 
-### Branches Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Branches** | 🌐 All | See all branches in the system |
-| **Create Branch** | ✅ Full | Add new branches with complete details |
-| **Edit Branch** | ✅ Full | Modify any branch information |
-| **Delete Branch** | ✅ Full | Remove branches (with safety checks) |
-| **Branch Settings** | ✅ Full | Configure branch-specific settings |
-| **Branch Users** | 🌐 All | View all users in any branch |
+### TEACHER Dashboard
+- **View**: Teaching schedule and student assignments
+- **Actions**:
+  - View assigned sessions
+  - Access assessment tools
+  - Record student scores
+  - View teaching statistics
+- **Data**: Only own branch slots and assigned students
 
-### Users Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Users** | 🌐 All | See all users across all branches |
-| **Create Users** | ✅ Full | Create any role (Super Admin, Branch Admin, Teacher, Student) |
-| **Edit Users** | ✅ Full | Modify any user's information |
-| **Delete Users** | ✅ Full | Deactivate or delete any user |
-| **Role Management** | ✅ Full | Assign and change user roles |
-| **Bulk Operations** | ✅ Full | Bulk import, export, and modify users |
-| **User Analytics** | 🌐 All | View user statistics and performance metrics |
-| **User Search & Filter** | 🌐 All | Advanced search and filtering capabilities |
+### BRANCH_ADMIN Dashboard
+- **View**: Branch performance metrics
+- **Actions**:
+  - Manage branch slots
+  - View branch bookings
+  - Monitor teacher performance
+  - Generate branch reports
+- **Data**: Branch-specific data only
 
-### Slots Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Slots** | 🌐 All | See all slots across all branches |
-| **Create Slots** | ✅ Full | Create slots for any branch and teacher |
-| **Edit Slots** | ✅ Full | Modify any slot details |
-| **Delete Slots** | ✅ Full | Remove any slot |
-| **Block Slots** | ✅ Full | Block slots for maintenance or other reasons |
-| **Slot Analytics** | 🌐 All | View slot utilization across branches |
+### SUPER_ADMIN Dashboard
+- **View**: System-wide metrics and analytics
+- **Actions**:
+  - Manage all branches
+  - System configuration
+  - User management
+  - Global reporting
+- **Data**: Access to all system data
 
-### Bookings Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Bookings** | 🌐 All | See all bookings across all branches |
-| **Create Bookings** | ✅ Full | Book slots for any student |
-| **Edit Bookings** | ✅ Full | Modify any booking details |
-| **Cancel Bookings** | ✅ Full | Cancel any booking with override powers |
-| **Booking Analytics** | 🌐 All | Cross-branch booking patterns and trends |
-| **Override Rules** | ✅ Full | Override business rules when necessary |
-| **Booking Search & Filter** | 🌐 All | Advanced search and filtering by status, branch, date |
-| **Booking Statistics** | 🌐 All | Real-time booking statistics and metrics |
+## Schedule Page Capabilities
 
-### Assessments Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Assessments** | 🌐 All | See all assessments across all branches |
-| **Create Assessments** | ✅ Full | Record assessments for any booking |
-| **Edit Assessments** | ✅ Full | Modify any assessment details |
-| **Delete Assessments** | ✅ Full | Remove any assessment |
-| **Assessment Analytics** | 🌐 All | Cross-branch assessment trends and scores |
-| **IELTS Scoring** | ✅ Full | Complete IELTS speaking test scoring system |
-| **Assessment Search & Filter** | 🌐 All | Advanced search and filtering by score, status, branch |
-| **Score Analytics** | 🌐 All | Detailed score analysis and performance metrics |
+### STUDENT Schedule View
+- **Functionality**: Browse and book available slots
+- **Filters**: 
+  - Branch selection (all branches)
+  - Service type selection
+  - Date range
+- **Actions**:
+  - Book available slots
+  - View slot details
+  - Cannot edit or manage slots
 
-### Reports & Analytics
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **System Reports** | 🌐 All | Comprehensive system-wide reports |
-| **Branch Comparison** | 🌐 All | Compare performance across branches |
-| **User Analytics** | 🌐 All | User behavior and engagement metrics |
-| **Financial Reports** | 🌐 All | Revenue, costs, and profitability analysis |
-| **Export Data** | ✅ Full | Export any data in multiple formats |
-| **Custom Reports** | ✅ Full | Create custom report configurations |
+### TEACHER Schedule View
+- **Functionality**: View assigned teaching slots
+- **Filters**: 
+  - Service type selection only
+  - Branch filter hidden (shows own branch only)
+- **Actions**:
+  - View slot details
+  - See student bookings
+  - Cannot book or edit slots
+- **Data**: Only own branch slots assigned to them
 
-### System Settings
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Global Settings** | ✅ Full | Configure system-wide parameters |
-| **Business Rules** | ✅ Full | Set and modify business logic rules |
-| **Notification Settings** | ✅ Full | Configure notification templates and rules |
-| **Security Settings** | ✅ Full | Manage security policies and access controls |
-| **Backup Settings** | ✅ Full | Configure data backup and recovery |
+### BRANCH_ADMIN Schedule View
+- **Functionality**: Manage branch slots and view global availability
+- **Filters**: 
+  - Branch selection (own branch + all branches)
+  - Service type selection
+  - Date range
+- **Actions**:
+  - Create new slots
+  - Edit own branch slots
+  - Delete own branch slots
+  - View all global slots (read-only for other branches)
 
-### Audit & Monitoring
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Audit Logs** | 🌐 All | View all system activities and changes |
-| **User Activities** | 🌐 All | Track all user actions across the system |
-| **System Logs** | 🌐 All | View system logs and error reports |
-| **Performance Monitoring** | 🌐 All | Monitor system performance metrics |
-| **Security Monitoring** | 🌐 All | Track security events and threats |
+### SUPER_ADMIN Schedule View
+- **Functionality**: Full slot management across all branches
+- **Filters**: 
+  - All branches
+  - Service type selection
+  - Date range
+- **Actions**:
+  - Create slots for any branch
+  - Edit any slot
+  - Delete any slot
+  - Full system management
 
-### Super Admin Pages Implementation Status
-| Page | URL | Status | Features |
-|------|-----|--------|----------|
-| **Slots Management** | `/admin/slots` | ✅ **IMPLEMENTED** | Comprehensive slot management with calendar views, bulk operations, analytics |
-| **Branches Management** | `/admin/branches` | ✅ **IMPLEMENTED** | Complete branch CRUD with statistics and analytics |
-| **Teachers Management** | `/admin/teachers` | ✅ **IMPLEMENTED** | Teacher management with dual view modes and analytics |
-| **Users Management** | `/admin/users` | ✅ **IMPLEMENTED** | Complete user management for all roles with advanced filtering |
-| **Bookings Management** | `/admin/bookings` | ✅ **IMPLEMENTED** | Cross-branch booking management with statistics and filtering |
-| **Assessments Management** | `/admin/assessments` | ✅ **IMPLEMENTED** | Complete assessment management with IELTS scoring system |
-| **Notifications Management** | `/admin/notifications` | ✅ **IMPLEMENTED** | Notification system with scheduling and targeting |
-| **Settings** | `/admin/settings` | ✅ **IMPLEMENTED** | System configuration and settings |
+## Assessment Page Capabilities
 
----
+### STUDENT Assessment View
+- **Functionality**: View personal assessment results
+- **Data**:
+  - Own assessment history
+  - Score progression
+  - Teacher feedback
+  - Performance statistics
+- **Actions**:
+  - View detailed results
+  - Track progress over time
+  - Cannot create or edit assessments
 
-## 2. BRANCH ADMIN Capabilities
+### TEACHER Assessment View
+- **Functionality**: Conduct and manage student assessments
+- **Data**:
+  - Assigned students list
+  - Pending assessments
+  - Completed assessments
+  - Assessment guidelines
+- **Actions**:
+  - Start new assessments
+  - Record student scores (0-9 scale)
+  - Add detailed feedback
+  - End assessments with timer
+  - View assessment history
+- **Assessment Process**:
+  1. **Pre-assessment**: View assigned students and guidelines
+  2. **Confirmation**: Confirm start with summary guidelines
+  3. **Scoring**: Provide scores with timer functionality
+  4. **Summary**: View results after completion
 
-### Dashboard Page
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Branch Overview** | 🔒 Own Branch | View statistics for their branch only |
-| **Branch Performance** | 🔒 Own Branch | Performance metrics for their branch |
-| **User Statistics** | 🔒 Own Branch | Users in their branch only |
-| **Booking Analytics** | 🔒 Own Branch | Booking trends for their branch |
-| **Teacher Performance** | 🔒 Own Branch | Performance of teachers in their branch |
+### BRANCH_ADMIN Assessment View
+- **Functionality**: Monitor branch assessment performance
+- **Data**:
+  - All assessments in branch
+  - Teacher performance metrics
+  - Student performance statistics
+  - Branch-wide trends
+- **Actions**:
+  - View all branch assessments
+  - Generate performance reports
+  - Monitor teacher productivity
+  - Cannot directly conduct assessments
 
-### Branches Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Branch** | 🔒 Own Branch | See only their branch information |
-| **Edit Branch** | ✅ Full | Modify their branch details |
-| **Branch Settings** | ✅ Full | Configure branch-specific settings |
-| **Branch Users** | 🔒 Own Branch | View users in their branch only |
+### SUPER_ADMIN Assessment View
+- **Functionality**: System-wide assessment monitoring
+- **Data**:
+  - All assessments across all branches
+  - Global performance metrics
+  - System-wide statistics
+  - Cross-branch comparisons
+- **Actions**:
+  - View all assessments
+  - Generate system reports
+  - Monitor overall performance
+  - Cannot directly conduct assessments
 
-### Users Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Users** | 🔒 Own Branch | See only users in their branch |
-| **Create Users** | ⚠️ Limited | Create Teachers and Students only |
-| **Edit Users** | 🔒 Own Branch | Modify users in their branch |
-| **Delete Users** | 🔒 Own Branch | Deactivate users in their branch |
-| **Role Management** | ⚠️ Limited | Assign Teacher and Student roles only |
-| **Bulk Import** | ✅ Full | Import students via CSV/Excel |
+## Booking Page Capabilities
 
-### Slots Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Slots** | 🔒 Own Branch | See slots for their branch only |
-| **Create Slots** | ✅ Full | Create slots for their branch |
-| **Edit Slots** | 🔒 Own Branch | Modify slots in their branch |
-| **Delete Slots** | 🔒 Own Branch | Remove slots in their branch |
-| **Block Slots** | ✅ Full | Block slots in their branch |
-| **Slot Analytics** | 🔒 Own Branch | View slot utilization for their branch |
+### STUDENT Booking View
+- **Functionality**: Manage personal bookings
+- **Data**:
+  - Own bookings only
+  - Booking history
+  - Cancellation records
+- **Actions**:
+  - Cancel bookings
+  - Reschedule bookings
+  - View booking details
+  - Cannot manage other users' bookings
 
-### Bookings Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Bookings** | 🔒 Own Branch | See bookings for their branch only |
-| **Create Bookings** | ✅ Full | Book slots for students in their branch |
-| **Edit Bookings** | 🔒 Own Branch | Modify bookings in their branch |
-| **Cancel Bookings** | 🔒 Own Branch | Cancel bookings in their branch |
-| **Booking Analytics** | 🔒 Own Branch | Booking patterns for their branch |
+### TEACHER Booking View
+- **Functionality**: View student bookings for assigned slots
+- **Data**:
+  - Student bookings for own slots
+  - Attendance records
+  - Booking status updates
+- **Actions**:
+  - View student details
+  - Mark attendance
+  - Update booking status
+  - Cannot book or cancel for students
 
-### Assessments Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Assessments** | 🔒 Own Branch | See assessments for their branch |
-| **Create Assessments** | ✅ Full | Record assessments for their branch |
-| **Edit Assessments** | 🔒 Own Branch | Modify assessments in their branch |
-| **Assessment Analytics** | 🔒 Own Branch | Assessment trends for their branch |
+### BRANCH_ADMIN Booking View
+- **Functionality**: Manage all branch bookings
+- **Data**:
+  - All bookings in branch
+  - Booking statistics
+  - Teacher booking assignments
+- **Actions**:
+  - View all branch bookings
+  - Manage booking status
+  - Assign teachers to slots
+  - Generate booking reports
 
-### Reports & Analytics
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Branch Reports** | 🔒 Own Branch | Reports for their branch only |
-| **Teacher Performance** | 🔒 Own Branch | Performance of their teachers |
-| **Student Progress** | 🔒 Own Branch | Progress of students in their branch |
-| **Export Data** | 🔒 Own Branch | Export data for their branch only |
+### SUPER_ADMIN Booking View
+- **Functionality**: System-wide booking management
+- **Data**:
+  - All bookings across all branches
+  - Global booking statistics
+  - System-wide trends
+- **Actions**:
+  - View all bookings
+  - Manage any booking
+  - Generate system reports
+  - Full booking administration
 
-### Settings
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Branch Settings** | ✅ Full | Configure branch-specific settings |
-| **Profile Settings** | 🔒 Own | Modify their own profile |
-| **Notification Settings** | 🔒 Own | Configure their notification preferences |
+# 🎭 **Role-Based Capabilities Matrix**
 
-### Audit & Monitoring
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Branch Audit Logs** | 🔒 Own Branch | View activities in their branch only |
-| **User Activities** | 🔒 Own Branch | Track user actions in their branch |
+## **10MS Booking Management System - User Access Overview**
 
----
+| **Page/Feature** | **Student** | **Teacher** | **Branch Admin** | **Super Admin** |
+|------------------|-------------|-------------|------------------|-----------------|
+| **🔐 Authentication** | | | | |
+| Login | ✅ Can login | ✅ Can login | ✅ Can login | ✅ Can login |
+| Profile Management | ✅ Own profile only | ✅ Own profile only | ✅ Own profile only | ✅ Own profile only |
+| **📊 Dashboard** | | | | |
+| Student Dashboard | ✅ Personal stats, book new tests | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable |
+| Teacher Dashboard | ❌ Not applicable | ✅ Teaching schedule, assessment tools | ❌ Not applicable | ❌ Not applicable |
+| Admin Dashboard | ❌ Not applicable | ❌ Not applicable | ✅ Branch metrics, management tools | ✅ System-wide metrics, full management |
+| **📅 Schedule Page** | | | | |
+| View Available Slots | ✅ All branches | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable |
+| View Own Branch Slots | ❌ Not applicable | ✅ Own branch only | ❌ Not applicable | ❌ Not applicable |
+| View All Slots (Global) | ❌ Not applicable | ❌ Not applicable | ✅ View only | ✅ View only |
+| Book Slots | ✅ Can book any available | ❌ Cannot book | ❌ Cannot book | ❌ Cannot book |
+| Create New Slots | ❌ Cannot create | ❌ Cannot create | ✅ Own branch only | ✅ Any branch |
+| Edit Slots | ❌ Cannot edit | ❌ Cannot edit | ✅ Own branch only | ✅ Any branch |
+| Delete Slots | ❌ Cannot delete | ❌ Cannot delete | ✅ Own branch only | ✅ Any branch |
+| **📋 Bookings Page** | | | | |
+| View Own Bookings | ✅ Own bookings only | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable |
+| View Assigned Sessions | ❌ Not applicable | ✅ Own slots only | ❌ Not applicable | ❌ Not applicable |
+| View Branch Bookings | ❌ Not applicable | ❌ Not applicable | ✅ Own branch only | ❌ Not applicable |
+| View All Bookings | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable | ✅ All branches |
+| Cancel Bookings | ✅ Own bookings only | ❌ Cannot cancel | ✅ Own branch only | ✅ Any booking |
+| Reschedule Bookings | ✅ Own bookings only | ❌ Cannot reschedule | ✅ Own branch only | ✅ Any booking |
+| Mark Attendance | ❌ Cannot mark | ✅ Own sessions only | ✅ Own branch only | ✅ Any session |
+| **🎓 Assessments Page** | | | | |
+| View Own Results | ✅ Own assessments only | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable |
+| View Assigned Students | ❌ Not applicable | ✅ Own students only | ❌ Not applicable | ❌ Not applicable |
+| View Branch Assessments | ❌ Not applicable | ❌ Not applicable | ✅ Own branch only | ❌ Not applicable |
+| View All Assessments | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable | ✅ All branches |
+| **Teacher Assessment Workflow** | | | | |
+| Pre-Assessment Guidelines | ❌ Not applicable | ✅ View assessment criteria | ❌ Not applicable | ❌ Not applicable |
+| Start Assessment Confirmation | ❌ Not applicable | ✅ Confirmation popup | ❌ Not applicable | ❌ Not applicable |
+| During Assessment Scoring | ❌ Not applicable | ✅ Score 4 criteria + overall | ❌ Not applicable | ❌ Not applicable |
+| Assessment Timer | ❌ Not applicable | ✅ Real-time timer | ❌ Not applicable | ❌ Not applicable |
+| Score Validation | ❌ Not applicable | ✅ Prevent incomplete submission | ❌ Not applicable | ❌ Not applicable |
+| Finish Assessment Confirmation | ❌ Not applicable | ✅ Confirmation popup | ❌ Not applicable | ❌ Not applicable |
+| Post-Assessment Summary | ❌ Not applicable | ✅ Results summary view | ❌ Not applicable | ❌ Not applicable |
+| Record Scores | ❌ Cannot record | ✅ Own students only | ❌ Cannot record | ❌ Cannot record |
+| Start Assessments | ❌ Cannot start | ✅ Own students only | ❌ Cannot start | ❌ Cannot start |
+| End Assessments | ❌ Cannot end | ✅ Own assessments only | ❌ Cannot end | ❌ Cannot end |
+| **⚙️ Admin Pages** | | | | |
+| Admin Slots Management | ❌ No access | ❌ No access | ✅ Own branch only | ✅ All branches |
+| Admin Branches Management | ❌ No access | ❌ No access | ❌ No access | ✅ All branches |
+| Admin Users Management | ❌ No access | ❌ No access | ✅ Own branch only | ✅ All users |
+| Admin Bookings Management | ❌ No access | ❌ No access | ✅ Own branch only | ✅ All bookings |
+| Admin Assessments Management | ❌ No access | ❌ No access | ✅ Own branch only | ✅ All assessments |
+| Admin Notifications | ❌ No access | ❌ No access | ❌ No access | ✅ System-wide |
+| Admin Settings | ❌ No access | ❌ No access | ❌ No access | ✅ System settings |
+| **📊 Reports & Analytics** | | | | |
+| Personal Progress Reports | ✅ Own data only | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable |
+| Teaching Performance Reports | ❌ Not applicable | ✅ Own data only | ❌ Not applicable | ❌ Not applicable |
+| Branch Performance Reports | ❌ Not applicable | ❌ Not applicable | ✅ Own branch only | ❌ Not applicable |
+| System-wide Reports | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable | ✅ All data |
+| **🔔 Notifications** | | | | |
+| Receive Notifications | ✅ Own notifications | ✅ Own notifications | ✅ Branch notifications | ✅ All notifications |
+| Send Notifications | ❌ Cannot send | ❌ Cannot send | ✅ Branch users only | ✅ Any user |
+| Manage Notification Settings | ✅ Own settings | ✅ Own settings | ✅ Own settings | ✅ Own settings |
 
-## 3. TEACHER Capabilities
+## **🎯 Key Role Characteristics**
 
-### Dashboard Page
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **My Schedule** | 🔒 Own | View their upcoming sessions |
-| **Today's Sessions** | 🔒 Own | Sessions scheduled for today |
-| **Student List** | 🔒 Own | Students in their upcoming sessions |
-| **Performance Summary** | 🔒 Own | Their teaching performance metrics |
+### **👨‍🎓 Student**
+- **Primary Function**: Book speaking tests and view results
+- **Data Access**: Only personal data (bookings, assessments, profile)
+- **Actions**: Book, cancel, reschedule own bookings; view own results
+- **Restrictions**: Cannot access admin functions or other users' data
 
-### Branches Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Branch** | 🔒 Own Branch | See their branch information only |
-| **Branch Info** | ❌ No Access | Cannot modify branch details |
+### **👨‍🏫 Teacher**
+- **Primary Function**: Conduct assessments and manage assigned students
+- **Data Access**: Own branch slots, assigned students, teaching schedule
+- **Actions**: Mark attendance, record scores, start/end assessments
+- **Restrictions**: Cannot book slots, cannot access other branches or admin functions
 
-### Users Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Students** | 🔒 Own Sessions | See students in their sessions only |
-| **Student Profiles** | 🔒 Own Sessions | View profiles of their students |
-| **Profile Settings** | 🔒 Own | Modify their own profile only |
+### **🏢 Branch Admin**
+- **Primary Function**: Manage branch operations and monitor performance
+- **Data Access**: Own branch data only, global view (read-only)
+- **Actions**: Create/edit slots, manage bookings, view reports for own branch
+- **Restrictions**: Cannot access other branches' data or system settings
 
-### Slots Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View My Slots** | 🔒 Own | See only their assigned slots |
-| **Slot Details** | 🔒 Own | View details of their slots |
-| **Slot Status** | ❌ No Access | Cannot modify slot details |
+### **👑 Super Admin**
+- **Primary Function**: System-wide management and oversight
+- **Data Access**: All data across all branches and users
+- **Actions**: Full CRUD operations on all resources, system configuration
+- **Restrictions**: None (full system access)
 
-### Bookings Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View My Bookings** | 🔒 Own | See bookings for their sessions |
-| **Student Attendance** | ✅ Full | Mark attendance for their sessions |
-| **Booking Details** | 🔒 Own | View details of their session bookings |
+## **🎓 Teacher Assessment Workflow Details**
 
-### Assessments Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View My Assessments** | 🔒 Own | See assessments they've conducted |
-| **Create Assessment** | ✅ Full | Record assessments for their sessions |
-| **Edit Assessment** | 🔒 Own | Modify their own assessments |
-| **IELTS Rubrics** | ✅ Full | Access IELTS scoring rubrics |
-| **Assessment History** | 🔒 Own | View their assessment history |
+### **Three-Step Assessment Process for Teachers**
 
-### Reports & Analytics
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **My Performance** | 🔒 Own | View their teaching performance |
-| **Student Progress** | 🔒 Own Sessions | Progress of their students |
-| **Assessment Scores** | 🔒 Own | Scores they've recorded |
+The teacher assessment interface follows a structured three-step process:
 
-### Settings
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Profile Settings** | 🔒 Own | Modify their own profile |
-| **Notification Settings** | 🔒 Own | Configure their notifications |
-| **Teaching Preferences** | 🔒 Own | Set their teaching preferences |
+#### **Step 1: Pre-Assessment (Guidelines)**
+- Teachers see assessment guidelines and criteria
+- Four assessment criteria displayed:
+  - **Fluency & Coherence (25%)**: Speech smoothness, logical flow, idea development
+  - **Lexical Resource (25%)**: Vocabulary range, accuracy, word choice appropriateness  
+  - **Grammar & Accuracy (25%)**: Grammatical accuracy, sentence structure range
+  - **Pronunciation (25%)**: Clarity, stress, rhythm, intonation patterns
+- Confirmation popup before starting assessment
+- Student information displayed (name, date, time slot)
 
-### Audit & Monitoring
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **My Activities** | 🔒 Own | View their own activities only |
+#### **Step 2: During Assessment (Scoring)**
+- Real-time assessment timer displayed
+- Four scoring dropdowns (1-9 scale) for each criterion:
+  - Fluency & Coherence
+  - Lexical Resource  
+  - Grammar & Accuracy
+  - Pronunciation
+- Overall Band Score dropdown (1-9, including half scores like 5.5, 6.5, etc.)
+- **Score Validation**: "Finish Assessment" button disabled until all scores are filled
+- Student session details displayed
+- Option to cancel assessment at any time
 
----
+#### **Step 3: Post-Assessment (Summary)**
+- Assessment completion confirmation
+- Comprehensive results summary showing:
+  - Individual scores for all four criteria
+  - Overall Band Score prominently displayed
+  - Assessment duration
+  - Student information
+- Options to close or start a new assessment
 
-## 4. STUDENT Capabilities
+#### **Key Features**
+- **Confirmation Dialogs**: Both start and finish actions require confirmation
+- **Score Validation**: Cannot submit incomplete assessments
+- **Timer**: Real-time tracking of assessment duration
+- **Responsive Design**: Works on desktop and mobile devices
+- **Dark Theme Support**: Full dark/light theme compatibility
 
-### Dashboard Page
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **My Bookings** | 🔒 Own | View their current and past bookings |
-| **My Scores** | 🔒 Own | View their assessment scores |
-| **Upcoming Sessions** | 🔒 Own | See their upcoming speaking tests |
-| **Progress Tracking** | 🔒 Own | Track their learning progress |
+## **🔍 Admin Access Patterns Clarification**
 
-### Branches Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Branches** | 🌐 All | See all available branches |
-| **Branch Details** | 🌐 All | View branch information and contact details |
+### **Branch Admin & Super Admin Access Through Admin Pages**
 
-### Users Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **My Profile** | 🔒 Own | View and edit their own profile |
-| **Profile Settings** | 🔒 Own | Modify their personal information |
-| **Contact Info** | 🔒 Own | Update their contact details |
+**Important Note**: While Branch Admins and Super Admins may show "Not applicable" for regular user-facing pages (like `/schedule`, `/bookings`, `/assessments`), they can actually **view and manage all data** through their dedicated admin pages:
 
-### Slots Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View Available Slots** | 🌐 All | See available slots across all branches |
-| **Filter Slots** | 🌐 All | Filter by date, time, teacher, branch |
-| **Slot Details** | 🌐 All | View details of available slots |
+- **Branch Admins** access data through:
+  - `/admin/slots` - View and manage branch slots
+  - `/admin/bookings` - View and manage branch bookings  
+  - `/admin/assessments` - View and manage branch assessments
+  - `/admin/users` - View and manage branch users
 
-### Bookings Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View My Bookings** | 🔒 Own | See their own bookings only |
-| **Create Booking** | ✅ Full | Book available slots |
-| **Cancel Booking** | ⚠️ Limited | Cancel with 24-hour notice rule |
-| **Reschedule Booking** | ⚠️ Limited | Reschedule with 24-hour notice rule |
-| **Booking History** | 🔒 Own | View their booking history |
+- **Super Admins** access data through:
+  - `/admin/slots` - View and manage ALL slots across all branches
+  - `/admin/bookings` - View and manage ALL bookings across all branches
+  - `/admin/assessments` - View and manage ALL assessments across all branches
+  - `/admin/users` - View and manage ALL users across all branches
+  - `/admin/branches` - Manage branch information
 
-### Assessments Management
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **View My Assessments** | 🔒 Own | See their own assessment results |
-| **IELTS Scores** | 🔒 Own | View their IELTS speaking scores |
-| **Teacher Remarks** | 🔒 Own | Read teacher feedback and remarks |
-| **Score History** | 🔒 Own | Track their score progression |
+**"Not applicable"** means the user doesn't use the regular user interface for that function, but has full administrative access through the admin interface.
 
-### Reports & Analytics
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **My Progress** | 🔒 Own | View their learning progress |
-| **Score Trends** | 🔒 Own | Track their score improvements |
-| **Performance Summary** | 🔒 Own | Summary of their performance |
+## **🔒 Security Features**
 
-### Settings
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **Profile Settings** | 🔒 Own | Modify their personal information |
-| **Notification Settings** | 🔒 Own | Configure their notification preferences |
-| **Privacy Settings** | 🔒 Own | Manage their privacy preferences |
+- **Branch Isolation**: Teachers and Branch Admins can only access their assigned branch
+- **Role-Based UI**: Interface adapts based on user role
+- **API Authorization**: Backend validates permissions for all operations
+- **Data Filtering**: Database queries automatically filter by user role and branch
+- **Audit Logging**: All actions are logged for security monitoring
 
-### Audit & Monitoring
-| Feature | Access Level | Description |
-|---------|-------------|-------------|
-| **No Access** | ❌ No Access | Students cannot view audit logs |
+## Data Access Matrix
 
----
+| Data Type | STUDENT | TEACHER | BRANCH_ADMIN | SUPER_ADMIN |
+|-----------|---------|---------|--------------|-------------|
+| Own Profile | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| Own Bookings | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| Own Assessments | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| Branch Users | ❌ | ✅ Own Branch | ✅ Own Branch | ✅ All Branches |
+| Branch Slots | ✅ View Only | ✅ Own Branch | ✅ Own Branch | ✅ All Branches |
+| Branch Bookings | ❌ | ✅ Own Slots | ✅ Own Branch | ✅ All Branches |
+| Branch Assessments | ❌ | ✅ Own Students | ✅ Own Branch | ✅ All Branches |
+| Other Branches | ❌ | ❌ | ✅ View Only | ✅ Full |
+| System Settings | ❌ | ❌ | ❌ | ✅ Full |
+| User Management | ❌ | ❌ | ✅ Own Branch | ✅ All Users |
+| Reports | ❌ | ✅ Own Data | ✅ Own Branch | ✅ All Data |
 
-## Access Control Summary
+## Security Considerations
 
-### Data Scope by Role
-- **Super Admin**: All data across all branches
-- **Branch Admin**: Data within their assigned branch only
-- **Teacher**: Data related to their assigned sessions and students
-- **Student**: Their own personal data only
+### Branch Isolation
+- Teachers can only access data from their assigned branch
+- Branch admins can only manage their own branch
+- Cross-branch data access is restricted except for super admins
 
-### Action Permissions by Role
-- **Super Admin**: Full CRUD access to all entities
-- **Branch Admin**: Full CRUD within their branch scope
-- **Teacher**: Limited to their teaching responsibilities
-- **Student**: Limited to their personal data and booking actions
+### Data Privacy
+- Students can only see their own data
+- Teachers cannot access other teachers' students
+- Assessment data is protected by branch boundaries
 
-### Security Considerations
-- All users can only access data within their authorized scope
-- Sensitive operations require proper authentication
-- Audit trails are maintained for all significant actions
-- Role-based access is enforced at both UI and API levels
+### Role Escalation
+- No role can escalate privileges beyond their assigned level
+- All actions are logged for audit purposes
+- Branch admins cannot access super admin functions
+
+## Implementation Notes
+
+### Frontend Role Checks
+- All pages implement role-based rendering
+- UI elements are conditionally displayed based on user role
+- Navigation menus adapt to user permissions
+
+### Backend Authorization
+- API endpoints validate user permissions
+- Database queries are filtered by user role and branch
+- All mutations require appropriate authorization
+
+### Database Access Patterns
+- Teachers: Filter by `teacherId` and `branchId`
+- Branch Admins: Filter by `branchId`
+- Super Admins: No filtering (full access)
+- Students: Filter by `studentId`
+
+## Future Enhancements
+
+### Planned Features
+- Advanced reporting for all roles
+- Bulk operations for admins
+- Mobile-optimized interfaces
+- Real-time notifications
+- Assessment analytics dashboard
+
+### Role Expansion
+- Support for additional user types
+- Custom role permissions
+- Temporary role assignments
+- Role-based feature flags

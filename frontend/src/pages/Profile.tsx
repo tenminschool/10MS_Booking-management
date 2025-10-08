@@ -122,7 +122,7 @@ const Profile: React.FC = () => {
                 <Button
                   onClick={handleSave}
                   disabled={isLoading}
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white"
                 >
                   <Save className="w-4 h-4" />
                   <span>{isLoading ? 'Saving...' : 'Save'}</span>
@@ -140,7 +140,7 @@ const Profile: React.FC = () => {
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Full Name
                 </label>
                 {isEditing ? (
@@ -148,12 +148,12 @@ const Profile: React.FC = () => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Enter your full name"
                   />
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
-                    <User className="w-4 h-4 text-gray-400" />
+                    <User className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <span>{user.name}</span>
                   </div>
                 )}
@@ -161,7 +161,7 @@ const Profile: React.FC = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email Address
                 </label>
                 {isEditing ? (
@@ -169,12 +169,12 @@ const Profile: React.FC = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Enter your email address"
                   />
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
-                    <Mail className="w-4 h-4 text-gray-400" />
+                    <Mail className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <span>{user.email || 'Not provided'}</span>
                   </div>
                 )}
@@ -182,7 +182,7 @@ const Profile: React.FC = () => {
 
               {/* Phone Number */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Phone Number
                 </label>
                 {isEditing ? (
@@ -190,12 +190,12 @@ const Profile: React.FC = () => {
                     type="tel"
                     value={formData.phoneNumber}
                     onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Enter your phone number"
                   />
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
-                    <Phone className="w-4 h-4 text-gray-400" />
+                    <Phone className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <span>{user.phoneNumber || 'Not provided'}</span>
                   </div>
                 )}
@@ -208,10 +208,10 @@ const Profile: React.FC = () => {
 
               {/* Role */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Role
                 </label>
-                <Badge variant="secondary" className="text-sm">
+                <Badge variant="secondary" className="text-sm bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-600">
                   {user.role?.replace('_', ' ') || 'User'}
                 </Badge>
               </div>
@@ -219,11 +219,11 @@ const Profile: React.FC = () => {
               {/* Branch */}
               {user.branch && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Branch
                   </label>
                   <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
-                    <Building className="w-4 h-4 text-gray-400" />
+                    <Building className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <span>{user.branch.name}</span>
                   </div>
                 </div>
@@ -231,11 +231,11 @@ const Profile: React.FC = () => {
 
               {/* Account Created */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Member Since
                 </label>
                 <div className="flex items-center space-x-2 text-gray-900 dark:text-white">
-                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <span>
                     {user.createdAt
                       ? new Date(user.createdAt).toLocaleDateString('en-US', {

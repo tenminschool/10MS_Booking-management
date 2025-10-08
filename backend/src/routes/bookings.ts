@@ -28,11 +28,11 @@ router.get('/my', authenticate, async (req, res) => {
     if (user.role === 'STUDENT') {
       query = query.eq('studentId', user.userId);
     } else if (user.role === 'TEACHER') {
-      // Teachers can see bookings for their slots - simplified for now
-      // query = query.eq('slot.teacherId', user.userId);
+      // Teachers can see bookings for their slots
+      query = query.eq('slot.teacherId', user.userId);
     } else if (user.role === 'BRANCH_ADMIN') {
-      // Branch admins can see bookings for their branch - simplified for now
-      // query = query.eq('slot.branchId', user.branchId);
+      // Branch admins can see bookings for their branch
+      query = query.eq('slot.branchId', user.branchId);
     }
     // Super admin can see all bookings (no additional filter)
 
@@ -85,11 +85,11 @@ router.get('/', authenticate, async (req, res) => {
     if (user.role === 'STUDENT') {
       query = query.eq('studentId', user.userId);
     } else if (user.role === 'TEACHER') {
-      // Teachers can see bookings for their slots - simplified for now
-      // query = query.eq('slot.teacherId', user.userId);
+      // Teachers can see bookings for their slots
+      query = query.eq('slot.teacherId', user.userId);
     } else if (user.role === 'BRANCH_ADMIN') {
-      // Branch admins can see bookings for their branch - simplified for now
-      // query = query.eq('slot.branchId', user.branchId);
+      // Branch admins can see bookings for their branch
+      query = query.eq('slot.branchId', user.branchId);
     }
     // Super admin can see all bookings (no additional filter)
 
@@ -122,6 +122,60 @@ router.get('/', authenticate, async (req, res) => {
       error: 'Internal Server Error',
       message: 'Failed to fetch bookings',
       details: error.message
+    });
+  }
+});
+
+// GET /api/bookings/teacher - Get teacher's bookings with assessments
+router.get('/teacher', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+    
+    if (user.role !== 'TEACHER') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'This endpoint is only available for teachers'
+      });
+    }
+
+    console.log('Fetching teacher bookings for:', user.userId);
+    
+    // Query bookings for teacher's slots with assessment data
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        student:users!bookings_studentId_fkey(id, name, phoneNumber, email),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name, email)
+        ),
+        assessment:assessments(*)
+      `)
+      .eq('slot.teacherId', user.userId)
+      .order('bookedAt', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching teacher bookings:', error);
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch teacher bookings',
+        details: error.message
+      });
+    }
+
+    console.log('Teacher bookings result:', { bookings: bookings?.length, error });
+    
+    res.json({
+      data: bookings || [],
+      count: bookings?.length || 0
+    });
+  } catch (error) {
+    console.error('Error in teacher bookings endpoint:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch teacher bookings'
     });
   }
 });

@@ -197,7 +197,9 @@ const Dashboard: React.FC = () => {
   }
 
   const dashboardData = (metrics as any)?.data
-  const unreadNotifications = ((notifications as any)?.data?.notifications || (notifications as any)?.data || []).filter((n: any) => !n.isRead) || []
+  const notificationsData = (notifications as any)?.notifications || (notifications as any)?.data?.notifications || (notifications as any)?.data || []
+  const unreadNotifications = notificationsData.filter((n: any) => !n.isRead) || []
+  
 
   // Teacher-specific data processing
   const todaySlots = (teacherSlots as any)?.data?.filter((slot: any) => 
@@ -314,7 +316,7 @@ const Dashboard: React.FC = () => {
                             <span className="font-medium">
                               {booking.slot?.startTime} - {booking.slot?.endTime}
                             </span>
-                            <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                            <Badge variant={booking.status === BookingStatus.CONFIRMED ? 'default' : 'secondary'}>
                               {booking.status}
                             </Badge>
                           </div>
@@ -446,9 +448,9 @@ const Dashboard: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {dashboardData?.recentNotifications?.length ? (
+                {notificationsData?.length ? (
                   <div className="space-y-3">
-                    {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
+                    {notificationsData.slice(0, 3).map((notification: Notification) => (
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
@@ -474,8 +476,8 @@ const Dashboard: React.FC = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium">{notification.title}</p>
-                            <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
                             </p>
                           </div>
@@ -803,9 +805,9 @@ const Dashboard: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {dashboardData?.recentNotifications?.length ? (
+                {notificationsData?.length ? (
                   <div className="space-y-3">
-                    {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
+                    {notificationsData.slice(0, 3).map((notification: Notification) => (
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
@@ -828,8 +830,8 @@ const Dashboard: React.FC = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium">{notification.title}</p>
-                            <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
                             </p>
                           </div>
@@ -861,24 +863,26 @@ const Dashboard: React.FC = () => {
     return (
       <div className="space-y-6">
         {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Welcome back, {user?.name}!
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {todaySlots.length > 0 
-                  ? `You have ${todaySlots.length} session${todaySlots.length > 1 ? 's' : ''} today`
-                  : "No sessions scheduled for today"}
-              </p>
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 dark:from-blue-800 dark:via-purple-800 dark:to-indigo-900 rounded-2xl p-8 shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-2">
+                  Welcome back, {user?.name}! 👋
+                </h1>
+                <p className="text-blue-100 text-lg">
+                  {todaySlots.length > 0 
+                    ? `You have ${todaySlots.length} speaking test session${todaySlots.length > 1 ? 's' : ''} scheduled for today`
+                    : "No sessions scheduled for today - enjoy your free time!"}
+                </p>
+              </div>
+              <div className="hidden md:block">
+                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <User className="w-10 h-10 text-white" />
+                </div>
+              </div>
             </div>
-            <Link to="/schedule">
-              <Button className="bg-red-600 hover:bg-red-700">
-                <Calendar className="w-4 h-4 mr-2" />
-                View Schedule
-              </Button>
-            </Link>
           </div>
         </div>
 
@@ -887,53 +891,71 @@ const Dashboard: React.FC = () => {
           {/* PRIMARY CONTENT - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
             {/* Today's Sessions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5" />
-                  <span>Today's Sessions</span>
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700">
+              <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-b border-orange-100 dark:border-orange-800/30">
+                <CardTitle className="flex items-center space-x-3">
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                    <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <span className="text-xl font-bold text-gray-900 dark:text-white">Today's Speaking Tests</span>
+                    <p className="text-sm text-orange-600 dark:text-orange-400 font-medium mt-1">
+                      Your scheduled assessment sessions for today
+                    </p>
+                  </div>
                 </CardTitle>
-                <CardDescription>
-                  Your scheduled speaking tests for today
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 {todaySlots.length > 0 ? (
                   <div className="space-y-4">
                     {todaySlots.map((slot: any) => (
-                      <div key={slot.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium">
-                              {slot.startTime} - {slot.endTime}
-                            </span>
-                            <Badge variant="outline">
-                              {slot.bookedCount}/{slot.capacity} students
-                            </Badge>
+                      <div key={slot.id} className="group relative overflow-hidden bg-gradient-to-r from-white to-gray-50 dark:from-gray-700 dark:to-gray-600 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-3">
+                              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                                <Clock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                              </div>
+                              <div>
+                                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                                  {slot.startTime} - {slot.endTime}
+                                </span>
+                                <Badge className="ml-3 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700">
+                                  {slot.bookedCount}/{slot.capacity} students enrolled
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
+                              <MapPin className="w-4 h-4" />
+                              <span className="font-medium">{slot.branch?.name}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <MapPin className="w-4 h-4" />
-                            <span>{slot.branch?.name}</span>
+                          <div className="flex space-x-2">
+                            <Link to={`/bookings?slot=${slot.id}`}>
+                              <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md hover:shadow-lg transition-all duration-200">
+                                <Users className="w-4 h-4 mr-2" />
+                                Manage Students
+                              </Button>
+                            </Link>
                           </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Link to={`/bookings?slot=${slot.id}`}>
-                            <Button variant="outline" size="sm">
-                              <Users className="w-4 h-4 mr-2" />
-                              View Students
-                            </Button>
-                          </Link>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 mb-4">No sessions scheduled for today</p>
+                  <div className="text-center py-16">
+                    <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Calendar className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Sessions Today</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                      You have a free day! Take some time to relax or prepare for upcoming sessions.
+                    </p>
                     <Link to="/schedule">
-                      <Button variant="outline">View Full Schedule</Button>
+                      <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all duration-200">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        View Full Schedule
+                      </Button>
                     </Link>
                   </div>
                 )}
@@ -942,36 +964,40 @@ const Dashboard: React.FC = () => {
 
             {/* Tomorrow's Preview */}
             {tomorrowSlots.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Calendar className="w-5 h-5" />
-                    <span>Tomorrow's Sessions</span>
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700">
+                <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-green-100 dark:border-green-800/30">
+                  <CardTitle className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <Calendar className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <span className="text-xl font-bold text-gray-900 dark:text-white">Tomorrow's Schedule</span>
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1">
+                        Preview of your upcoming assessment sessions
+                      </p>
+                    </div>
                   </CardTitle>
-                  <CardDescription>
-                    Preview of your upcoming sessions
-                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {tomorrowSlots.slice(0, 3).map((slot: any) => (
-                      <div key={slot.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                      <div key={slot.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2 text-sm">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium">
+                            <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
                               {slot.startTime} - {slot.endTime}
                             </span>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                             <Users className="w-4 h-4" />
-                            <span>{slot.bookedCount} students booked</span>
+                            <span>{slot.bookedCount || 0} students booked</span>
                           </div>
                         </div>
                       </div>
                     ))}
                     {tomorrowSlots.length > 3 && (
-                      <p className="text-sm text-gray-500 text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                         +{tomorrowSlots.length - 3} more sessions
                       </p>
                     )}
@@ -980,64 +1006,50 @@ const Dashboard: React.FC = () => {
               </Card>
             )}
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <Link to="/bookings">
-                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
-                      <Users className="w-6 h-6" />
-                      <span>My Sessions</span>
-                    </Button>
-                  </Link>
-                  <Link to="/assessments">
-                    <Button variant="outline" className="w-full h-20 flex-col space-y-2">
-                      <FileText className="w-6 h-6" />
-                      <span>Record Scores</span>
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* SECONDARY CONTENT - 1/3 width */}
           <div className="space-y-6">
             {/* Quick Stats */}
             <div className="space-y-4">
-              <Card>
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 hover:shadow-xl transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Sessions</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{todaySlots.length}</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Students Today</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {todaySlots.reduce((sum: number, slot: any) => sum + slot.bookedCount, 0)}
+                  <CardTitle className="text-sm font-semibold text-orange-800 dark:text-orange-200">Today's Sessions</CardTitle>
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                    <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-orange-900 dark:text-orange-100">{todaySlots.length}</div>
+                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Speaking tests scheduled</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:shadow-xl transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">This Week</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-semibold text-blue-800 dark:text-blue-200">Students Today</CardTitle>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(teacherSlots as any)?.data?.length || 0}</div>
-                  <p className="text-xs text-muted-foreground">Total slots</p>
+                  <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+                    {todaySlots.reduce((sum: number, slot: any) => sum + (slot.bookedCount || 0), 0)}
+                  </div>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Students to assess</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-semibold text-purple-800 dark:text-purple-200">This Week</CardTitle>
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">{(teacherSlots as any)?.data?.length || 0}</div>
+                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Total sessions scheduled</p>
                 </CardContent>
               </Card>
             </div>
@@ -1056,9 +1068,9 @@ const Dashboard: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {dashboardData?.recentNotifications?.length ? (
+                {notificationsData?.length ? (
                   <div className="space-y-3">
-                    {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
+                    {notificationsData.slice(0, 3).map((notification: Notification) => (
                       <div 
                         key={notification.id} 
                         className={`p-3 rounded-lg border text-sm ${
@@ -1084,8 +1096,8 @@ const Dashboard: React.FC = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium">{notification.title}</p>
-                            <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
                             </p>
                           </div>
@@ -1348,9 +1360,9 @@ const Dashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {dashboardData?.recentNotifications?.length ? (
+              {notificationsData?.length ? (
                 <div className="space-y-3">
-                  {dashboardData.recentNotifications.slice(0, 3).map((notification: Notification) => (
+                  {notificationsData.slice(0, 3).map((notification: Notification) => (
                     <div 
                       key={notification.id} 
                       className={`p-3 rounded-lg border text-sm ${
@@ -1376,8 +1388,8 @@ const Dashboard: React.FC = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium">{notification.title}</p>
-                          <p className="text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
                           </p>
                         </div>

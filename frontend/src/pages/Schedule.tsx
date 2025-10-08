@@ -150,11 +150,20 @@ interface SlotCardProps {
 
 const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact = false, serviceTypes }) => {
   const { user } = useAuth()
-  const isStudent = user?.role === UserRole.STUDENT
+  
+  const handleCardClick = () => {
+    if (user?.role === UserRole.TEACHER) {
+      onBook(slot) // Open details modal for teachers
+    }
+  }
   
   return (
-    <Card className={`${compact ? 'p-2' : 'p-4'} ${!isAvailable ? 'opacity-60' : ''}`}>
-      <CardContent className={compact ? 'p-2' : 'p-4'}>
+    <div 
+      className={user?.role === UserRole.TEACHER ? 'cursor-pointer' : ''}
+      onClick={user?.role === UserRole.TEACHER ? handleCardClick : undefined}
+    >
+      <Card className={`${compact ? 'p-2' : 'p-4'} ${!isAvailable ? 'opacity-60' : ''} ${user?.role === UserRole.TEACHER ? 'hover:shadow-md transition-shadow' : ''}`}>
+        <CardContent className={compact ? 'p-2' : 'p-4'}>
         <div className="space-y-2">
           {/* Time */}
           <div className="flex items-center space-x-2">
@@ -189,8 +198,8 @@ const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact 
             )}
           </div>
           
-          {/* Student booking button */}
-          {isStudent && (
+          {/* Role-based actions */}
+          {user?.role === UserRole.STUDENT && (
             <Button
               size={compact ? 'sm' : 'default'}
               className="w-full text-xs sm:text-sm"
@@ -201,9 +210,45 @@ const SlotCard: React.FC<SlotCardProps> = ({ slot, onBook, isAvailable, compact 
               {isAvailable ? 'Book Slot' : 'Full'}
             </Button>
           )}
+          
+          {/* Teacher view - show booking status only */}
+          {user?.role === UserRole.TEACHER && (
+            <div className={`text-xs px-2 py-1 rounded-full text-center ${
+              isAvailable 
+                ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' 
+                : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400'
+            }`}>
+              {isAvailable ? 'Available' : 'Fully Booked'}
+            </div>
+          )}
+
+          {/* Admin view - show management options */}
+          {(user?.role === UserRole.BRANCH_ADMIN || user?.role === UserRole.SUPER_ADMIN) && (
+            <div className="flex space-x-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => {/* Edit slot */}}
+              >
+                Edit
+              </Button>
+              {slot.branchId === user?.branchId && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="text-xs"
+                  onClick={() => {/* Delete slot */}}
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
+    </div>
   )
 }
 
@@ -217,6 +262,7 @@ const Schedule: React.FC = () => {
   const [selectedServiceType, setSelectedServiceType] = useState<string>('')
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
 
   // Get current week range for display
@@ -228,7 +274,8 @@ const Schedule: React.FC = () => {
     queryKey: ['branches'],
     queryFn: async () => {
       const response = await branchesAPI.getAll()
-      return (response as any).data?.branches || []
+      console.log('Branches API response:', response)
+      return (response as any).branches || []
     },
   })
 
@@ -241,15 +288,19 @@ const Schedule: React.FC = () => {
     },
   })
 
-  // Fetch available slots (using admin API but filtering for students)
+  // Fetch available slots (role-based filtering)
   const { data: slotsData, isLoading: slotsLoading } = useQuery({
-    queryKey: ['student-slots', {
-      branchId: selectedBranch || undefined,
+    queryKey: ['slots', {
+      branchId: user?.role === UserRole.TEACHER ? user.branchId : 
+                user?.role === UserRole.BRANCH_ADMIN ? (selectedBranch || user.branchId) :
+                selectedBranch || undefined,
       serviceTypeId: selectedServiceType || undefined,
       view
     }],
     queryFn: () => slotsAPI.getAll({
-      branchId: selectedBranch || undefined,
+      branchId: user?.role === UserRole.TEACHER ? user.branchId : 
+                user?.role === UserRole.BRANCH_ADMIN ? (selectedBranch || user.branchId) :
+                selectedBranch || undefined,
       serviceTypeId: selectedServiceType || undefined,
       view
     }),
@@ -379,172 +430,199 @@ const Schedule: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Available Speaking Test Slots</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {user?.role === UserRole.TEACHER ? 'My Teaching Schedule' : 
+             user?.role === UserRole.BRANCH_ADMIN ? 'Branch Schedule Management' :
+             user?.role === UserRole.SUPER_ADMIN ? 'Global Schedule Management' :
+             'Available Speaking Test Slots'}
+          </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Browse and book speaking test slots across all branches
+            {user?.role === UserRole.TEACHER 
+              ? 'View your assigned slots and student bookings' 
+              : user?.role === UserRole.BRANCH_ADMIN
+              ? 'Manage slots for your branch and view global availability'
+              : user?.role === UserRole.SUPER_ADMIN
+              ? 'Manage all slots across all branches'
+              : 'Browse and book speaking test slots across all branches'}
           </p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
+      <div className={`grid gap-3 sm:gap-6 ${user?.role === UserRole.TEACHER ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
+        <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100/50">
+          <CardContent className="p-3 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Slots</p>
-                <p className="text-2xl font-bold text-gray-900">{transformedSlots.length}</p>
+              <div className="space-y-1">
+                <p className="text-xs sm:text-sm font-semibold text-blue-700 uppercase tracking-wide">Total Slots</p>
+                <p className="text-xl sm:text-3xl font-bold text-blue-900">{transformedSlots.length}</p>
               </div>
-              <div className="p-2 bg-blue-100 rounded-full">
-                <CalendarIcon className="w-5 h-5 text-blue-600" />
+              <div className="p-2 sm:p-3 bg-blue-500 rounded-xl shadow-lg">
+                <CalendarIcon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardContent className="p-4">
+        <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100/50">
+          <CardContent className="p-3 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Available</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {transformedSlots.filter((slot: Slot) => isSlotAvailable(slot)).length}
+              <div className="space-y-1">
+                <p className="text-xs sm:text-sm font-semibold text-orange-700 uppercase tracking-wide">Booked Slots</p>
+                <p className="text-xl sm:text-3xl font-bold text-orange-900">
+                  {transformedSlots.reduce((sum: number, slot: Slot) => sum + (slot.bookedCount || 0), 0)}
                 </p>
               </div>
-              <div className="p-2 bg-green-100 rounded-full">
-                <BookOpen className="w-5 h-5 text-green-600" />
+              <div className="p-2 sm:p-3 bg-orange-500 rounded-xl shadow-lg">
+                <Users className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Full</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {transformedSlots.filter((slot: Slot) => !isSlotAvailable(slot)).length}
-                </p>
+        {user?.role !== UserRole.TEACHER && (
+          <>
+            <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100/50">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs sm:text-sm font-semibold text-green-700 uppercase tracking-wide">Available</p>
+                    <p className="text-xl sm:text-3xl font-bold text-green-900">
+                      {transformedSlots.filter((slot: Slot) => isSlotAvailable(slot)).length}
+                    </p>
+                  </div>
+                  <div className="p-2 sm:p-3 bg-green-500 rounded-xl shadow-lg">
+                    <BookOpen className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-red-50 to-red-100/50">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs sm:text-sm font-semibold text-red-700 uppercase tracking-wide">Full</p>
+                    <p className="text-xl sm:text-3xl font-bold text-red-900">
+                      {transformedSlots.filter((slot: Slot) => !isSlotAvailable(slot)).length}
+                    </p>
+                  </div>
+                  <div className="p-2 sm:p-3 bg-red-500 rounded-xl shadow-lg">
+                    <Users className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {/* Mobile Filter Button */}
+      <div className="lg:hidden">
+        <Button
+          onClick={() => setShowMobileFilters(!showMobileFilters)}
+          className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-lg"
+        >
+          <Filter className="w-4 h-4 mr-2" />
+          {showMobileFilters ? 'Hide Filters' : 'Show Filters'}
+        </Button>
+      </div>
+
+      {/* Two-Column Layout: Filters + Date Navigation */}
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-4 ${showMobileFilters ? 'block' : 'hidden lg:grid'}`}>
+        {/* Filters Card */}
+        <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+              <div className="hidden sm:flex items-center space-x-2 flex-shrink-0">
+                <div className="p-1.5 bg-blue-100 dark:bg-gray-600 rounded-lg">
+                  <Filter className="w-4 h-4 text-blue-600 dark:text-gray-300" />
+                </div>
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Filters</span>
               </div>
-              <div className="p-2 bg-red-100 rounded-full">
-                <Users className="w-5 h-5 text-red-600" />
+              
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                {/* Branch filter - different behavior for different roles */}
+                {user?.role !== UserRole.TEACHER && (
+                  <select
+                    value={selectedBranch}
+                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[140px] flex-shrink-0"
+                  >
+                    <option value="">
+                      {user?.role === UserRole.BRANCH_ADMIN ? 'My Branch Only' : 'All Branches'}
+                    </option>
+                    {user?.role === UserRole.SUPER_ADMIN && Array.isArray(branches) && branches.map((branch: any) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                    {user?.role === UserRole.STUDENT && Array.isArray(branches) && branches.map((branch: any) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Service Type filter */}
+                <select
+                  value={selectedServiceType}
+                  onChange={(e) => setSelectedServiceType(e.target.value)}
+                  className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[140px] flex-shrink-0"
+                >
+                  <option value="">All Services</option>
+                  {Array.isArray(serviceTypes) && serviceTypes.map((serviceType: ServiceType) => (
+                    <option key={serviceType.id} value={serviceType.id}>
+                      {serviceType.name} ({serviceType.durationMinutes} min)
+                    </option>
+                  ))}
+                </select>
+
+                {/* View toggle */}
+                <select
+                  value={view}
+                  onChange={(e) => setView(e.target.value as 'weekly' | 'monthly')}
+                  className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[120px] flex-shrink-0"
+                >
+                  <option value="weekly">Weekly View</option>
+                  <option value="monthly">Monthly View</option>
+                </select>
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Service Types</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {new Set(transformedSlots.map((slot: Slot) => slot.serviceType?.id)).size}
-                </p>
+
+        {/* Date Navigation Card */}
+        <Card className="border-0 shadow-sm bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-700">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between sm:justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigateDate('prev')}
+                className="p-2 rounded-lg border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="text-center flex-1 sm:flex-none">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200">
+                  {getDateRange()}
+                </h3>
               </div>
-              <div className="p-2 bg-purple-100 rounded-full">
-                <Filter className="w-5 h-5 text-purple-600" />
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigateDate('next')}
+                className="p-2 rounded-lg border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-5 h-5 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
-            </div>
-            
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              {/* Branch filter */}
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Branches</option>
-                {Array.isArray(branches) && branches.map((branch: any) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* Service Type filter */}
-              <select
-                value={selectedServiceType}
-                onChange={(e) => setSelectedServiceType(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Services</option>
-                {Array.isArray(serviceTypes) && serviceTypes.map((serviceType: ServiceType) => (
-                  <option key={serviceType.id} value={serviceType.id}>
-                    {serviceType.name} ({serviceType.durationMinutes} min)
-                  </option>
-                ))}
-              </select>
-
-              {/* View toggle */}
-              <select
-                value={view}
-                onChange={(e) => setView(e.target.value as 'weekly' | 'monthly')}
-                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="weekly">Weekly View</option>
-                <option value="monthly">Monthly View</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Calendar Navigation */}
-      <Card>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateDate('prev')}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <h3 className="text-lg font-semibold">
-                {getDateRange()}
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateDate('next')}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-          </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Color Legend */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">Service Types:</span>
-            {Array.isArray(serviceTypes) && serviceTypes.map((serviceType: ServiceType) => (
-              <div key={serviceType.id} className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${getServiceTypeColor(serviceType.id, serviceTypes).split(' ')[0]}`}></div>
-                <span className="text-sm text-gray-600">{serviceType.name}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Full Width Calendar */}
       <div className="space-y-4 lg:space-y-6">
@@ -556,6 +634,7 @@ const Schedule: React.FC = () => {
               onSlotClick={handleBookSlot}
               isSlotAvailable={isSlotAvailable}
               serviceTypes={serviceTypes}
+              user={user}
             />
           ) : view === 'weekly' ? (
             <Card>
@@ -568,8 +647,9 @@ const Schedule: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-7 gap-4">
-                  {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((day) => {
+                <div className="overflow-x-auto">
+                  <div className="min-w-[700px] grid grid-cols-7 gap-2 sm:gap-4">
+                    {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((day) => {
                     const daySlots = transformedSlots.filter((slot: Slot) =>
                       format(new Date(slot.date), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
                     )
@@ -577,34 +657,41 @@ const Schedule: React.FC = () => {
                     return (
                       <div key={day.toISOString()} className="space-y-2">
                         <div className="text-center">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                             {format(day, 'EEE')}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
                             {format(day, 'MMM dd')}
                           </div>
                         </div>
 
-                        <div className="space-y-2 min-h-[200px]">
+                        <div className="space-y-2 min-h-[150px] sm:min-h-[200px]">
                           {daySlots.map((slot: Slot) => (
                             <div
                               key={slot.id}
-                              className={`p-2 border rounded-md text-xs hover:opacity-80 transition-colors cursor-pointer ${
+                              className={`p-1 sm:p-2 border rounded-md text-xs hover:opacity-80 transition-colors cursor-pointer ${
                                 isSlotAvailable(slot) 
                                   ? `${getServiceTypeColor(slot.serviceType?.id, serviceTypes)}` 
                                   : 'bg-gray-50 border-gray-200 opacity-60'
                               }`}
-                              onClick={() => isSlotAvailable(slot) && handleBookSlot(slot)}
+                              onClick={() => {
+                                if (user?.role === UserRole.STUDENT && isSlotAvailable(slot)) {
+                                  handleBookSlot(slot)
+                                } else if (user?.role === UserRole.TEACHER) {
+                                  handleBookSlot(slot) // Show details modal for teachers
+                                }
+                                // For admins, could open edit dialog
+                              }}
                             >
-                              <div className="font-medium mb-1">
+                              <div className="font-medium mb-1 truncate">
                                 {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
                               </div>
                               {slot.serviceType && (
-                                <div className="text-xs font-medium mb-1">
+                                <div className="text-xs font-medium mb-1 truncate">
                                   {getServiceTypeAbbreviation(slot.serviceType.id, serviceTypes)}
                                 </div>
                               )}
-                              <div className="text-gray-600 text-xs mb-1">
+                              <div className="text-gray-600 text-xs mb-1 truncate">
                                 {slot.branch?.name}
                               </div>
                               <div className="flex items-center justify-between">
@@ -624,6 +711,7 @@ const Schedule: React.FC = () => {
                       </div>
                     )
                   })}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -659,13 +747,19 @@ const Schedule: React.FC = () => {
           )}
       </div>
 
-      {/* Booking Confirmation Dialog */}
-      <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+      {/* Slot Details Dialog - Show for students and teachers */}
+      {(user?.role === UserRole.STUDENT || user?.role === UserRole.TEACHER) && (
+        <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Booking</DialogTitle>
+            <DialogTitle>
+              {user?.role === UserRole.STUDENT ? 'Confirm Booking' : 'Slot Details'}
+            </DialogTitle>
             <DialogDescription>
-              Please confirm your speaking test booking details
+              {user?.role === UserRole.STUDENT 
+                ? 'Please confirm your speaking test booking details'
+                : 'View detailed information about this slot'
+              }
             </DialogDescription>
           </DialogHeader>
           
@@ -709,7 +803,12 @@ const Schedule: React.FC = () => {
                 )}
                 <div className="flex items-center space-x-2">
                   <Users className="w-4 h-4 text-gray-500" />
-                  <span>{selectedSlot.bookedCount + 1} / {selectedSlot.capacity} students</span>
+                  <span>
+                    {user?.role === UserRole.STUDENT 
+                      ? `${selectedSlot.bookedCount + 1} / ${selectedSlot.capacity} students`
+                      : `${selectedSlot.bookedCount} / ${selectedSlot.capacity} students`
+                    }
+                  </span>
                 </div>
               </div>
               
@@ -719,20 +818,23 @@ const Schedule: React.FC = () => {
                   className="flex-1"
                   onClick={() => setIsBookingDialogOpen(false)}
                 >
-                  Cancel
+                  {user?.role === UserRole.STUDENT ? 'Cancel' : 'Close'}
                 </Button>
-                <Button 
-                  className="flex-1"
-                  onClick={handleConfirmBooking}
-                  disabled={isConfirming || bookSlotMutation.isPending}
-                >
-                  {isConfirming || bookSlotMutation.isPending ? 'Booking...' : 'Confirm Booking'}
-                </Button>
+                {user?.role === UserRole.STUDENT && (
+                  <Button 
+                    className="flex-1"
+                    onClick={handleConfirmBooking}
+                    disabled={isConfirming || bookSlotMutation.isPending}
+                  >
+                    {isConfirming || bookSlotMutation.isPending ? 'Booking...' : 'Confirm Booking'}
+                  </Button>
+                )}
               </div>
             </div>
           )}
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      )}
     </div>
   )
 }
@@ -744,6 +846,7 @@ interface MonthlyCalendarViewProps {
   onSlotClick: (slot: Slot) => void
   isSlotAvailable: (slot: Slot) => boolean
   serviceTypes?: ServiceType[]
+  user?: any
 }
 
 const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
@@ -751,7 +854,8 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   slots,
   onSlotClick,
   isSlotAvailable,
-  serviceTypes
+  serviceTypes,
+  user
 }) => {
   const monthStart = startOfMonth(selectedDate)
   const monthEnd = endOfMonth(selectedDate)
@@ -763,21 +867,39 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   const allDays = [...emptyDays, ...monthDays]
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <CalendarIcon className="w-5 h-5" />
-          <span>Monthly View - {format(selectedDate, 'MMMM yyyy')}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-7 gap-1">
-          {/* Day headers */}
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 bg-gray-50">
-              {day}
+    <Card className="border-0 shadow-sm bg-white dark:bg-gray-800">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center space-x-2">
+            <CalendarIcon className="w-5 h-5" />
+            <span>Monthly View - {format(selectedDate, 'MMMM yyyy')}</span>
+          </CardTitle>
+        </div>
+        
+        {/* Compact Service Types Legend */}
+        {Array.isArray(serviceTypes) && serviceTypes.length > 0 && (
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-1 sm:gap-y-2">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Service Types:</span>
+              {serviceTypes.map((serviceType: ServiceType) => (
+                <div key={serviceType.id} className="flex items-center space-x-1">
+                  <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${getServiceTypeColor(serviceType.id, serviceTypes).split(' ')[0]}`}></div>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate">{serviceType.name}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="overflow-x-auto">
+          <div className="min-w-[700px] grid grid-cols-7 gap-1">
+            {/* Day headers */}
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
+                {day}
+              </div>
+            ))}
 
           {/* Calendar days */}
           {allDays.map((day) => {
@@ -790,13 +912,13 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             return (
               <div
                 key={day.toISOString()}
-                className={`min-h-[120px] p-2 border border-gray-200 ${
-                  isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                className={`min-h-[100px] sm:min-h-[120px] p-1 sm:p-2 border border-gray-200 dark:border-gray-600 ${
+                  isCurrentMonth ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'
                 } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-medium ${
-                    isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <span className={`text-xs sm:text-sm font-medium ${
+                    isCurrentMonth ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'
                   }`}>
                     {format(day, 'd')}
                   </span>
@@ -808,7 +930,7 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 </div>
                 
                 <div className="space-y-1">
-                  {daySlots.slice(0, 3).map((slot: Slot) => (
+                  {daySlots.slice(0, 2).map((slot: Slot) => (
                     <div
                       key={slot.id}
                       className={`p-1 border rounded text-xs hover:opacity-80 cursor-pointer transition-colors ${
@@ -816,13 +938,19 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                           ? `${getServiceTypeColor(slot.serviceType?.id, serviceTypes)}` 
                           : 'bg-gray-50 border-gray-200 opacity-60'
                       }`}
-                      onClick={() => isSlotAvailable(slot) && onSlotClick(slot)}
+                      onClick={() => {
+                        if (user?.role === UserRole.STUDENT && isSlotAvailable(slot)) {
+                          onSlotClick(slot)
+                        } else if (user?.role === UserRole.TEACHER) {
+                          onSlotClick(slot) // Show details modal for teachers
+                        }
+                      }}
                     >
-                      <div className="font-medium">
+                      <div className="font-medium truncate">
                         {formatTime(slot.startTime)}-{formatTime(slot.endTime)}
                       </div>
                       {slot.serviceType && (
-                        <div className="text-xs font-medium">
+                        <div className="text-xs font-medium truncate">
                           {getServiceTypeAbbreviation(slot.serviceType.id, serviceTypes)}
                         </div>
                       )}
@@ -835,15 +963,16 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     </div>
                   ))}
                   
-                  {daySlots.length > 3 && (
+                  {daySlots.length > 2 && (
                     <div className="text-xs text-gray-500 text-center">
-                      +{daySlots.length - 3} more
+                      +{daySlots.length - 2} more
                     </div>
                   )}
                 </div>
               </div>
             )
           })}
+          </div>
         </div>
       </CardContent>
     </Card>

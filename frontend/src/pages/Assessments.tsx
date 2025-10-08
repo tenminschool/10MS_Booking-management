@@ -1,9 +1,30 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { assessmentsAPI, bookingsAPI } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { useWarningToast } from '@/components/ui/toast'
+import {
+  GraduationCap,
+  Calendar,
+  User,
+  MapPin,
+  TrendingUp,
+  Award,
+  Plus,
+  FileText,
+  Clock,
+  Play,
+  CheckCircle,
+  AlertCircle,
+  Users,
+  Eye
+} from 'lucide-react'
+import { format } from 'date-fns'
+import type { Booking, Assessment } from '@/types'
+import { BookingStatus, UserRole } from '@/types'
+
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
@@ -34,160 +55,312 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
     {children}
   </button>
 )
-const Badge = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: string }) => (
+const Badge = ({ children, variant = 'default', className = '' }: { children: React.ReactNode; variant?: string; className?: string }) => (
   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
     variant === 'secondary' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' :
     variant === 'destructive' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400' :
+    variant === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' :
     'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
-  }`}>
+  } ${className}`}>
     {children}
   </span>
 )
-const Dialog = ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) => (
-  open ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => onOpenChange(false)}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>
-  ) : null
-)
-const DialogContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`p-6 ${className}`}>{children}</div>
-)
-const DialogHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="mb-4">{children}</div>
-)
-const DialogTitle = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{children}</h2>
-)
-const DialogDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
-)
-const Tabs = ({ children, value, onValueChange }: { children: React.ReactNode; value?: string; onValueChange?: (value: string) => void }) => (
-  <div className="w-full">{children}</div>
-)
-const TabsList = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg ${className}`}>{children}</div>
-)
-const TabsTrigger = ({ children, value, className = '', onClick }: { children: React.ReactNode; value?: string; className?: string; onClick?: () => void }) => (
-  <button className={`px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm text-gray-700 dark:text-gray-300 ${className}`} onClick={onClick}>
-    {children}
-  </button>
-)
-const TabsContent = ({ children, value, className = '' }: { children: React.ReactNode; value?: string; className?: string }) => (
-  <div className={`mt-4 ${className}`}>{children}</div>
-)
-const Accordion = ({ children, type, collapsible }: { children: React.ReactNode; type?: string; collapsible?: boolean }) => (
-  <div className="space-y-2">{children}</div>
-)
-const AccordionItem = ({ children, value }: { children: React.ReactNode; value?: string }) => (
-  <div className="border border-gray-200 dark:border-gray-700 rounded-lg">{children}</div>
-)
-const AccordionTrigger = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <button className={`flex justify-between items-center w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white ${className}`}>
-    {children}
-    <span className="text-gray-400 dark:text-gray-500">▼</span>
-  </button>
-)
-const AccordionContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-4 pt-0">{children}</div>
-)
-import {
-  GraduationCap,
-  Calendar,
-  User,
-  MapPin,
-  TrendingUp,
-  Award,
-  Plus,
-  Eye,
-  FileText,
-  Clock
-} from 'lucide-react'
-import { format } from 'date-fns'
-import type { Assessment, Booking, AssessmentRequest } from '@/types'
-import { BookingStatus, UserRole } from '@/types'
 
 const Assessments: React.FC = () => {
   const { user } = useAuth()
-  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [isRecordingDialogOpen, setIsRecordingDialogOpen] = useState(false)
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
-  const [assessmentForm, setAssessmentForm] = useState({
-    score: 0,
-    remarks: ''
-  })
-  const [activeRubricTab, setActiveRubricTab] = useState('scoring')
-
   const queryClient = useQueryClient()
+  const showWarningToast = useWarningToast()
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [isAssessmentInProgress, setIsAssessmentInProgress] = useState<boolean>(false)
+  const [timerSeconds, setTimerSeconds] = useState<number>(0)
+  const [assessmentStep, setAssessmentStep] = useState<'pre' | 'during' | 'post'>('pre')
+  const [assessmentScores, setAssessmentScores] = useState({
+    fluency: '',
+    lexical: '',
+    grammar: '',
+    pronunciation: '',
+    overall: ''
+  })
+  const [assessmentRemarks, setAssessmentRemarks] = useState<string>('')
+  const [showStartConfirmation, setShowStartConfirmation] = useState<boolean>(false)
+  const [showFinishConfirmation, setShowFinishConfirmation] = useState<boolean>(false)
+  const [showCompletedDetails, setShowCompletedDetails] = useState<boolean>(false)
+  const [selectedCompletedBooking, setSelectedCompletedBooking] = useState<Booking | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Filter states
+  const [nameFilter, setNameFilter] = useState<string>('')
+  const [dateFilter, setDateFilter] = useState<string>('')
+  const [timeFilter, setTimeFilter] = useState<string>('')
+  const [branchFilter, setBranchFilter] = useState<string>('')
+  
+  // Refs for scrolling to sections
+  const pendingSectionRef = useRef<HTMLDivElement>(null)
+  const completedSectionRef = useRef<HTMLDivElement>(null)
+
+  const isTeacher = user?.role === UserRole.TEACHER
+  const isStudent = user?.role === UserRole.STUDENT
+  const isAdmin = user?.role === UserRole.BRANCH_ADMIN || user?.role === UserRole.SUPER_ADMIN
+
+  // Fetch student assessments (for students)
+  const { data: studentAssessments, isLoading: studentLoading } = useQuery({
+    queryKey: ['student-assessments'],
+    queryFn: async () => {
+      const response = await assessmentsAPI.getMyAssessments()
+      return (response as any).data || []
+    },
+    enabled: isStudent,
+  })
+
+  // Fetch teacher's assigned students and bookings (for teachers)
+  const { data: teacherBookings, isLoading: teacherLoading } = useQuery({
+    queryKey: ['teacher-bookings'],
+    queryFn: async () => {
+      const response = await bookingsAPI.getTeacherBookings()
+      console.log('🔍 Teacher bookings API response:', response);
+      
+      // Teacher endpoint returns: { data: [...], count: ... }
+      const apiResponseData = (response as any).data; // This is the { data: [...], count: ... } object
+      const actualBookingsArray = apiResponseData.data; // This is the actual array of bookings
+      console.log('🔍 Teacher bookings API response.data:', apiResponseData);
+      console.log('🔍 Actual bookings array:', actualBookingsArray);
+      return Array.isArray(actualBookingsArray) ? actualBookingsArray : []
+    },
+    enabled: isTeacher,
+  })
+
+  // Fetch all assessments (for admins)
+  const { data: allAssessments, isLoading: adminLoading } = useQuery({
+    queryKey: ['all-assessments'],
+    queryFn: async () => {
+      const response = await assessmentsAPI.getAll()
+      return (response as any).data?.assessments || []
+    },
+    enabled: isAdmin,
+  })
 
   // Create assessment mutation
   const createAssessmentMutation = useMutation({
-    mutationFn: async (data: AssessmentRequest) => {
-      const response = await assessmentsAPI.create(data)
+    mutationFn: async (assessmentData: any) => {
+      const response = await assessmentsAPI.create(assessmentData)
       return (response as any).data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] })
-      queryClient.invalidateQueries({ queryKey: ['completed-bookings'] })
-      setIsRecordingDialogOpen(false)
-      setAssessmentForm({ score: 0, remarks: '' })
-      setSelectedBooking(null)
+      queryClient.invalidateQueries({ queryKey: ['teacher-bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['all-assessments'] })
     },
+    onError: (error) => {
+      console.error('Assessment creation failed:', error)
+    }
   })
 
-  const isTeacher = user?.role === UserRole.TEACHER
+  // Separate teacher bookings into pending and completed assessments
+  // For now, we'll consider CONFIRMED bookings as ready for assessment
+  const pendingAssessments = Array.isArray(teacherBookings) 
+    ? teacherBookings.filter((booking: any) =>
+        (booking.status === BookingStatus.CONFIRMED || booking.status === 'CONFIRMED') && 
+        (!booking.assessment || booking.assessment.length === 0)
+      )
+    : []
+  
+  const completedAssessments = Array.isArray(teacherBookings)
+    ? teacherBookings.filter((booking: any) =>
+        (booking.status === BookingStatus.CONFIRMED || booking.status === 'CONFIRMED') && 
+        booking.assessment && booking.assessment.length > 0
+      )
+    : []
 
-  // Fetch assessments
-  const { data: assessments, isLoading } = useQuery({
-    queryKey: ['assessments'],
-    queryFn: async () => {
-      const response = await assessmentsAPI.getMyAssessments()
-      return (response as any).data
-    },
-  })
+  // Filter functions
+  const filterAssessments = (assessments: any[]) => {
+    return assessments.filter((booking: any) => {
+      const matchesName = !nameFilter || 
+        (booking.student?.name?.toLowerCase().includes(nameFilter.toLowerCase()) ||
+         booking.student?.name?.toLowerCase().includes(nameFilter.toLowerCase()))
+      
+      const matchesDate = !dateFilter || 
+        (booking.slot?.date && format(new Date(booking.slot.date), 'yyyy-MM-dd') === dateFilter)
+      
+      const matchesTime = !timeFilter || 
+        (booking.slot?.startTime && booking.slot.startTime === timeFilter)
+      
+      const matchesBranch = !branchFilter || 
+        (booking.slot?.branch?.name?.toLowerCase().includes(branchFilter.toLowerCase()))
+      
+      return matchesName && matchesDate && matchesTime && matchesBranch
+    })
+  }
 
-  // Fetch completed bookings for teachers to record assessments
-  const { data: completedBookings } = useQuery({
-    queryKey: ['completed-bookings'],
-    queryFn: async () => {
-      const response = await bookingsAPI.getMyBookings()
-      return (response as any).data?.filter((booking: Booking) =>
-        booking.status === BookingStatus.COMPLETED &&
-        !(booking as any).assessments?.length
-      ) || []
-    },
-    enabled: isTeacher,
-  })
+  const filteredPendingAssessments = filterAssessments(pendingAssessments)
+  const filteredCompletedAssessments = filterAssessments(completedAssessments)
 
-  // Fetch IELTS rubrics for teachers
-  const { data: rubrics } = useQuery({
-    queryKey: ['ielts-rubrics'],
-    queryFn: async () => {
-      const response = await assessmentsAPI.getRubrics()
-      return (response as any).data
-    },
-    enabled: isTeacher,
-  })
+  // Scroll functions
+  const scrollToPendingAssessments = () => {
+    pendingSectionRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }
 
-  const handleViewDetails = (assessment: Assessment) => {
-    setSelectedAssessment(assessment)
-    setIsDetailDialogOpen(true)
+  const scrollToCompletedAssessments = () => {
+    completedSectionRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }
+
+  console.log('🔍 Assessment filtering:', {
+    teacherBookings: teacherBookings?.length || 0,
+    pendingAssessments: pendingAssessments.length,
+    completedAssessments: completedAssessments.length,
+    sampleBooking: teacherBookings?.[0] ? {
+      id: teacherBookings[0].id,
+      status: teacherBookings[0].status,
+      hasAssessment: teacherBookings[0].assessment && teacherBookings[0].assessment.length > 0
+    } : null
+  });
+
+  const handleStartAssessment = (booking: any) => {
+    setSelectedBooking(booking)
+    setShowStartConfirmation(true)
+  }
+
+  const confirmStartAssessment = () => {
+    setShowStartConfirmation(false)
+    setIsAssessmentInProgress(true)
+    setAssessmentStep('during')
+    setTimerSeconds(0)
+    setAssessmentScores({
+      fluency: '',
+      lexical: '',
+      grammar: '',
+      pronunciation: '',
+      overall: ''
+    })
+    setAssessmentRemarks('')
+    timerRef.current = setInterval(() => {
+      setTimerSeconds(prev => prev + 1)
+    }, 1000)
+  }
+
+  const handleFinishAssessment = () => {
+    // Check if all required scores are filled
+    const requiredScores = ['fluency', 'lexical', 'grammar', 'pronunciation', 'overall']
+    const missingScores = requiredScores.filter(score => !assessmentScores[score as keyof typeof assessmentScores])
+    
+    if (missingScores.length > 0) {
+      alert(`Please fill in all required scores. Missing: ${missingScores.join(', ')}`)
+      return
+    }
+    
+    setShowFinishConfirmation(true)
+  }
+
+  const confirmFinishAssessment = async () => {
+    if (!selectedBooking) return
+
+    try {
+      // Save assessment to database
+      const assessmentData = {
+        bookingId: selectedBooking.id,
+        studentId: selectedBooking.student?.id || selectedBooking.studentId,
+        teacherId: user?.id,
+        fluencyScore: parseFloat(assessmentScores.fluency),
+        coherenceScore: parseFloat(assessmentScores.fluency), // Using fluency for coherence too
+        lexicalScore: parseFloat(assessmentScores.lexical),
+        grammarScore: parseFloat(assessmentScores.grammar),
+        pronunciationScore: parseFloat(assessmentScores.pronunciation),
+        overallBand: parseFloat(assessmentScores.overall),
+        score: parseFloat(assessmentScores.overall),
+        remarks: assessmentRemarks,
+        assessedAt: new Date().toISOString()
+      }
+
+      await createAssessmentMutation.mutateAsync(assessmentData)
+
+      // Clear timer and reset states
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      
+      // Close finish confirmation popup
+      setShowFinishConfirmation(false)
+      
+      // Move to post-assessment step
+      setAssessmentStep('post')
+      
+      console.log('Assessment completed and saved:', assessmentData)
+    } catch (error) {
+      console.error('Failed to save assessment:', error)
+      alert('Failed to save assessment. Please try again.')
+    }
+  }
+
+  const handleEndAssessment = () => {
+    // Check if assessment was in progress and had partial scores
+    if (isAssessmentInProgress && assessmentStep === 'during') {
+      const requiredScores = ['fluency', 'lexical', 'grammar', 'pronunciation', 'overall']
+      const filledScores = requiredScores.filter(score => assessmentScores[score as keyof typeof assessmentScores])
+      
+      if (filledScores.length > 0 && filledScores.length < requiredScores.length) {
+        showWarningToast(
+          'Assessment cancelled with incomplete scores. Please complete all scoring fields before finishing an assessment.',
+          'Incomplete Assessment Warning'
+        )
+      }
+    }
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    setIsAssessmentInProgress(false)
+    setAssessmentStep('pre')
+    setSelectedBooking(null)
+    setShowFinishConfirmation(false)
+    setShowCompletedDetails(false)
+    setSelectedCompletedBooking(null)
+    setAssessmentScores({
+      fluency: '',
+      lexical: '',
+      grammar: '',
+      pronunciation: '',
+      overall: ''
+    })
+    setAssessmentRemarks('')
+  }
+
+  const handleViewCompletedDetails = (booking: any) => {
+    setSelectedCompletedBooking(booking)
+    setShowCompletedDetails(true)
+  }
+
+  const handleScoreChange = (field: string, value: string) => {
+    setAssessmentScores(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 7) return 'text-green-600 bg-green-50'
-    if (score >= 5.5) return 'text-yellow-600 bg-yellow-50'
-    return 'text-red-600 bg-red-50'
+    if (score >= 7) return 'text-green-600 bg-green-50 dark:bg-green-900/20'
+    if (score >= 5.5) return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20'
+    return 'text-red-600 bg-red-50 dark:bg-red-900/20'
   }
 
   const getScoreBadgeVariant = (score: number) => {
-    if (score >= 7) return 'default'
+    if (score >= 7) return 'success'
     if (score >= 5.5) return 'secondary'
     return 'destructive'
   }
+
+  const isLoading = studentLoading || teacherLoading || adminLoading
 
   if (isLoading) {
     return (
@@ -197,20 +370,167 @@ const Assessments: React.FC = () => {
     )
   }
 
-  const allAssessments = (assessments as Assessment[]) || []
-  const averageScore = allAssessments.length > 0
-    ? allAssessments.reduce((sum: number, assessment: Assessment) => sum + assessment.overallScore, 0) / allAssessments.length
-    : 0
-  const highestScore = allAssessments.length > 0
-    ? Math.max(...allAssessments.map((a: Assessment) => a.overallScore))
-    : 0
-  const latestScore = allAssessments.length > 0
-    ? allAssessments.sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0].overallScore
-    : 0
-
   const breadcrumbItems = [
     { label: 'Assessments', current: true }
   ]
+
+  // ADMIN VIEW - Show all assessments across the system
+  if (isAdmin) {
+    const adminAssessments = (allAssessments as any[]) || []
+    const averageScore = adminAssessments.length > 0
+      ? adminAssessments.reduce((sum: number, assessment: any) => sum + (assessment.overallBand || 0), 0) / adminAssessments.length
+      : 0
+
+    return (
+      <div className="space-y-6 bg-background dark:bg-gray-900">
+        <Breadcrumb items={breadcrumbItems} />
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Assessment Management</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Monitor all assessments across the system
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent>
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Assessments</p>
+                  <p className="text-2xl font-bold text-gray-900">{adminAssessments.length}</p>
+                </div>
+                <GraduationCap className="h-8 w-8 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Average Score</p>
+                  <p className="text-2xl font-bold text-gray-900">{adminAssessments.length > 0 ? averageScore.toFixed(1) : '0.0'}</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">High Performers</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {adminAssessments.filter((a: any) => (a.overallBand || 0) >= 7).length}
+                  </p>
+                </div>
+                <Award className="h-8 w-8 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Need Improvement</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {adminAssessments.filter((a: any) => (a.overallBand || 0) < 6).length}
+                  </p>
+                </div>
+                <AlertCircle className="h-8 w-8 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* All Assessments Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="w-5 h-5" />
+              <span>All Assessments</span>
+            </CardTitle>
+            <CardDescription>
+              Complete list of all assessments in the system
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {adminAssessments.length > 0 ? (
+              <div className="space-y-4">
+                {adminAssessments
+                  .sort((a: any, b: any) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())
+                  .map((assessment: any) => (
+                    <div key={assessment.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="w-4 h-4 text-gray-500" />
+                              <span className="font-medium">
+                                {format(new Date(assessment.assessedAt), 'EEEE, MMMM dd, yyyy')}
+                              </span>
+                            </div>
+                            <Badge variant={getScoreBadgeVariant(assessment.overallBand || 0)}>
+                              Score: {assessment.overallBand || 0}/9
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center space-x-1">
+                              <User className="w-4 h-4" />
+                              <span>Student: {assessment.student?.name}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <User className="w-4 h-4" />
+                              <span>Teacher: {assessment.teacher?.name}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <MapPin className="w-4 h-4" />
+                              <span>{assessment.booking?.slot?.branch?.name}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="ml-4">
+                          <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(assessment.overallBand || 0)}`}>
+                            {assessment.overallBand || 0}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <GraduationCap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No assessments found</h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Assessments will appear here as they are completed
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // STUDENT VIEW - Show their assessment results
+  if (isStudent) {
+    const assessments = (studentAssessments as any[]) || []
+    const averageScore = assessments.length > 0
+      ? assessments.reduce((sum: number, assessment: any) => sum + (assessment.overallBand || 0), 0) / assessments.length
+      : 0
+    const highestScore = assessments.length > 0
+      ? Math.max(...assessments.map((a: any) => a.overallBand || 0))
+      : 0
+    const latestScore = assessments.length > 0
+      ? assessments.sort((a: any, b: any) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0].overallBand || 0
+      : 0
 
   return (
     <div className="space-y-6 bg-background dark:bg-gray-900">
@@ -219,89 +539,23 @@ const Assessments: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isTeacher ? 'Assessment Recording' : 'My Assessments'}
-          </h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Assessments</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            {isTeacher
-              ? 'Record IELTS scores and feedback for completed sessions'
-              : 'Track your IELTS speaking test scores and progress'}
+              Track your IELTS speaking test scores and progress
           </p>
         </div>
-
-        {!isTeacher && (
           <Link to="/schedule">
             <Button className="bg-red-600 hover:bg-red-700">
               <Plus className="w-4 h-4 mr-2" />
               Book New Test
             </Button>
           </Link>
-        )}
       </div>
 
       {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* PRIMARY CONTENT - 2/3 width */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Teacher: Pending Assessments */}
-          {isTeacher && completedBookings && (completedBookings as Booking[]).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="w-5 h-5" />
-                  <span>Pending Assessments</span>
-                </CardTitle>
-                <CardDescription>
-                  Completed sessions that need assessment scores
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {(completedBookings as Booking[]).map((booking: any) => (
-                    <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex items-center space-x-2">
-                              <Calendar className="w-4 h-4 text-gray-500" />
-                              <span className="font-medium">
-                                {booking.slot?.date && format(new Date(booking.slot.date), 'EEEE, MMMM dd, yyyy')}
-                              </span>
-                            </div>
-                            <Badge variant="secondary">
-                              Needs Assessment
-                            </Badge>
-                          </div>
-
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-4 h-4" />
-                              <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <User className="w-4 h-4" />
-                              <span>{booking.student?.name}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <Button
-                          onClick={() => {
-                            setSelectedBooking(booking)
-                            setIsRecordingDialogOpen(true)
-                          }}
-                        >
-                          <FileText className="w-4 h-4 mr-2" />
-                          Record Score
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Assessment History */}
           <Card>
             <CardHeader>
@@ -314,9 +568,9 @@ const Assessments: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {allAssessments.length > 0 ? (
+                {assessments.length > 0 ? (
                 <div className="space-y-4">
-                  {allAssessments
+                    {assessments
                     .sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())
                     .map((assessment: any) => (
                       <div key={assessment.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -329,8 +583,8 @@ const Assessments: React.FC = () => {
                                   {format(new Date(assessment.assessedAt), 'EEEE, MMMM dd, yyyy')}
                                 </span>
                               </div>
-                              <Badge variant={getScoreBadgeVariant(assessment.overallScore)}>
-                                Score: {assessment.overallScore}/9
+                                <Badge variant={getScoreBadgeVariant(assessment.overallBand)}>
+                                  Score: {assessment.overallBand}/9
                               </Badge>
                             </div>
 
@@ -355,22 +609,12 @@ const Assessments: React.FC = () => {
                           </div>
 
                           <div className="ml-4">
-                            <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(assessment.overallScore)}`}>
-                              {assessment.overallScore}
+                              <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(assessment.overallBand)}`}>
+                                {assessment.overallBand}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex justify-end mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewDetails(assessment)}
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </Button>
-                        </div>
                       </div>
                     ))}
                 </div>
@@ -399,435 +643,758 @@ const Assessments: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {averageScore > 0 ? averageScore.toFixed(1) : '0.0'}
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{averageScore.toFixed(1)}</div>
+                    <p className="text-xs text-gray-500">Average Score</p>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Average Score</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{highestScore}</div>
+                    <p className="text-xs text-gray-500">Highest Score</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {highestScore > 0 ? highestScore.toFixed(1) : '0.0'}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">Highest</div>
-                  </div>
-                  <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                      {latestScore > 0 ? latestScore.toFixed(1) : '0.0'}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">Latest</div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Total Tests</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{allAssessments.length}</span>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{latestScore}</div>
+                    <p className="text-xs text-gray-500">Latest Score</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Progress Insights */}
-          {allAssessments.length >= 2 && (
+            {/* Progress Chart Placeholder */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Progress Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <TrendingUp className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Progress chart will be implemented</p>
+                    </div>
+              </CardContent>
+            </Card>
+                  </div>
+                    </div>
+      </div>
+    )
+  }
+
+  // TEACHER VIEW - Show assigned students and assessment tools
+  if (isTeacher) {
+    return (
+      <div className="space-y-6 bg-background dark:bg-gray-900">
+        <Breadcrumb items={breadcrumbItems} />
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Assessment Center</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Manage student assessments and view results
+            </p>
+                  </div>
+                </div>
+
+        {/* Assessment Statistics - Two separate clickable cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div 
+            className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-700 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-lg shadow-sm border"
+            onClick={scrollToPendingAssessments}
+          >
+            <CardHeader>
+              <CardTitle className="text-orange-900 dark:text-orange-300 flex items-center justify-between">
+                <span>Pending Assessments</span>
+                <span className="text-sm font-normal opacity-75">Click to view →</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-orange-900 dark:text-orange-300">{pendingAssessments.length}</div>
+                <p className="text-sm text-orange-700 dark:text-orange-400 mt-2">Awaiting Assessment</p>
+              </div>
+            </CardContent>
+          </div>
+          
+          <div 
+            className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-lg shadow-sm border"
+            onClick={scrollToCompletedAssessments}
+          >
+            <CardHeader>
+              <CardTitle className="text-green-900 dark:text-green-300 flex items-center justify-between">
+                <span>Completed Assessments</span>
+                <span className="text-sm font-normal opacity-75">Click to view →</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-green-900 dark:text-green-300">{completedAssessments.length}</div>
+                <p className="text-sm text-green-700 dark:text-green-400 mt-2">Successfully Completed</p>
+              </div>
+            </CardContent>
+          </div>
+        </div>
+
+        {/* Assessment Guidelines - Full width */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="w-5 h-5" />
+              <span>Assessment Guidelines</span>
+            </CardTitle>
+            <CardDescription>
+              Pre-assessment guidelines for IELTS speaking tests
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Fluency & Coherence</h4>
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                  Assess how well the student speaks smoothly and connects ideas clearly.
+                </p>
+              </div>
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <h4 className="font-medium text-green-900 dark:text-green-300 mb-2">Lexical Resource</h4>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  Evaluate vocabulary range, accuracy, and appropriateness of word choice.
+                    </p>
+                  </div>
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <h4 className="font-medium text-purple-900 dark:text-purple-300 mb-2">Grammar & Accuracy</h4>
+                <p className="text-sm text-purple-700 dark:text-purple-400">
+                  Check grammatical accuracy and range of sentence structures used.
+                </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+        {/* Assessment Filters - Full width */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filter Assessments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Student Name</label>
+                <input
+                  type="text"
+                  placeholder="Search by name"
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Date</label>
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Time</label>
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">All times</option>
+                  <option value="09:00">09:00</option>
+                  <option value="10:00">10:00</option>
+                  <option value="11:00">11:00</option>
+                  <option value="12:00">12:00</option>
+                  <option value="13:00">13:00</option>
+                  <option value="14:00">14:00</option>
+                  <option value="15:00">15:00</option>
+                  <option value="16:00">16:00</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Branch</label>
+                <input
+                  type="text"
+                  placeholder="Search by branch"
+                  value={branchFilter}
+                  onChange={(e) => setBranchFilter(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Content - Full width */}
+        <div className="space-y-6">
+            {/* Pending Assessments */}
+            <div ref={pendingSectionRef}>
+            {filteredPendingAssessments.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">Progress</span>
+                    <AlertCircle className="w-5 h-5" />
+                    <span>Pending Assessments</span>
+                    <Badge variant="destructive">{filteredPendingAssessments.length}</Badge>
                 </CardTitle>
+                  <CardDescription>
+                    Completed sessions that need assessment scores
+                  </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {(() => {
-                    const sortedAssessments = allAssessments.sort((a: Assessment, b: Assessment) =>
-                      new Date(a.assessedAt).getTime() - new Date(b.assessedAt).getTime()
-                    )
-                    const firstScore = sortedAssessments[0].overallScore
-                    const lastScore = sortedAssessments[sortedAssessments.length - 1].overallScore
-                    const improvement = lastScore - firstScore
+                  <div className="space-y-4">
+                    {filteredPendingAssessments.map((booking: any) => (
+                      <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2">
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                                <span className="font-medium">
+                                  {booking.slot?.date && format(new Date(booking.slot.date), 'EEEE, MMMM dd, yyyy')}
+                        </span>
+                      </div>
+                    </div>
 
-                    return (
-                      <div className="text-center">
-                        <div className={`text-lg font-bold ${improvement > 0 ? 'text-green-600 dark:text-green-400' :
-                            improvement < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'
-                          }`}>
-                          {improvement > 0 ? '+' : ''}{improvement.toFixed(1)}
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4" />
+                                <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
                         </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {improvement > 0 ? 'Improvement' :
-                            improvement < 0 ? 'Decline' : 'No Change'}
+                              <div className="flex items-center space-x-1">
+                                <User className="w-4 h-4" />
+                                <span>{booking.student?.name}</span>
+                        </div>
+                              <div className="flex items-center space-x-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{booking.slot?.branch?.name}</span>
+                      </div>
+                  </div>
+                </div>
+
+                          <div className="flex justify-end">
+                          <Button
+                            onClick={() => handleStartAssessment(booking)}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            <Play className="w-4 h-4 mr-2" />
+                            Start Assessment
+                          </Button>
+                          </div>
                         </div>
                       </div>
-                    )
-                  })()}
+                    ))}
                 </div>
               </CardContent>
             </Card>
           )}
+            </div>
 
-          {/* IELTS Score Guide */}
+            {/* Completed Assessments */}
+            <div ref={completedSectionRef}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Award className="w-4 h-4" />
-                <span className="text-sm">IELTS Score Guide</span>
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Completed Assessments</span>
               </CardTitle>
+                <CardDescription>
+                  Recently completed assessments
+                </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-white">9.0</span>
-                  <span className="text-green-600 dark:text-green-400 font-medium">Expert</span>
+                {filteredCompletedAssessments.length > 0 ? (
+                  <div className="space-y-4">
+                    {filteredCompletedAssessments
+                      .sort((a: any, b: any) => new Date(b.assessment?.[0]?.assessedAt).getTime() - new Date(a.assessment?.[0]?.assessedAt).getTime())
+                      .slice(0, 5)
+                      .map((booking: any) => (
+                        <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2 flex-1">
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center space-x-2">
+                                  <Calendar className="w-4 h-4 text-gray-500" />
+                                  <span className="font-medium">
+                                    {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd, yyyy')}
+                                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-white">8.0-8.5</span>
-                  <span className="text-green-600 dark:text-green-400">Very Good</span>
+                                <Badge variant={getScoreBadgeVariant(booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand)}>
+                                  Score: {booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand}/9
+                                </Badge>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-white">7.0-7.5</span>
-                  <span className="text-blue-600 dark:text-blue-400">Good</span>
+
+                              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                                <div className="flex items-center space-x-1">
+                                  <User className="w-4 h-4" />
+                                  <span>{booking.student?.name}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-white">6.0-6.5</span>
-                  <span className="text-yellow-600 dark:text-yellow-400">Competent</span>
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-white">5.0-5.5</span>
-                  <span className="text-orange-600 dark:text-orange-400">Modest</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-white">4.0-4.5</span>
-                  <span className="text-red-600 dark:text-red-400">Limited</span>
                 </div>
+
+                            <div className="flex items-center space-x-3">
+                              <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand)}`}>
+                                {booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand}
               </div>
-            </CardContent>
-          </Card>
-
-        </div>
-      </div>
-
-      {/* Assessment Detail Dialog */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Assessment Details</DialogTitle>
-            <DialogDescription>
-              Detailed feedback and score breakdown
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedAssessment && (
-            <div className="space-y-6">
-              {/* Score Display */}
-              <div className="text-center p-6 bg-gray-50 rounded-lg">
-                <div className={`text-4xl font-bold mb-2 ${getScoreColor(selectedAssessment.overallScore).split(' ')[0]}`}>
-                  {selectedAssessment.overallScore}/9
-                </div>
-                <div className="text-sm text-gray-600">
-                  IELTS Speaking Band Score
-                </div>
-              </div>
-
-              {/* Test Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-500">Test Date</div>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{format(new Date(selectedAssessment.assessedAt), 'MMMM dd, yyyy')}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-500">Examiner</div>
-                  <div className="flex items-center space-x-2">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span>{selectedAssessment.teacher?.name}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-500">Test Center</div>
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span>{selectedAssessment.booking?.slot?.branch?.name}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-500">Time</div>
-                  <div>
-                    {selectedAssessment.booking?.slot?.startTime} - {selectedAssessment.booking?.slot?.endTime}
-                  </div>
-                </div>
-              </div>
-
-              {/* Feedback */}
-              {selectedAssessment.remarks && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-500">Examiner's Feedback</div>
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {selectedAssessment.remarks}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <Button onClick={() => setIsDetailDialogOpen(false)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Assessment Recording Dialog (Teacher) */}
-      {isTeacher && (
-        <Dialog open={isRecordingDialogOpen} onOpenChange={setIsRecordingDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Record Assessment</DialogTitle>
-              <DialogDescription>
-                Enter IELTS speaking score and feedback for the student
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedBooking && (
-              <div className="space-y-6">
-                {/* Session Information */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-500">Student</div>
-                      <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span>{selectedBooking.student?.name}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-500">Session Date</div>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>
-                          {selectedBooking.slot?.date &&
-                            format(new Date(selectedBooking.slot.date), 'MMMM dd, yyyy')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-500">Time</div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-gray-400" />
-                        <span>
-                          {selectedBooking.slot?.startTime} - {selectedBooking.slot?.endTime}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-500">Branch</div>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4 text-gray-400" />
-                        <span>{selectedBooking.slot?.branch?.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Score Input */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">IELTS Speaking Band Score</label>
-                    <div className="flex items-center space-x-4">
-                      <input
-                        type="number"
-                        min="0"
-                        max="9"
-                        step="0.5"
-                        value={assessmentForm.score}
-                        onChange={(e) => setAssessmentForm(prev => ({
-                          ...prev,
-                          score: parseFloat(e.target.value) || 0
-                        }))}
-                        className="w-24 p-2 border rounded-md text-center text-lg font-bold"
-                        placeholder="0.0"
-                      />
-                      <span className="text-sm text-gray-500">/ 9.0</span>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${assessmentForm.score >= 7 ? 'bg-green-100 text-green-700' :
-                          assessmentForm.score >= 5.5 ? 'bg-yellow-100 text-yellow-700' :
-                            assessmentForm.score > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                        {assessmentForm.score >= 7 ? 'Good' :
-                          assessmentForm.score >= 5.5 ? 'Competent' :
-                            assessmentForm.score > 0 ? 'Limited' : 'Not Set'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Remarks */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Teacher's Feedback</label>
-                    <textarea
-                      value={assessmentForm.remarks}
-                      onChange={(e) => setAssessmentForm(prev => ({
-                        ...prev,
-                        remarks: e.target.value
-                      }))}
-                      className="w-full p-3 border rounded-md"
-                      rows={4}
-                      placeholder="Provide detailed feedback on the student's performance, including strengths and areas for improvement..."
-                    />
-                  </div>
-                </div>
-
-                {/* IELTS Rubrics Display */}
-                {rubrics && (
-                  <div className="border rounded-lg">
-                    <Tabs value={activeRubricTab} onValueChange={setActiveRubricTab}>
-                      <div className="p-4 border-b">
-                        <h4 className="font-medium text-gray-900 mb-3">IELTS Speaking Assessment Reference</h4>
-                        <TabsList className="grid w-full grid-cols-3">
-                          <TabsTrigger 
-                            value="scoring" 
-                            className={activeRubricTab === 'scoring' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}
-                            onClick={() => setActiveRubricTab('scoring')}
-                          >
-                            Band Scores
-                          </TabsTrigger>
-                          <TabsTrigger 
-                            value="criteria" 
-                            className={activeRubricTab === 'criteria' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}
-                            onClick={() => setActiveRubricTab('criteria')}
-                          >
-                            Criteria
-                          </TabsTrigger>
-                          <TabsTrigger 
-                            value="tips" 
-                            className={activeRubricTab === 'tips' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}
-                            onClick={() => setActiveRubricTab('tips')}
-                          >
-                            Tips
-                          </TabsTrigger>
-                        </TabsList>
-                      </div>
-
-                      <div className="p-4 max-h-64 overflow-y-auto">
-                        {activeRubricTab === 'scoring' && (
-                          <TabsContent value="scoring">
-                            <div className="space-y-3">
-                              <p className="text-sm text-gray-600 mb-4">{rubrics.scoringGuidelines.description}</p>
-                              <div className="grid gap-2">
-                                {rubrics.scoringGuidelines.bandDescriptors.slice(0, 10).map((band: any) => (
-                                  <div key={band.score} className="flex items-start space-x-3 p-2 rounded hover:bg-gray-50">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                      band.score >= 7 ? 'bg-green-100 text-green-700' :
-                                      band.score >= 5.5 ? 'bg-yellow-100 text-yellow-700' :
-                                      band.score >= 4 ? 'bg-orange-100 text-orange-700' :
-                                      'bg-red-100 text-red-700'
-                                    }`}>
-                                      {band.score}
-                                    </div>
-                                    <div className="flex-1">
-                                      <div className="font-medium text-sm">{band.level}</div>
-                                      <div className="text-xs text-gray-600">{band.description}</div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleViewCompletedDetails(booking)}
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View Details
+                              </Button>
                             </div>
-                          </TabsContent>
-                        )}
-
-                        {activeRubricTab === 'criteria' && (
-                          <TabsContent value="criteria">
-                            <Accordion type="single" collapsible>
-                              {rubrics.criteria.map((criterion: any, index: number) => (
-                                <AccordionItem key={index} value={`criterion-${index}`}>
-                                  <AccordionTrigger className="text-left">
-                                    <div>
-                                      <div className="font-medium">{criterion.name}</div>
-                                      <div className="text-sm text-gray-600">{criterion.description}</div>
-                                    </div>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2">
-                                      {criterion.bands.map((band: any) => (
-                                        <div key={band.score} className="flex items-start space-x-3 p-2 rounded hover:bg-gray-50">
-                                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                            band.score >= 7 ? 'bg-green-100 text-green-700' :
-                                            band.score >= 5.5 ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
-                                          }`}>
-                                            {band.score}
-                                          </div>
-                                          <div className="flex-1 text-sm text-gray-700">
-                                            {band.description}
                                           </div>
                                         </div>
                                       ))}
                                     </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                            </Accordion>
-                          </TabsContent>
-                        )}
+                ) : (
+                  <div className="text-center py-8">
+                    <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {filteredCompletedAssessments.length === 0 && completedAssessments.length > 0 
+                        ? 'No assessments match your current filters' 
+                        : 'No completed assessments yet'}
+                    </p>
+                  </div>
+                )}
+            </CardContent>
+          </Card>
+              </div>
 
-                        {activeRubricTab === 'tips' && (
-                          <TabsContent value="tips">
-                            <div className="space-y-3">
-                              <h5 className="font-medium text-gray-900">Assessment Guidelines</h5>
-                              <ul className="space-y-2">
-                                {rubrics.assessmentTips.map((tip: string, index: number) => (
-                                  <li key={index} className="flex items-start space-x-2 text-sm text-gray-700">
-                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                                    <span>{tip}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </TabsContent>
-                        )}
+        {/* Assessment Workflow Overlay */}
+        {isAssessmentInProgress && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              
+              {/* Step 1: Pre-Assessment */}
+              {assessmentStep === 'pre' && (
+                <div className="text-center">
+                  <h3 className="text-2xl font-semibold mb-4">Assessment Guidelines</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    You are about to assess: <strong>{selectedBooking?.student?.name}</strong>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-left">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Fluency & Coherence (25%)</h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-400">
+                        Assess smoothness of speech, logical flow, and ability to develop ideas clearly.
+                      </p>
+                </div>
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-left">
+                      <h4 className="font-medium text-green-900 dark:text-green-300 mb-2">Lexical Resource (25%)</h4>
+                      <p className="text-sm text-green-700 dark:text-green-400">
+                        Evaluate vocabulary range, accuracy, and appropriateness of word choice.
+                      </p>
+                </div>
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-left">
+                      <h4 className="font-medium text-purple-900 dark:text-purple-300 mb-2">Grammar & Accuracy (25%)</h4>
+                      <p className="text-sm text-purple-700 dark:text-purple-400">
+                        Check grammatical accuracy and range of sentence structures used.
+                      </p>
+              </div>
+                    <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-left">
+                      <h4 className="font-medium text-orange-900 dark:text-orange-300 mb-2">Pronunciation (25%)</h4>
+                      <p className="text-sm text-orange-700 dark:text-orange-400">
+                        Assess clarity, stress, rhythm, and intonation patterns.
+                      </p>
+                </div>
+                  </div>
+                  <div className="flex space-x-3">
+                    <Button variant="outline" onClick={handleEndAssessment}>
+                      Cancel
+                    </Button>
+                    <Button onClick={confirmStartAssessment} className="bg-red-500 hover:bg-red-600">
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Assessment
+                    </Button>
+                </div>
+                </div>
+              )}
+
+              {/* Step 2: During Assessment */}
+              {assessmentStep === 'during' && (
+                  <div>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-2xl font-semibold">Assessment in Progress</h3>
+                    <div className="text-2xl font-bold text-red-600">
+                      {formatTime(timerSeconds)}
+                  </div>
+                </div>
+
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 className="font-medium mb-2">Student: {selectedBooking?.student?.name}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Date: {selectedBooking?.slot?.date && format(new Date(selectedBooking.slot.date), 'MMMM dd, yyyy')} | 
+                      Time: {selectedBooking?.slot?.startTime} - {selectedBooking?.slot?.endTime}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Fluency & Coherence (1-9)</label>
+                      <select 
+                        value={assessmentScores.fluency}
+                        onChange={(e) => handleScoreChange('fluency', e.target.value)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select score</option>
+                        {[1,2,3,4,5,6,7,8,9].map(score => (
+                          <option key={score} value={score}>{score}</option>
+                        ))}
+                      </select>
+                </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Lexical Resource (1-9)</label>
+                      <select 
+                        value={assessmentScores.lexical}
+                        onChange={(e) => handleScoreChange('lexical', e.target.value)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select score</option>
+                        {[1,2,3,4,5,6,7,8,9].map(score => (
+                          <option key={score} value={score}>{score}</option>
+                        ))}
+                      </select>
+                  </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Grammar & Accuracy (1-9)</label>
+                      <select 
+                        value={assessmentScores.grammar}
+                        onChange={(e) => handleScoreChange('grammar', e.target.value)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select score</option>
+                        {[1,2,3,4,5,6,7,8,9].map(score => (
+                          <option key={score} value={score}>{score}</option>
+                        ))}
+                      </select>
+                </div>
+                    
+                  <div>
+                      <label className="block text-sm font-medium mb-2">Pronunciation (1-9)</label>
+                      <select 
+                        value={assessmentScores.pronunciation}
+                        onChange={(e) => handleScoreChange('pronunciation', e.target.value)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select score</option>
+                        {[1,2,3,4,5,6,7,8,9].map(score => (
+                          <option key={score} value={score}>{score}</option>
+                        ))}
+                      </select>
+                  </div>
+                </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-2">Overall Band Score (1-9)</label>
+                    <select 
+                      value={assessmentScores.overall}
+                      onChange={(e) => handleScoreChange('overall', e.target.value)}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Select overall score</option>
+                      {[1,2,3,4,5,5.5,6,6.5,7,7.5,8,8.5,9].map(score => (
+                        <option key={score} value={score}>{score}</option>
+                      ))}
+                    </select>
+              </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-2">Remarks & Notes</label>
+                    <textarea 
+                      value={assessmentRemarks}
+                      onChange={(e) => setAssessmentRemarks(e.target.value)}
+                      placeholder="Add detailed feedback, notes, and observations about the student's performance..."
+                      rows={4}
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                    />
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <Button variant="outline" onClick={handleEndAssessment}>
+                      Cancel Assessment
+                    </Button>
+                    <Button 
+                      onClick={handleFinishAssessment}
+                      className="bg-red-500 hover:bg-red-600"
+                      disabled={!assessmentScores.fluency || !assessmentScores.lexical || !assessmentScores.grammar || !assessmentScores.pronunciation || !assessmentScores.overall}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Finish Assessment
+                </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Post-Assessment */}
+              {assessmentStep === 'post' && (
+                <div className="text-center">
+                  <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-2xl font-semibold mb-4">Assessment Completed</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Assessment for <strong>{selectedBooking?.student?.name}</strong> has been completed successfully.
+                  </p>
+                  
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6">
+                    <h4 className="font-medium mb-4">Assessment Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">Fluency & Coherence</p>
+                        <p className="font-semibold text-lg">{assessmentScores.fluency}</p>
                       </div>
-                    </Tabs>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">Lexical Resource</p>
+                        <p className="font-semibold text-lg">{assessmentScores.lexical}</p>
+                    </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">Grammar & Accuracy</p>
+                        <p className="font-semibold text-lg">{assessmentScores.grammar}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">Pronunciation</p>
+                        <p className="font-semibold text-lg">{assessmentScores.pronunciation}</p>
+                    </div>
+                      </div>
+                    <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
+                      <p className="text-gray-600 dark:text-gray-400">Overall Band Score</p>
+                      <p className="font-bold text-3xl text-red-600">{assessmentScores.overall}</p>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-gray-600 dark:text-gray-400">Assessment Duration</p>
+                      <p className="font-semibold">{formatTime(timerSeconds)}</p>
+                      </div>
+                    </div>
+                  
+                  <div className="flex space-x-3">
+                    <Button variant="outline" onClick={handleEndAssessment}>
+                  Close
+                </Button>
+                    <Button onClick={handleEndAssessment} className="bg-red-500 hover:bg-red-600">
+                      Start New Assessment
+                </Button>
+              </div>
+            </div>
+          )}
+            </div>
+          </div>
+        )}
+
+        {/* Start Assessment Confirmation Dialog with Guidelines */}
+        {showStartConfirmation && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-2xl font-semibold mb-6 text-center">Start Assessment</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+                Are you ready to start the assessment for <strong>{selectedBooking?.student?.name}</strong>?
+              </p>
+              
+              {/* Assessment Guidelines */}
+              <div className="mb-8">
+                <h4 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Assessment Guidelines & Scoring Rubrics</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <h5 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Fluency & Coherence (25%)</h5>
+                    <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
+                      <p><strong>9:</strong> Speaks fluently with only rare repetition or self-correction</p>
+                      <p><strong>7-8:</strong> Speaks at length with minimal hesitation</p>
+                      <p><strong>5-6:</strong> Usually maintains flow but may use repetition</p>
+                      <p><strong>3-4:</strong> Cannot respond without noticeable pauses</p>
+                      <p><strong>1-2:</strong> Pauses lengthily before most words</p>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                    <h5 className="font-semibold text-green-900 dark:text-green-300 mb-2">Lexical Resource (25%)</h5>
+                    <div className="text-sm text-green-700 dark:text-green-400 space-y-1">
+                      <p><strong>9:</strong> Uses vocabulary with full flexibility and precision</p>
+                      <p><strong>7-8:</strong> Uses vocabulary resource flexibly</p>
+                      <p><strong>5-6:</strong> Has adequate vocabulary for topics</p>
+                      <p><strong>3-4:</strong> Limited vocabulary causing hesitation</p>
+                      <p><strong>1-2:</strong> Very limited vocabulary</p>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                    <h5 className="font-semibold text-purple-900 dark:text-purple-300 mb-2">Grammar & Accuracy (25%)</h5>
+                    <div className="text-sm text-purple-700 dark:text-purple-400 space-y-1">
+                      <p><strong>9:</strong> Uses a full range of structures naturally</p>
+                      <p><strong>7-8:</strong> Uses a range of structures with flexibility</p>
+                      <p><strong>5-6:</strong> Uses mix of simple and complex forms</p>
+                      <p><strong>3-4:</strong> Uses only basic sentence forms</p>
+                      <p><strong>1-2:</strong> Attempts basic forms but with limited success</p>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
+                    <h5 className="font-semibold text-orange-900 dark:text-orange-300 mb-2">Pronunciation (25%)</h5>
+                    <div className="text-sm text-orange-700 dark:text-orange-400 space-y-1">
+                      <p><strong>9:</strong> Easy to understand throughout</p>
+                      <p><strong>7-8:</strong> Easy to understand with occasional lapses</p>
+                      <p><strong>5-6:</strong> Generally clear despite some mispronunciation</p>
+                      <p><strong>3-4:</strong> Mispronunciations cause some difficulty</p>
+                      <p><strong>1-2:</strong> Very difficult to understand</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Overall Scoring Guidelines */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Overall Band Score Guidelines</h5>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                    <p><strong>9:</strong> Expert user - Has fully operational command of the language</p>
+                    <p><strong>7-8:</strong> Good user - Has operational command with occasional inaccuracies</p>
+                    <p><strong>5-6:</strong> Modest user - Has partial command of the language</p>
+                    <p><strong>3-4:</strong> Limited user - Basic competence is limited to familiar situations</p>
+                    <p><strong>1-2:</strong> Extremely limited user - Conveys and understands only general meaning</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3 justify-center">
+                <Button variant="outline" onClick={() => setShowStartConfirmation(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmStartAssessment} className="bg-red-500 hover:bg-red-600">
+                  Start Assessment
+                </Button>
+                      </div>
+                    </div>
+                  </div>
+        )}
+
+        {/* Finish Assessment Confirmation Dialog */}
+        {showFinishConfirmation && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Finish Assessment</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to finish this assessment? This action cannot be undone.
+              </p>
+              <div className="flex space-x-3">
+                <Button variant="outline" onClick={() => setShowFinishConfirmation(false)}>
+                  Continue Assessment
+                </Button>
+                <Button onClick={confirmFinishAssessment} className="bg-red-500 hover:bg-red-600">
+                  Finish Assessment
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Completed Assessment Details Modal */}
+        {showCompletedDetails && selectedCompletedBooking && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-semibold">Assessment Details</h3>
+                <Button variant="outline" onClick={() => setShowCompletedDetails(false)}>
+                  Close
+                </Button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Student Info */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="font-medium mb-2">Student Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Name:</span>
+                      <span className="ml-2 font-medium">{selectedCompletedBooking.student?.name}</span>
+                      </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Session Date:</span>
+                      <span className="ml-2 font-medium">
+                        {selectedCompletedBooking.slot?.date && format(new Date(selectedCompletedBooking.slot.date), 'MMM dd, yyyy')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Session Time:</span>
+                      <span className="ml-2 font-medium">
+                        {selectedCompletedBooking.slot?.startTime} - {selectedCompletedBooking.slot?.endTime}
+                        </span>
+                      </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Branch:</span>
+                      <span className="ml-2 font-medium">{selectedCompletedBooking.slot?.branch?.name}</span>
+                    </div>
+                      </div>
+                    </div>
+
+                {/* Assessment Scores */}
+                {(selectedCompletedBooking as any).assessment?.[0] && (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 className="font-medium mb-4">Assessment Scores</h4>
+                    <div className="flex flex-wrap gap-4 justify-center">
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Fluency & Coherence</p>
+                        <p className="text-xl font-bold text-blue-600">{(selectedCompletedBooking as any).assessment[0].fluencyScore || 'N/A'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Lexical Resource</p>
+                        <p className="text-xl font-bold text-green-600">{(selectedCompletedBooking as any).assessment[0].lexicalScore || 'N/A'}</p>
+                    </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Grammar & Accuracy</p>
+                        <p className="text-xl font-bold text-purple-600">{(selectedCompletedBooking as any).assessment[0].grammarScore || 'N/A'}</p>
+                  </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Pronunciation</p>
+                        <p className="text-xl font-bold text-orange-600">{(selectedCompletedBooking as any).assessment[0].pronunciationScore || 'N/A'}</p>
+                </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600 text-center">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Overall Band Score</p>
+                      <p className="text-4xl font-bold text-red-600">{(selectedCompletedBooking as any).assessment[0].overallBand || (selectedCompletedBooking as any).assessment[0].score || 'N/A'}</p>
+                    </div>
                   </div>
                 )}
 
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setIsRecordingDialogOpen(false)
-                      setAssessmentForm({ score: 0, remarks: '' })
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    disabled={assessmentForm.score === 0 || createAssessmentMutation.isPending}
-                    onClick={() => {
-                      if (selectedBooking) {
-                        createAssessmentMutation.mutate({
-                          bookingId: selectedBooking.id,
-                          score: assessmentForm.score,
-                          remarks: assessmentForm.remarks
-                        })
-                      }
-                    }}
-                  >
-                    {createAssessmentMutation.isPending ? 'Recording...' : 'Record Assessment'}
-                  </Button>
-                </div>
+                {/* Assessment Details */}
+                {(selectedCompletedBooking as any).assessment?.[0] && (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 className="font-medium mb-4">Assessment Details</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Assessed At:</span>
+                        <span className="ml-2 font-medium">
+                          {(selectedCompletedBooking as any).assessment[0].assessedAt && format(new Date((selectedCompletedBooking as any).assessment[0].assessedAt), 'MMM dd, yyyy HH:mm')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                        <span className="ml-2 font-medium">
+                          <Badge variant="success">Completed</Badge>
+                        </span>
+                    </div>
+                  </div>
+                  </div>
+                )}
+
+                {/* Teacher Remarks */}
+                {(selectedCompletedBooking as any).assessment?.[0]?.remarks && (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 className="font-medium mb-2">Teacher Remarks</h4>
+                    <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {(selectedCompletedBooking as any).assessment[0].remarks}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
-  )
+            </div>
+          </div>
+        )}
+        </div>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export default Assessments

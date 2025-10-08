@@ -146,6 +146,9 @@ export const bookingsAPI = {
   getMyBookings: () =>
     toPromise(api.get<Booking[]>('/api/bookings/my')),
 
+  getTeacherBookings: () =>
+    toPromise(api.get<Booking[]>('/api/bookings/teacher')),
+
   update: (id: string, data: any) =>
     toPromise(api.put<Booking>(`/api/bookings/${id}`, data)),
 

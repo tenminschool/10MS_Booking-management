@@ -8,10 +8,10 @@ export const UserRole = {
 export type UserRole = typeof UserRole[keyof typeof UserRole]
 
 export const BookingStatus = {
-  CONFIRMED: 'confirmed',
-  CANCELLED: 'cancelled',
-  COMPLETED: 'completed',
-  NO_SHOW: 'no_show'
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED: 'CANCELLED',
+  COMPLETED: 'COMPLETED',
+  NO_SHOW: 'NO_SHOW'
 } as const
 
 export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus]

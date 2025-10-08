@@ -11,7 +11,8 @@ export default {
         // 10 Minute School Brand Colors
         brand: {
           red: '#dc2626',      // Primary brand red
-          'red-light': '#fef2f2', // Light red for backgrounds
+          'red-light': '#f87171', // Lighter red shade for CTAs
+          'red-lighter': '#fef2f2', // Light red for backgrounds
           'red-dark': '#991b1b',   // Dark red for dark theme
           white: '#ffffff',     // Primary white
           black: '#111827',     // Primary black/dark text
