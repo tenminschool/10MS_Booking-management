@@ -45,11 +45,11 @@ After project creation (takes ~2 minutes):
 1. Go to **Project Settings** → **Database**
 2. Find **Connection String** section
 3. Copy the **Connection Pooling** string (starts with `postgres://`)
-4. Replace `[YOUR-PASSWORD]` with your database password
+4. This will be your `DATABASE_URL` for the backend environment variables
 
-Your connection string will look like:
+Example format:
 ```
-postgres://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+postgres://postgres.abcdefghijklmnop:your-actual-password@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres
 ```
 
 ### 3. Setup Database Schema
@@ -102,8 +102,12 @@ In Supabase Dashboard:
 Create `/backend/.env` file:
 
 ```env
-# Database
-DATABASE_URL="postgres://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
+# Database (from Supabase Project Settings → Database → Connection String)
+DATABASE_URL="postgres://postgres.abcdefghijklmnop:your-actual-password@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+
+# Supabase Configuration (from Supabase Project Settings → API)
+SUPABASE_URL="https://abcdefghijklmnop.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 # Server
 PORT=3001
@@ -117,17 +121,20 @@ FRONTEND_URL="https://lcbookings.10minuteschool.com"
 
 # CORS Origins (your production domain)
 CORS_ORIGIN="https://lcbookings.10minuteschool.com"
-
-# API Keys (optional - for SMS/Email services)
-TWILIO_ACCOUNT_SID="your-twilio-sid"
-TWILIO_AUTH_TOKEN="your-twilio-token"
-TWILIO_PHONE_NUMBER="+1234567890"
 ```
 
 **Important Notes:**
 - **JWT_SECRET**: Generate using: `openssl rand -base64 32`
-- **DATABASE_URL**: Use the connection string from Supabase
+- **DATABASE_URL**: Copy from Supabase Project Settings → Database → Connection String
+- **SUPABASE_URL**: Copy from Supabase Project Settings → API → Project URL
+- **SUPABASE_SERVICE_ROLE_KEY**: Copy from Supabase Project Settings → API → Service Role Key
 - **FRONTEND_URL**: Will be updated after frontend deployment
+
+**Getting Supabase Keys:**
+1. Go to your Supabase project dashboard
+2. Click **Settings** → **API**
+3. Copy **Project URL** (for SUPABASE_URL)
+4. Copy **Service Role Key** (for SUPABASE_SERVICE_ROLE_KEY) - **Keep this secret!**
 
 ### Frontend Environment Variables
 
@@ -156,6 +163,17 @@ VITE_API_URL="https://your-backend-url.railway.app"
 ## Backend Deployment
 
 > **Production Platform**: Digital Ocean VPS
+
+### Build Configurations
+
+The project includes two TypeScript build configurations:
+
+- **Development Build** (`npm run build`): Includes source maps, declarations, and debugging info
+- **Production Build** (`npm run build:prod`): Optimized build without source maps or declarations (~75% fewer files)
+
+For deployment, always use the production build to reduce file count and improve performance.
+
+**Quick deployment:** Run `npm run deploy` for automated production build and verification.
 
 ### Digital Ocean VPS Deployment
 
@@ -196,7 +214,7 @@ cd backend
 
 # 3. Install dependencies & build
 npm install
-npm run build
+npm run build:prod
 
 # 4. Create environment file
 nano .env
@@ -533,7 +551,7 @@ For issues:
 
 After successful deployment:
 1. Set up monitoring (Sentry, LogRocket)
-2. Configure email/SMS notifications
+2. Configure notifications (to be implemented later)
 3. Set up analytics (Google Analytics)
 4. Create user documentation
 5. Train administrators

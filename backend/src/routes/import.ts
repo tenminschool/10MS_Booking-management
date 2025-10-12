@@ -1,12 +1,11 @@
-// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import { Router } from 'express';
 import multer from 'multer';
 import csvParser from 'csv-parser';
 import { authenticate, requireRole, requireBranchAccess } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 import { validateBangladeshPhone } from '../middleware/phoneValidation';
-// import prisma from '../lib/prisma';
-// import { UserRole } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { UserRole } from '../types/auth';
 import { Readable } from 'stream';
 
 const router = Router();
@@ -244,20 +243,14 @@ router.post('/preview',
         .map(s => s.phoneNumber);
 
       if (phoneNumbers.length > 0) {
-        const existingUsers = await prisma.user.findMany({
-          where: {
-            phoneNumber: { in: phoneNumbers }
-          },
-          select: {
-            id: true,
-            name: true,
-            phoneNumber: true
-          }
-        });
+        const { data: existingUsers } = await supabase
+          .from('users')
+          .select('id, name, phone_number')
+          .in('phone_number', phoneNumbers);
 
         // Mark duplicates
         for (const student of studentData) {
-          const existing = existingUsers.find(u => u.phoneNumber === student.phoneNumber);
+          const existing = (existingUsers || []).find(u => u.phone_number === student.phoneNumber);
           if (existing) {
             validationResult.duplicates.push({
               row: student.row,
@@ -327,12 +320,13 @@ router.post('/students',
       }
 
       // Verify branch exists
-      const branch = await prisma.branch.findUnique({
-        where: { id: targetBranchId },
-        select: { id: true, name: true }
-      });
+      const { data: branch, error: branchError } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('id', targetBranchId)
+        .single();
 
-      if (!branch) {
+      if (branchError || !branch) {
         return res.status(404).json({
           error: 'Branch not found',
           message: 'Target branch does not exist'
@@ -358,20 +352,14 @@ router.post('/students',
         .map(s => s.phoneNumber);
 
       if (phoneNumbers.length > 0) {
-        const existingUsers = await prisma.user.findMany({
-          where: {
-            phoneNumber: { in: phoneNumbers }
-          },
-          select: {
-            id: true,
-            name: true,
-            phoneNumber: true
-          }
-        });
+        const { data: existingUsers } = await supabase
+          .from('users')
+          .select('id, name, phone_number')
+          .in('phone_number', phoneNumbers);
 
         // Mark duplicates
         for (const student of studentData) {
-          const existing = existingUsers.find(u => u.phoneNumber === student.phoneNumber);
+          const existing = (existingUsers || []).find(u => u.phone_number === student.phoneNumber);
           if (existing) {
             validationResult.duplicates.push({
               row: student.row,
@@ -393,27 +381,32 @@ router.post('/students',
       const createdStudents = [];
       for (const student of studentsToImport) {
         try {
-          const createdUser = await prisma.user.create({
-            data: {
+          const { data: createdUser, error: createError } = await supabase
+            .from('users')
+            .insert({
               name: student.name,
-              phoneNumber: student.phoneNumber,
+              phone_number: student.phoneNumber,
               email: student.email || null,
               role: UserRole.STUDENT,
-              branchId: targetBranchId,
-              isActive: true
-            },
-            select: {
-              id: true,
-              name: true,
-              phoneNumber: true
-            }
-          });
+              branch_id: targetBranchId,
+              is_active: true
+            })
+            .select('id, name, phone_number')
+            .single();
 
-          createdStudents.push(createdUser);
-          validationResult.created.push({
-            ...createdUser,
-            phoneNumber: createdUser.phoneNumber || ''
-          });
+          if (createError) {
+            throw createError;
+          }
+
+          if (createdUser) {
+            const userRecord = {
+              id: createdUser.id,
+              name: createdUser.name,
+              phoneNumber: createdUser.phone_number || ''
+            };
+            createdStudents.push(userRecord);
+            validationResult.created.push(userRecord);
+          }
         } catch (error) {
           console.error(`Failed to create student ${student.name}:`, error);
           validationResult.errors.push({

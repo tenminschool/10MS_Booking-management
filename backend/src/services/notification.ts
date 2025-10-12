@@ -1,7 +1,5 @@
-// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
-// import prisma from '../lib/prisma';
 import { smsService } from './sms';
-// import { NotificationType } from '../lib/supabase';
+import { supabase, NotificationType } from '../lib/supabase';
 
 interface NotificationTemplate {
   sms: string;
@@ -122,22 +120,29 @@ class NotificationService {
 
     try {
       // Get user details
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { phoneNumber: true, name: true }
-      });
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('phone_number, name')
+        .eq('id', userId)
+        .single();
 
-      if (!user) {
+      if (userError || !user) {
         throw new Error('User not found');
       }
+      
+      // Map snake_case to camelCase for compatibility
+      const userData = {
+        phoneNumber: user.phone_number,
+        name: user.name
+      };
 
       const template = this.templates[type];
 
       // Send SMS notification
-      if (!options.inAppOnly && user.phoneNumber) {
+      if (!options.inAppOnly && userData.phoneNumber) {
         try {
           const smsMessage = options.customMessage || this.formatTemplate(template.sms, data);
-          const smsResult = await smsService.sendSMS(user.phoneNumber, smsMessage);
+          const smsResult = await smsService.sendSMS(userData.phoneNumber, smsMessage);
           
           results.smsResult = smsResult;
 
@@ -145,7 +150,7 @@ class NotificationService {
           if (smsResult.messageId) {
             this.smsDeliveryLog.set(smsResult.messageId, {
               messageId: smsResult.messageId,
-              phoneNumber: user.phoneNumber,
+              phoneNumber: userData.phoneNumber,
               status: smsResult.success ? 'sent' : 'failed',
               error: smsResult.error,
               sentAt: new Date()
@@ -166,15 +171,22 @@ class NotificationService {
           const title = options.customTitle || this.formatTemplate(template.inApp.title, data);
           const message = options.customMessage || this.formatTemplate(template.inApp.message, data);
 
-          const notification = await prisma.notification.create({
-            data: {
-              userId,
+          const { data: notification, error: notifError } = await supabase
+            .from('notifications')
+            .insert({
+              user_id: userId,
               title,
               message,
               type,
-              isRead: false
-            }
-          });
+              is_read: false,
+              status: 'SENT'
+            })
+            .select()
+            .single();
+
+          if (notifError) {
+            throw notifError;
+          }
 
           results.inAppResult = {
             success: true,
@@ -291,38 +303,45 @@ class NotificationService {
   async sendTeacherCancellationNotifications(slotId: string, reason?: string): Promise<void> {
     try {
       // Get all confirmed bookings for this slot
-      const bookings = await prisma.booking.findMany({
-        where: {
-          slotId,
-          status: 'CONFIRMED'
-        },
-        include: {
-          student: {
-            select: { id: true, name: true, phoneNumber: true }
-          },
-          slot: {
-            include: {
-              branch: { select: { name: true } },
-              teacher: { select: { name: true } }
-            }
-          }
-        }
-      });
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          student:users!bookings_studentId_fkey(id, name, phone_number),
+          slot:slots(
+            date,
+            start_time,
+            branch:branches(name),
+            teacher:users!slots_teacherId_fkey(name)
+          )
+        `)
+        .eq('slot_id', slotId)
+        .eq('status', 'CONFIRMED');
 
-      for (const booking of bookings) {
+      if (error) {
+        throw error;
+      }
+
+      for (const booking of bookings || []) {
+        const slot = booking.slot as any;
+        const student = booking.student as any;
         const bookingDetails: BookingDetails = {
           id: booking.id,
-          date: booking.slot.date.toISOString().split('T')[0],
-          time: booking.slot.startTime,
-          teacher: booking.slot.teacher.name,
-          branch: booking.slot.branch.name,
-          student: booking.student
+          date: slot.date,
+          time: slot.start_time,
+          teacher: slot.teacher?.name || 'Unknown',
+          branch: slot.branch?.name || 'Unknown',
+          student: {
+            id: student.id,
+            name: student.name,
+            phoneNumber: student.phone_number
+          }
         };
 
         await this.sendBookingCancellation(bookingDetails, reason);
       }
 
-      console.log(`🏫 Teacher cancellation notifications sent to ${bookings.length} students`);
+      console.log(`🏫 Teacher cancellation notifications sent to ${bookings?.length || 0} students`);
     } catch (error) {
       console.error('Failed to send teacher cancellation notifications:', error);
       throw error;
@@ -393,22 +412,33 @@ class NotificationService {
       failed: number;
     };
   }> {
-    const whereClause = userId ? { userId } : {};
+    // Build query for total and unread counts
+    let totalQuery = supabase.from('notifications').select('*', { count: 'exact', head: true });
+    let unreadQuery = supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('is_read', false);
+    let typeQuery = supabase.from('notifications').select('type');
 
-    const [totalNotifications, unreadNotifications, notificationsByType] = await Promise.all([
-      prisma.notification.count({ where: whereClause }),
-      prisma.notification.count({ where: { ...whereClause, isRead: false } }),
-      prisma.notification.groupBy({
-        by: ['type'],
-        where: whereClause,
-        _count: { type: true }
-      })
+    if (userId) {
+      totalQuery = totalQuery.eq('user_id', userId);
+      unreadQuery = unreadQuery.eq('user_id', userId);
+      typeQuery = typeQuery.eq('user_id', userId);
+    }
+
+    const [totalResult, unreadResult, typeResult] = await Promise.all([
+      totalQuery,
+      unreadQuery,
+      typeQuery
     ]);
 
-    const typeStats = notificationsByType.reduce((acc, item) => {
-      acc[item.type] = item._count.type;
-      return acc;
-    }, {} as Record<NotificationType, number>);
+    const totalNotifications = totalResult.count || 0;
+    const unreadNotifications = unreadResult.count || 0;
+    
+    // Group notifications by type
+    const typeStats: Record<string, number> = {};
+    if (typeResult.data) {
+      for (const item of typeResult.data) {
+        typeStats[item.type] = (typeStats[item.type] || 0) + 1;
+      }
+    }
 
     // SMS delivery statistics
     const smsStatuses = Array.from(this.smsDeliveryLog.values());
@@ -421,7 +451,7 @@ class NotificationService {
     return {
       totalNotifications,
       unreadNotifications,
-      notificationsByType: typeStats,
+      notificationsByType: typeStats as Record<NotificationType, number>,
       smsDeliveryStats
     };
   }

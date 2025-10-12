@@ -1,6 +1,5 @@
-// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import { Request, Response, NextFunction } from 'express';
-// import prisma from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 
 interface AuditableRequest extends Request {
   auditData?: {
@@ -44,20 +43,23 @@ export const auditLog = (entityType: string) => {
         
         if (entityId) {
           // Create audit log entry (fire and forget)
-          prisma.auditLog.create({
-            data: {
-              userId: req.user.userId,
-              entityType,
-              entityId,
+          supabase
+            .from('audit_log')
+            .insert({
+              user_id: req.user.userId,
+              entity_type: entityType,
+              entity_id: entityId,
               action,
-              oldValues: req.auditData?.oldValues || null,
-              newValues: action === 'DELETE' ? null : (body?.data || body),
-              ipAddress: req.ip || req.connection.remoteAddress,
-              userAgent: req.get('User-Agent'),
-            },
-          }).catch(error => {
-            console.error('Failed to create audit log:', error);
-          });
+              old_values: req.auditData?.oldValues || null,
+              new_values: action === 'DELETE' ? null : (body?.data || body),
+              ip_address: req.ip || req.connection.remoteAddress,
+              user_agent: req.get('User-Agent'),
+            })
+            .then(({ error }) => {
+              if (error) {
+                console.error('Failed to create audit log:', error);
+              }
+            });
         }
       }
       
@@ -76,26 +78,33 @@ export const captureOldValues = (entityType: string) => {
       if (entityId) {
         try {
           let oldValues;
+          let result;
           
           // Fetch old values based on entity type
           switch (entityType.toLowerCase()) {
             case 'user':
-              oldValues = await prisma.user.findUnique({ where: { id: entityId } });
+              result = await supabase.from('users').select('*').eq('id', entityId).single();
+              oldValues = result.data;
               break;
             case 'branch':
-              oldValues = await prisma.branch.findUnique({ where: { id: entityId } });
+              result = await supabase.from('branches').select('*').eq('id', entityId).single();
+              oldValues = result.data;
               break;
             case 'slot':
-              oldValues = await prisma.slot.findUnique({ where: { id: entityId } });
+              result = await supabase.from('slots').select('*').eq('id', entityId).single();
+              oldValues = result.data;
               break;
             case 'booking':
-              oldValues = await prisma.booking.findUnique({ where: { id: entityId } });
+              result = await supabase.from('bookings').select('*').eq('id', entityId).single();
+              oldValues = result.data;
               break;
             case 'assessment':
-              oldValues = await prisma.assessment.findUnique({ where: { id: entityId } });
+              result = await supabase.from('assessments').select('*').eq('id', entityId).single();
+              oldValues = result.data;
               break;
             case 'systemsetting':
-              oldValues = await prisma.systemSetting.findUnique({ where: { id: entityId } });
+              result = await supabase.from('system_settings').select('*').eq('id', entityId).single();
+              oldValues = result.data;
               break;
             default:
               console.warn(`Unknown entity type for audit: ${entityType}`);
@@ -131,18 +140,20 @@ export const createAuditLog = async (
   userAgent?: string
 ) => {
   try {
-    await prisma.auditLog.create({
-      data: {
-        userId,
-        entityType,
-        entityId,
-        action,
-        oldValues,
-        newValues,
-        ipAddress,
-        userAgent,
-      },
+    const { error } = await supabase.from('audit_log').insert({
+      user_id: userId,
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      old_values: oldValues,
+      new_values: newValues,
+      ip_address: ipAddress,
+      user_agent: userAgent,
     });
+    
+    if (error) {
+      console.error('Failed to create manual audit log:', error);
+    }
   } catch (error) {
     console.error('Failed to create manual audit log:', error);
   }

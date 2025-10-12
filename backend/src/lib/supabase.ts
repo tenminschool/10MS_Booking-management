@@ -314,3 +314,9 @@ export type BookingUpdate = Database['public']['Tables']['bookings']['Update'];
 export type NotificationUpdate = Database['public']['Tables']['notifications']['Update'];
 export type AssessmentUpdate = Database['public']['Tables']['assessments']['Update'];
 export type WaitingListUpdate = Database['public']['Tables']['waiting_list']['Update'];
+
+// Additional type aliases
+export type NotificationType = Database['public']['Tables']['notifications']['Row']['type'];
+export type UserRoleType = Database['public']['Tables']['users']['Row']['role'];
+export type BookingStatus = Database['public']['Tables']['bookings']['Row']['status'];
+export type NotificationStatus = Database['public']['Tables']['notifications']['Row']['status'];

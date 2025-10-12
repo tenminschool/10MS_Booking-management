@@ -1,6 +1,5 @@
-// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import cron from 'node-cron';
-// import prisma from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 import { notificationService } from './notification';
 
 interface BookingReminderData {
@@ -92,56 +91,66 @@ class SchedulerService {
       const reminderEnd = new Date(now.getTime() + (25 * 60 * 60 * 1000));
 
       // Get bookings that need reminders
-      const bookingsNeedingReminders = await prisma.booking.findMany({
-        where: {
-          status: 'CONFIRMED',
-          slot: {
-            date: {
-              gte: reminderStart,
-              lte: reminderEnd
-            }
-          }
-        },
-        include: {
-          student: {
-            select: {
-              id: true,
-              name: true,
-              phoneNumber: true
-            }
-          },
-          slot: {
-            include: {
-              teacher: {
-                select: { name: true }
-              },
-              branch: {
-                select: { name: true }
-              }
-            }
-          }
-        }
-      });
+      const { data: bookingsNeedingReminders, error: bookingsError } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          student:users!bookings_studentId_fkey(id, name, phone_number),
+          slot:slots(
+            date,
+            start_time,
+            teacher:users!slots_teacherId_fkey(name),
+            branch:branches(name)
+          )
+        `)
+        .eq('status', 'CONFIRMED')
+        .gte('slot.date', reminderStart.toISOString())
+        .lte('slot.date', reminderEnd.toISOString());
+      
+      if (bookingsError) {
+        throw bookingsError;
+      }
 
-      console.log(`📋 Found ${bookingsNeedingReminders.length} bookings needing reminders`);
+      console.log(`📋 Found ${bookingsNeedingReminders?.length || 0} bookings needing reminders`);
 
       // Check if we've already sent reminders for these bookings
-      const bookingsToRemind: BookingReminderData[] = [];
+      const bookingsToRemind: any[] = [];
 
-      for (const booking of bookingsNeedingReminders) {
+      for (const booking of bookingsNeedingReminders || []) {
+        // Cast to any to handle Supabase type issues
+        const student = booking.student as any;
+        const slot = booking.slot as any;
+        
         // Check if reminder was already sent (look for reminder notification in last 2 hours)
-        const recentReminder = await prisma.notification.findFirst({
-          where: {
-            userId: booking.student.id,
-            type: 'BOOKING_REMINDER',
-            createdAt: {
-              gte: new Date(now.getTime() - (2 * 60 * 60 * 1000)) // Last 2 hours
-            }
-          }
-        });
+        const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000));
+        const { data: recentReminder } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', student.id)
+          .eq('type', 'BOOKING_REMINDER')
+          .gte('created_at', twoHoursAgo.toISOString())
+          .limit(1)
+          .single();
 
         if (!recentReminder) {
-          bookingsToRemind.push(booking as BookingReminderData);
+          bookingsToRemind.push({
+            id: booking.id,
+            student: {
+              id: student.id,
+              name: student.name,
+              phoneNumber: student.phone_number
+            },
+            slot: {
+              date: new Date(slot.date),
+              startTime: slot.start_time,
+              teacher: {
+                name: slot.teacher?.name || 'Unknown'
+              },
+              branch: {
+                name: slot.branch?.name || 'Unknown'
+              }
+            }
+          });
         }
       }
 
@@ -189,39 +198,38 @@ class SchedulerService {
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-      const deletedNotifications = await prisma.notification.deleteMany({
-        where: {
-          createdAt: {
-            lt: ninetyDaysAgo
-          },
-          isRead: true // Only delete read notifications
-        }
-      });
+      const { count } = await supabase
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .lt('created_at', ninetyDaysAgo.toISOString())
+        .eq('is_read', true);
 
-      console.log(`🗑️ Deleted ${deletedNotifications.count} old notifications`);
+      console.log(`🗑️ Deleted ${count || 0} old notifications`);
 
       // Update completed bookings for slots that have passed
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
 
-      const updatedBookings = await prisma.booking.updateMany({
-        where: {
-          status: 'CONFIRMED',
-          attended: null,
-          slot: {
-            date: {
-              lt: yesterday
-            }
-          }
-        },
-        data: {
-          status: 'NO_SHOW',
-          attended: false
-        }
-      });
+      // First get the slot IDs that are in the past
+      const { data: pastSlots } = await supabase
+        .from('slots')
+        .select('id')
+        .lt('date', yesterday.toISOString());
 
-      if (updatedBookings.count > 0) {
-        console.log(`📝 Marked ${updatedBookings.count} past bookings as no-show`);
+      if (pastSlots && pastSlots.length > 0) {
+        const pastSlotIds = pastSlots.map(s => s.id);
+        
+        const { count } = await supabase
+          .from('bookings')
+          .update({ 
+            status: 'NO_SHOW'
+          }, { count: 'exact' })
+          .eq('status', 'CONFIRMED')
+          .in('slot_id', pastSlotIds);
+
+        if (count && count > 0) {
+          console.log(`📝 Marked ${count} past bookings as no-show`);
+        }
       }
 
       console.log('✅ Daily cleanup completed successfully');
@@ -274,40 +282,40 @@ class SchedulerService {
   // Send immediate booking confirmation (called from booking creation)
   async sendBookingConfirmation(bookingId: string): Promise<void> {
     try {
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: {
-          student: {
-            select: {
-              id: true,
-              name: true,
-              phoneNumber: true
-            }
-          },
-          slot: {
-            include: {
-              teacher: {
-                select: { name: true }
-              },
-              branch: {
-                select: { name: true }
-              }
-            }
-          }
-        }
-      });
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          student:users!bookings_studentId_fkey(id, name, phone_number),
+          slot:slots(
+            date,
+            start_time,
+            teacher:users!slots_teacherId_fkey(name),
+            branch:branches(name)
+          )
+        `)
+        .eq('id', bookingId)
+        .single();
 
-      if (!booking) {
+      if (error || !booking) {
         throw new Error('Booking not found');
       }
 
+      // Cast to any to handle Supabase type issues
+      const slot = booking.slot as any;
+      const student = booking.student as any;
+      
       const bookingDetails = {
         id: booking.id,
-        date: booking.slot.date.toISOString().split('T')[0],
-        time: booking.slot.startTime,
-        teacher: booking.slot.teacher.name,
-        branch: booking.slot.branch.name,
-        student: booking.student
+        date: slot.date,
+        time: slot.start_time,
+        teacher: slot.teacher?.name || 'Unknown',
+        branch: slot.branch?.name || 'Unknown',
+        student: {
+          id: student.id,
+          name: student.name,
+          phoneNumber: student.phone_number
+        }
       };
 
       await notificationService.sendBookingConfirmation(bookingDetails);
@@ -322,40 +330,40 @@ class SchedulerService {
   // Send immediate booking cancellation (called from booking cancellation)
   async sendBookingCancellation(bookingId: string, reason?: string): Promise<void> {
     try {
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: {
-          student: {
-            select: {
-              id: true,
-              name: true,
-              phoneNumber: true
-            }
-          },
-          slot: {
-            include: {
-              teacher: {
-                select: { name: true }
-              },
-              branch: {
-                select: { name: true }
-              }
-            }
-          }
-        }
-      });
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          student:users!bookings_studentId_fkey(id, name, phone_number),
+          slot:slots(
+            date,
+            start_time,
+            teacher:users!slots_teacherId_fkey(name),
+            branch:branches(name)
+          )
+        `)
+        .eq('id', bookingId)
+        .single();
 
-      if (!booking) {
+      if (error || !booking) {
         throw new Error('Booking not found');
       }
 
+      // Cast to any to handle Supabase type issues
+      const slot = booking.slot as any;
+      const student = booking.student as any;
+      
       const bookingDetails = {
         id: booking.id,
-        date: booking.slot.date.toISOString().split('T')[0],
-        time: booking.slot.startTime,
-        teacher: booking.slot.teacher.name,
-        branch: booking.slot.branch.name,
-        student: booking.student
+        date: slot.date,
+        time: slot.start_time,
+        teacher: slot.teacher?.name || 'Unknown',
+        branch: slot.branch?.name || 'Unknown',
+        student: {
+          id: student.id,
+          name: student.name,
+          phoneNumber: student.phone_number
+        }
       };
 
       await notificationService.sendBookingCancellation(bookingDetails, reason);

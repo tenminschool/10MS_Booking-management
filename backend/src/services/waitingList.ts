@@ -1,15 +1,13 @@
-// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
-// import prisma from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 import { notificationService } from './notification';
 
 export interface WaitingListEntry {
   id: string;
   studentId: string;
   slotId: string;
-  position: number;
+  priority: number; // Using priority from DB schema
   createdAt: Date;
   expiresAt: Date;
-  status: 'ACTIVE' | 'CONVERTED' | 'EXPIRED' | 'CANCELLED';
   student: {
     id: string;
     name: string;
@@ -39,169 +37,241 @@ export class WaitingListService {
    */
   static async addToWaitingList(studentId: string, slotId: string): Promise<WaitingListEntry> {
     // Check if slot exists and get current capacity
-    const slot = await prisma.slot.findUnique({
-      where: { id: slotId },
-      include: {
-        branch: { select: { id: true, name: true } },
-        teacher: { select: { id: true, name: true } },
-        bookings: {
-          where: { status: { in: ['CONFIRMED', 'COMPLETED'] } }
-        },
-        waitingList: {
-          where: { status: 'ACTIVE' },
-          orderBy: { position: 'asc' }
-        }
-      }
-    });
+    const { data: slot, error: slotError } = await supabase
+      .from('slots')
+      .select(`
+        *,
+        branch:branches(id, name),
+        teacher:users!slots_teacherId_fkey(id, name),
+        bookings:bookings(id, status)
+      `)
+      .eq('id', slotId)
+      .single();
 
-    if (!slot) {
+    if (slotError || !slot) {
       throw new Error('Slot not found');
     }
 
     // Check if slot is in the past
-    const slotDateTime = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.startTime}`);
+    const slotDateTime = new Date(`${slot.date.split('T')[0]}T${slot.start_time}`);
     if (slotDateTime < new Date()) {
       throw new Error('Cannot add to waiting list for past slots');
     }
 
     // Check if student is already on waiting list for this slot
-    const existingEntry = await prisma.waitingList.findFirst({
-      where: {
-        studentId,
-        slotId,
-        status: 'ACTIVE'
-      }
-    });
+    const { data: existingEntry } = await supabase
+      .from('waiting_list')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('slot_id', slotId)
+      .single();
 
     if (existingEntry) {
       throw new Error('Student is already on the waiting list for this slot');
     }
 
     // Check if student already has a confirmed booking for this slot
-    const existingBooking = await prisma.booking.findFirst({
-      where: {
-        studentId,
-        slotId,
-        status: { in: ['CONFIRMED', 'COMPLETED'] }
-      }
-    });
+    const { data: existingBooking } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('slot_id', slotId)
+      .in('status', ['CONFIRMED', 'COMPLETED'])
+      .single();
 
     if (existingBooking) {
       throw new Error('Student already has a confirmed booking for this slot');
     }
 
-    // Calculate position in waiting list
-    const nextPosition = slot.waitingList.length + 1;
+    // Get count of waiting list entries for priority calculation
+    const { count: waitingCount } = await supabase
+      .from('waiting_list')
+      .select('*', { count: 'exact', head: true })
+      .eq('slot_id', slotId);
+
+    const nextPriority = (waitingCount || 0) + 1;
 
     // Calculate expiry time
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + this.WAITING_LIST_EXPIRY_HOURS);
 
     // Create waiting list entry
-    const waitingListEntry = await prisma.waitingList.create({
-      data: {
-        studentId,
-        slotId,
-        position: nextPosition,
-        expiresAt
-      },
-      include: {
-        student: {
-          select: { id: true, name: true, phoneNumber: true }
-        },
-        slot: {
-          include: {
-            branch: { select: { id: true, name: true } },
-            teacher: { select: { id: true, name: true } }
-          }
-        }
-      }
-    });
+    const { data: waitingListEntry, error: createError } = await supabase
+      .from('waiting_list')
+      .insert({
+        student_id: studentId,
+        slot_id: slotId,
+        priority: nextPriority,
+        expires_at: expiresAt.toISOString()
+      })
+      .select(`
+        *,
+        student:users!waiting_list_student_id_fkey(id, name, phone_number),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name)
+        )
+      `)
+      .single();
+
+    if (createError || !waitingListEntry) {
+      throw new Error('Failed to add to waiting list');
+    }
 
     // Send notification to student
     await notificationService.sendNotification(
       studentId,
       'SYSTEM_ALERT',
       {
-        message: `You've been added to the waiting list for ${slot.branch.name} on ${slot.date.toLocaleDateString()} at ${slot.startTime}. Position: ${nextPosition}`,
+        message: `You've been added to the waiting list for ${waitingListEntry.slot.branch.name} on ${new Date(waitingListEntry.slot.date).toLocaleDateString()} at ${waitingListEntry.slot.start_time}. Position: ${nextPriority}`,
         slotId,
-        position: nextPosition.toString(),
+        position: nextPriority.toString(),
         expiresAt: expiresAt.toISOString()
       }
     );
 
-    return waitingListEntry;
+    // Map to return type
+    return {
+      id: waitingListEntry.id,
+      studentId: waitingListEntry.student_id,
+      slotId: waitingListEntry.slot_id,
+      priority: waitingListEntry.priority,
+      createdAt: new Date(waitingListEntry.created_at),
+      expiresAt: new Date(waitingListEntry.expires_at),
+      student: {
+        id: waitingListEntry.student.id,
+        name: waitingListEntry.student.name,
+        phoneNumber: waitingListEntry.student.phone_number
+      },
+      slot: {
+        id: waitingListEntry.slot.id,
+        date: new Date(waitingListEntry.slot.date),
+        startTime: waitingListEntry.slot.start_time,
+        endTime: waitingListEntry.slot.end_time,
+        branch: waitingListEntry.slot.branch,
+        teacher: waitingListEntry.slot.teacher
+      }
+    };
   }
 
   /**
    * Get waiting list for a specific slot
    */
   static async getWaitingListForSlot(slotId: string): Promise<WaitingListEntry[]> {
-    return await prisma.waitingList.findMany({
-      where: {
-        slotId,
-        status: 'ACTIVE'
+    const { data: entries, error } = await supabase
+      .from('waiting_list')
+      .select(`
+        *,
+        student:users!waiting_list_student_id_fkey(id, name, phone_number),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name)
+        )
+      `)
+      .eq('slot_id', slotId)
+      .gte('expires_at', new Date().toISOString()) // Only active entries
+      .order('priority', { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    return (entries || []).map(entry => ({
+      id: entry.id,
+      studentId: entry.student_id,
+      slotId: entry.slot_id,
+      priority: entry.priority,
+      createdAt: new Date(entry.created_at),
+      expiresAt: new Date(entry.expires_at),
+      student: {
+        id: entry.student.id,
+        name: entry.student.name,
+        phoneNumber: entry.student.phone_number
       },
-      include: {
-        student: {
-          select: { id: true, name: true, phoneNumber: true }
-        },
-        slot: {
-          include: {
-            branch: { select: { id: true, name: true } },
-            teacher: { select: { id: true, name: true } }
-          }
-        }
-      },
-      orderBy: { position: 'asc' }
-    });
+      slot: {
+        id: entry.slot.id,
+        date: new Date(entry.slot.date),
+        startTime: entry.slot.start_time,
+        endTime: entry.slot.end_time,
+        branch: entry.slot.branch,
+        teacher: entry.slot.teacher
+      }
+    }));
   }
 
   /**
    * Get waiting list entries for a student
    */
   static async getWaitingListForStudent(studentId: string): Promise<WaitingListEntry[]> {
-    return await prisma.waitingList.findMany({
-      where: {
-        studentId,
-        status: 'ACTIVE'
+    const { data: entries, error } = await supabase
+      .from('waiting_list')
+      .select(`
+        *,
+        student:users!waiting_list_student_id_fkey(id, name, phone_number),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name)
+        )
+      `)
+      .eq('student_id', studentId)
+      .gte('expires_at', new Date().toISOString()) // Only active entries
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    return (entries || []).map(entry => ({
+      id: entry.id,
+      studentId: entry.student_id,
+      slotId: entry.slot_id,
+      priority: entry.priority,
+      createdAt: new Date(entry.created_at),
+      expiresAt: new Date(entry.expires_at),
+      student: {
+        id: entry.student.id,
+        name: entry.student.name,
+        phoneNumber: entry.student.phone_number
       },
-      include: {
-        student: {
-          select: { id: true, name: true, phoneNumber: true }
-        },
-        slot: {
-          include: {
-            branch: { select: { id: true, name: true } },
-            teacher: { select: { id: true, name: true } }
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+      slot: {
+        id: entry.slot.id,
+        date: new Date(entry.slot.date),
+        startTime: entry.slot.start_time,
+        endTime: entry.slot.end_time,
+        branch: entry.slot.branch,
+        teacher: entry.slot.teacher
+      }
+    }));
   }
 
   /**
    * Remove a student from the waiting list
    */
   static async removeFromWaitingList(studentId: string, slotId: string): Promise<void> {
-    const entry = await prisma.waitingList.findFirst({
-      where: {
-        studentId,
-        slotId,
-        status: 'ACTIVE'
-      }
-    });
+    const { data: entry, error: findError } = await supabase
+      .from('waiting_list')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('slot_id', slotId)
+      .gte('expires_at', new Date().toISOString())
+      .single();
 
-    if (!entry) {
+    if (findError || !entry) {
       throw new Error('Student is not on the waiting list for this slot');
     }
 
-    // Update the entry status
-    await prisma.waitingList.update({
-      where: { id: entry.id },
-      data: { status: 'CANCELLED' }
-    });
+    // Delete the entry
+    const { error: deleteError } = await supabase
+      .from('waiting_list')
+      .delete()
+      .eq('id', entry.id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
 
     // Reorder remaining entries
     await this.reorderWaitingList(slotId);
@@ -211,80 +281,111 @@ export class WaitingListService {
    * Convert the next waiting list entry to a booking when a slot becomes available
    */
   static async convertNextToBooking(slotId: string): Promise<WaitingListEntry | null> {
-    const nextEntry = await prisma.waitingList.findFirst({
-      where: {
-        slotId,
-        status: 'ACTIVE'
-      },
-      include: {
-        student: {
-          select: { id: true, name: true, phoneNumber: true }
-        },
-        slot: {
-          include: {
-            branch: { select: { id: true, name: true } },
-            teacher: { select: { id: true, name: true } }
-          }
-        }
-      },
-      orderBy: { position: 'asc' }
-    });
+    const { data: nextEntry, error: findError } = await supabase
+      .from('waiting_list')
+      .select(`
+        *,
+        student:users!waiting_list_student_id_fkey(id, name, phone_number),
+        slot:slots(
+          *,
+          branch:branches(id, name),
+          teacher:users!slots_teacherId_fkey(id, name)
+        )
+      `)
+      .eq('slot_id', slotId)
+      .gte('expires_at', new Date().toISOString())
+      .order('priority', { ascending: true })
+      .limit(1)
+      .single();
 
-    if (!nextEntry) {
+    if (findError || !nextEntry) {
       return null;
     }
 
     // Create booking
-    const booking = await prisma.booking.create({
-      data: {
-        studentId: nextEntry.studentId,
-        slotId: nextEntry.slotId,
+    const { data: booking, error: bookingError } = await supabase
+      .from('bookings')
+      .insert({
+        student_id: nextEntry.student_id,
+        slot_id: nextEntry.slot_id,
         status: 'CONFIRMED'
-      }
-    });
+      })
+      .select('id')
+      .single();
 
-    // Update waiting list entry status
-    await prisma.waitingList.update({
-      where: { id: nextEntry.id },
-      data: { status: 'CONVERTED' }
-    });
+    if (bookingError || !booking) {
+      throw new Error('Failed to create booking from waiting list');
+    }
+
+    // Remove from waiting list
+    const { error: deleteError } = await supabase
+      .from('waiting_list')
+      .delete()
+      .eq('id', nextEntry.id);
+
+    if (deleteError) {
+      console.error('Failed to remove from waiting list:', deleteError);
+    }
 
     // Reorder remaining entries
     await this.reorderWaitingList(slotId);
 
     // Send notification to student
     await notificationService.sendNotification(
-      nextEntry.studentId,
+      nextEntry.student_id,
       'BOOKING_CONFIRMED',
       {
-        message: `Your waiting list position has been converted to a confirmed booking for ${nextEntry.slot.branch.name} on ${nextEntry.slot.date.toLocaleDateString()} at ${nextEntry.slot.startTime}`,
+        message: `Your waiting list position has been converted to a confirmed booking for ${nextEntry.slot.branch.name} on ${new Date(nextEntry.slot.date).toLocaleDateString()} at ${nextEntry.slot.start_time}`,
         bookingId: booking.id,
-        slotId: nextEntry.slotId
+        slotId: nextEntry.slot_id
       }
     );
 
-    return nextEntry;
+    return {
+      id: nextEntry.id,
+      studentId: nextEntry.student_id,
+      slotId: nextEntry.slot_id,
+      priority: nextEntry.priority,
+      createdAt: new Date(nextEntry.created_at),
+      expiresAt: new Date(nextEntry.expires_at),
+      student: {
+        id: nextEntry.student.id,
+        name: nextEntry.student.name,
+        phoneNumber: nextEntry.student.phone_number
+      },
+      slot: {
+        id: nextEntry.slot.id,
+        date: new Date(nextEntry.slot.date),
+        startTime: nextEntry.slot.start_time,
+        endTime: nextEntry.slot.end_time,
+        branch: nextEntry.slot.branch,
+        teacher: nextEntry.slot.teacher
+      }
+    };
   }
 
   /**
    * Reorder waiting list entries after removal
    */
   private static async reorderWaitingList(slotId: string): Promise<void> {
-    const entries = await prisma.waitingList.findMany({
-      where: {
-        slotId,
-        status: 'ACTIVE'
-      },
-      orderBy: { position: 'asc' }
-    });
+    const { data: entries, error } = await supabase
+      .from('waiting_list')
+      .select('*')
+      .eq('slot_id', slotId)
+      .gte('expires_at', new Date().toISOString())
+      .order('priority', { ascending: true });
 
-    // Update positions
+    if (error || !entries) {
+      return;
+    }
+
+    // Update priorities
     for (let i = 0; i < entries.length; i++) {
-      if (entries[i].position !== i + 1) {
-        await prisma.waitingList.update({
-          where: { id: entries[i].id },
-          data: { position: i + 1 }
-        });
+      if (entries[i].priority !== i + 1) {
+        await supabase
+          .from('waiting_list')
+          .update({ priority: i + 1 })
+          .eq('id', entries[i].id);
       }
     }
   }
@@ -293,34 +394,39 @@ export class WaitingListService {
    * Clean up expired waiting list entries
    */
   static async cleanupExpiredEntries(): Promise<number> {
-    const expiredEntries = await prisma.waitingList.findMany({
-      where: {
-        status: 'ACTIVE',
-        expiresAt: { lt: new Date() }
-      }
-    });
+    // Get expired entries
+    const { data: expiredEntries, error: findError } = await supabase
+      .from('waiting_list')
+      .select('*')
+      .lt('expires_at', new Date().toISOString());
+
+    if (findError || !expiredEntries) {
+      return 0;
+    }
 
     if (expiredEntries.length === 0) {
       return 0;
     }
 
-    // Update all expired entries
-    await prisma.waitingList.updateMany({
-      where: {
-        status: 'ACTIVE',
-        expiresAt: { lt: new Date() }
-      },
-      data: { status: 'EXPIRED' }
-    });
+    // Delete expired entries
+    const { error: deleteError } = await supabase
+      .from('waiting_list')
+      .delete()
+      .lt('expires_at', new Date().toISOString());
+
+    if (deleteError) {
+      console.error('Failed to delete expired entries:', deleteError);
+      return 0;
+    }
 
     // Send notifications to students about expired entries
     for (const entry of expiredEntries) {
       await notificationService.sendNotification(
-        entry.studentId,
+        entry.student_id,
         'SYSTEM_ALERT',
         {
           message: 'Your waiting list entry has expired. You can try booking again if slots are still available.',
-          slotId: entry.slotId
+          slotId: entry.slot_id
         }
       );
     }
@@ -332,20 +438,24 @@ export class WaitingListService {
    * Check if a slot has available capacity
    */
   static async hasAvailableCapacity(slotId: string): Promise<boolean> {
-    const slot = await prisma.slot.findUnique({
-      where: { id: slotId },
-      include: {
-        bookings: {
-          where: { status: { in: ['CONFIRMED', 'COMPLETED'] } }
-        }
-      }
-    });
+    const { data: slot, error } = await supabase
+      .from('slots')
+      .select(`
+        *,
+        bookings:bookings(id, status)
+      `)
+      .eq('id', slotId)
+      .single();
 
-    if (!slot) {
+    if (error || !slot) {
       return false;
     }
 
-    return slot.bookings.length < slot.capacity;
+    const confirmedBookings = (slot.bookings || []).filter(
+      (b: any) => ['CONFIRMED', 'COMPLETED'].includes(b.status)
+    ).length;
+
+    return confirmedBookings < slot.capacity;
   }
 }
 

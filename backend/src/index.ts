@@ -4,21 +4,21 @@ import helmet from 'helmet';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import branchRoutes from './routes/branches';
-// import importRoutes from './routes/import'; // DISABLED: Requires Prisma migration to Supabase
+import importRoutes from './routes/import';
 import slotRoutes from './routes/slots';
 import bookingRoutes from './routes/bookings';
-// import waitingListRoutes from './routes/waiting-list-enhanced'; // DISABLED: Requires Prisma migration to Supabase
+import waitingListRoutes from './routes/waiting-list-enhanced';
 import notificationRoutes from './routes/notifications';
 import adminNotificationRoutes from './routes/admin-notifications-simple';
 import assessmentRoutes from './routes/assessments';
 import dashboardRoutes from './routes/dashboard';
 import adminDashboardRoutes from './routes/admin-dashboard';
-// import reportRoutes from './routes/reports'; // DISABLED: Requires Prisma migration to Supabase
-// import systemRoutes from './routes/system'; // DISABLED: Requires Prisma migration to Supabase
+import reportRoutes from './routes/reports';
+import systemRoutes from './routes/system';
 import healthRoutes from './routes/health';
 import serviceTypeRoutes from './routes/service-types';
 import { supabase } from './lib/supabase';
-// import { schedulerService } from './services/scheduler'; // DISABLED: Requires Prisma migration to Supabase
+import { schedulerService } from './services/scheduler';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { validateRateLimit } from './middleware/validation';
 
@@ -70,18 +70,18 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
-// app.use('/api/import', importRoutes); // DISABLED: Requires Prisma migration
+app.use('/api/import', importRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/bookings', bookingRoutes);
-// app.use('/api/waiting-list', waitingListRoutes); // DISABLED: Requires Prisma migration
+app.use('/api/waiting-list', waitingListRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 app.use('/api/service-types', serviceTypeRoutes);
-// app.use('/api/reports', reportRoutes); // DISABLED: Requires Prisma migration
-// app.use('/api/system', systemRoutes); // DISABLED: Requires Prisma migration
+app.use('/api/reports', reportRoutes);
+app.use('/api/system', systemRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -97,13 +97,13 @@ app.use(globalErrorHandler);
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
-  // schedulerService.stop(); // DISABLED: Scheduler requires Prisma migration
+  schedulerService.stop();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
-  // schedulerService.stop(); // DISABLED: Scheduler requires Prisma migration
+  schedulerService.stop();
   process.exit(0);
 });
 
@@ -114,8 +114,8 @@ app.listen(PORT, () => {
   console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
 
   // Start scheduler service
-  // schedulerService.start(); // DISABLED: Scheduler requires Prisma migration
-  // console.log(`⏰ Notification scheduler started`);
+  schedulerService.start();
+  console.log(`⏰ Notification scheduler started`);
 });
 
 export default app;

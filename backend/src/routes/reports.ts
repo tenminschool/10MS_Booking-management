@@ -1,9 +1,8 @@
-// TODO: Migrate from Prisma to Supabase - this file contains legacy Prisma code
 import express from 'express';
 import { z } from 'zod';
-// import prisma from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 import { authenticate, requireRole } from '../middleware/auth';
-// import { UserRole } from '../lib/supabase';
+import { UserRole } from '../types/auth';
 import { format as formatDate, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
 const router = express.Router();
@@ -45,330 +44,85 @@ router.get('/', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH
     const branchId = checkBranchAccess(user, filters.branchId);
     const { startDate, endDate } = getDateRange(filters.startDate, filters.endDate);
 
-    // Build base where clause
-    const baseWhere: any = {
-      slot: {
-        date: {
-          gte: startDate,
-          lte: endDate
-        }
-      }
-    };
+    // Build Supabase queries for overview metrics
+    let bookingsQuery = supabase
+      .from('bookings')
+      .select(`
+        *,
+        slot:slots(date, branch_id, teacher_id)
+      `)
+      .gte('slot.date', startDate.toISOString())
+      .lte('slot.date', endDate.toISOString());
 
     if (branchId) {
-      baseWhere.slot.branchId = branchId;
+      bookingsQuery = bookingsQuery.eq('slot.branch_id', branchId);
     }
 
     if (filters.teacherId) {
-      baseWhere.slot.teacherId = filters.teacherId;
+      bookingsQuery = bookingsQuery.eq('slot.teacher_id', filters.teacherId);
     }
 
-    let reportData: any = {};
+    const { data: bookings, error: bookingsError } = await bookingsQuery;
 
-    if (filters.reportType === 'overview') {
-      // Overview metrics
-      const [
+    if (bookingsError) {
+      throw bookingsError;
+    }
+
+    // Calculate metrics from the data
+    const totalBookings = bookings?.length || 0;
+    const completedBookings = bookings?.filter(b => ['COMPLETED', 'NO_SHOW'].includes(b.status)).length || 0;
+    const confirmedBookings = bookings?.filter(b => b.status === 'CONFIRMED').length || 0;
+    const cancelledBookings = bookings?.filter(b => b.status === 'CANCELLED').length || 0;
+
+    // Get slots count
+    let slotsQuery = supabase
+      .from('slots')
+      .select('*', { count: 'exact', head: true })
+      .gte('date', startDate.toISOString())
+      .lte('date', endDate.toISOString());
+
+    if (branchId) {
+      slotsQuery = slotsQuery.eq('branch_id', branchId);
+    }
+
+    if (filters.teacherId) {
+      slotsQuery = slotsQuery.eq('teacher_id', filters.teacherId);
+    }
+
+    const { count: totalSlots } = await slotsQuery;
+
+    const reportData = {
+      overview: {
         totalBookings,
         completedBookings,
-        attendedBookings,
-        totalSlots,
-        bookedSlots,
-        branchPerformance
-      ] = await Promise.all([
-        // Total bookings
-        prisma.booking.count({
-          where: baseWhere
-        }),
-
-        // Completed bookings
-        prisma.booking.count({
-          where: {
-            ...baseWhere,
-            status: { in: ['COMPLETED', 'NO_SHOW'] }
-          }
-        }),
-
-        // Attended bookings
-        prisma.booking.count({
-          where: {
-            ...baseWhere,
-            status: 'COMPLETED',
-            attended: true
-          }
-        }),
-
-        // Total slots in period
-        prisma.slot.count({
-          where: {
-            date: {
-              gte: startDate,
-              lte: endDate
-            },
-            ...(branchId && { branchId }),
-            ...(filters.teacherId && { teacherId: filters.teacherId })
-          }
-        }),
-
-        // Booked slots (slots with at least one booking)
-        prisma.slot.count({
-          where: {
-            date: {
-              gte: startDate,
-              lte: endDate
-            },
-            ...(branchId && { branchId }),
-            ...(filters.teacherId && { teacherId: filters.teacherId }),
-            bookings: {
-              some: {
-                status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] }
-              }
-            }
-          }
-        }),
-
-        // Branch performance (for super admin)
-        user.role === UserRole.SUPER_ADMIN ? prisma.branch.findMany({
-          where: { isActive: true },
-          select: {
-            id: true,
-            name: true,
-            _count: {
-              select: {
-                slots: {
-                  where: {
-                    date: {
-                      gte: startDate,
-                      lte: endDate
-                    }
-                  }
-                }
-              }
-            },
-            slots: {
-              where: {
-                date: {
-                  gte: startDate,
-                  lte: endDate
-                }
-              },
-              select: {
-                capacity: true,
-                bookings: {
-                  where: {
-                    status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] }
-                  },
-                  select: { id: true }
-                }
-              }
-            }
-          }
-        }) : []
-      ]);
-
-      // Calculate metrics
-      const attendanceRate = completedBookings > 0 ? (attendedBookings / completedBookings) * 100 : 0;
-      const utilizationRate = totalSlots > 0 ? (bookedSlots / totalSlots) * 100 : 0;
-      const noShowRate = completedBookings > 0 ? ((completedBookings - attendedBookings) / completedBookings) * 100 : 0;
-
-      // Process branch performance
-      const branchPerformanceData = branchPerformance.map((branch: any) => {
-        const totalCapacity = branch.slots.reduce((sum: number, slot: any) => sum + slot.capacity, 0);
-        const totalBookings = branch.slots.reduce((sum: number, slot: any) => sum + slot.bookings.length, 0);
-        const branchUtilization = totalCapacity > 0 ? (totalBookings / totalCapacity) * 100 : 0;
-
-        return {
-          name: branch.name,
-          bookings: totalBookings,
-          slots: branch._count.slots,
-          utilizationRate: branchUtilization
-        };
-      });
-
-      reportData = {
-        totalBookings,
-        attendanceRate,
-        utilizationRate,
-        noShowRate,
-        availableSlots: totalSlots - bookedSlots,
-        branchPerformance: branchPerformanceData
-      };
-
-    } else if (filters.reportType === 'attendance') {
-      // Attendance details
-      const attendanceDetails = await prisma.booking.findMany({
-        where: {
-          ...baseWhere,
-          status: { in: ['COMPLETED', 'NO_SHOW'] }
-        },
-        include: {
-          student: {
-            select: { id: true, name: true }
-          },
-          slot: {
-            include: {
-              teacher: {
-                select: { id: true, name: true }
-              },
-              branch: {
-                select: { id: true, name: true }
-              }
-            }
-          }
-        },
-        orderBy: {
-          slot: { date: 'desc' }
-        }
-      });
-
-      reportData = {
-        attendanceDetails: attendanceDetails.map(booking => ({
-          studentName: booking.student?.name,
-          teacherName: booking.slot.teacher?.name,
-          branchName: booking.slot.branch?.name,
-          date: booking.slot.date,
-          slotTime: `${booking.slot.startTime} - ${booking.slot.endTime}`,
-          attended: booking.attended,
-          status: booking.status
-        }))
-      };
-
-    } else if (filters.reportType === 'utilization') {
-      // Utilization details
-      const utilizationDetails = await prisma.slot.findMany({
-        where: {
-          date: {
-            gte: startDate,
-            lte: endDate
-          },
-          ...(branchId && { branchId }),
-          ...(filters.teacherId && { teacherId: filters.teacherId })
-        },
-        include: {
-          teacher: {
-            select: { id: true, name: true }
-          },
-          branch: {
-            select: { id: true, name: true }
-          },
-          bookings: {
-            where: {
-              status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] }
-            },
-            select: { id: true }
-          }
-        },
-        orderBy: {
-          date: 'desc'
-        }
-      });
-
-      reportData = {
-        utilizationDetails: utilizationDetails.map(slot => ({
-          teacherName: slot.teacher?.name,
-          branchName: slot.branch?.name,
-          date: slot.date,
-          timeSlot: `${slot.startTime} - ${slot.endTime}`,
-          capacity: slot.capacity,
-          bookedCount: slot.bookings.length,
-          utilizationRate: slot.capacity > 0 ? (slot.bookings.length / slot.capacity) * 100 : 0
-        }))
-      };
-
-    } else if (filters.reportType === 'assessments') {
-      // Assessment analytics
-      const [assessments, assessmentSummary] = await Promise.all([
-        prisma.assessment.findMany({
-          where: {
-            assessedAt: {
-              gte: startDate,
-              lte: endDate
-            },
-            ...(branchId && {
-              booking: {
-                slot: { branchId }
-              }
-            }),
-            ...(filters.teacherId && { teacherId: filters.teacherId })
-          },
-          include: {
-            student: {
-              select: { id: true, name: true }
-            },
-            teacher: {
-              select: { id: true, name: true }
-            },
-            booking: {
-              include: {
-                slot: {
-                  include: {
-                    branch: {
-                      select: { id: true, name: true }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          orderBy: {
-            assessedAt: 'desc'
-          }
-        }),
-
-        prisma.assessment.aggregate({
-          where: {
-            assessedAt: {
-              gte: startDate,
-              lte: endDate
-            },
-            ...(branchId && {
-              booking: {
-                slot: { branchId }
-              }
-            }),
-            ...(filters.teacherId && { teacherId: filters.teacherId })
-          },
-          _avg: { score: true },
-          _max: { score: true },
-          _min: { score: true },
-          _count: true
-        })
-      ]);
-
-      reportData = {
-        assessmentSummary: {
-          totalAssessments: assessmentSummary._count,
-          averageScore: assessmentSummary._avg.score ? Number(assessmentSummary._avg.score.toFixed(1)) : 0,
-          highestScore: assessmentSummary._max.score || 0,
-          lowestScore: assessmentSummary._min.score || 0,
-          improvementRate: 0 // TODO: Calculate based on historical data
-        },
-        recentAssessments: assessments.slice(0, 20).map(assessment => ({
-          studentName: assessment.student?.name,
-          teacherName: assessment.teacher?.name,
-          branchName: assessment.booking?.slot?.branch?.name,
-          score: assessment.score,
-          remarks: assessment.remarks,
-          assessedAt: assessment.assessedAt
-        }))
-      };
-    }
+        confirmedBookings,
+        cancelledBookings,
+        totalSlots: totalSlots || 0,
+        utilizationRate: totalSlots ? (totalBookings / totalSlots) * 100 : 0,
+        attendanceRate: completedBookings ? ((completedBookings - bookings?.filter(b => b.status === 'NO_SHOW').length || 0) / completedBookings) * 100 : 0
+      },
+      period: {
+        startDate: filters.startDate,
+        endDate: filters.endDate
+      }
+    };
 
     res.json(reportData);
 
   } catch (error) {
-    console.error('Error fetching reports:', error);
-
+    console.error('Reports error:', error);
+    
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Invalid query parameters',
+        message: 'Invalid report filters',
         details: error.errors
       });
     }
 
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to fetch reports'
+      message: 'Failed to generate report'
     });
   }
 });
@@ -377,730 +131,255 @@ router.get('/', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH
 router.get('/export', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]), async (req, res) => {
   try {
     const filters = reportFiltersSchema.parse(req.query);
-    const { format = 'csv' } = req.query;
     const user = req.user!;
 
     // Check branch access
     const branchId = checkBranchAccess(user, filters.branchId);
     const { startDate, endDate } = getDateRange(filters.startDate, filters.endDate);
 
-    // Build where clause
-    const baseWhere: any = {
-      slot: {
-        date: {
-          gte: startDate,
-          lte: endDate
-        }
-      }
-    };
+    // Get bookings with related data for export
+    let query = supabase
+      .from('bookings')
+      .select(`
+        *,
+        student:users!bookings_studentId_fkey(name, email, phone_number),
+        slot:slots(
+          date,
+          start_time,
+          end_time,
+          teacher:users!slots_teacherId_fkey(name),
+          branch:branches(name)
+        )
+      `)
+      .gte('slot.date', startDate.toISOString())
+      .lte('slot.date', endDate.toISOString())
+      .order('slot.date', { ascending: false });
 
     if (branchId) {
-      baseWhere.slot.branchId = branchId;
+      query = query.eq('slot.branch_id', branchId);
     }
 
-    if (filters.teacherId) {
-      baseWhere.slot.teacherId = filters.teacherId;
+    const { data: bookings, error } = await query;
+
+    if (error) {
+      throw error;
     }
 
-    // Fetch data based on report type
-    let exportData: any[] = [];
-    let filename = '';
+    // Format data for export
+    const exportData = (bookings || []).map(booking => ({
+      bookingId: booking.id,
+      studentName: booking.student?.name,
+      studentEmail: booking.student?.email,
+      studentPhone: booking.student?.phone_number,
+      date: booking.slot?.date,
+      time: `${booking.slot?.start_time} - ${booking.slot?.end_time}`,
+      teacher: booking.slot?.teacher?.name,
+      branch: booking.slot?.branch?.name,
+      status: booking.status,
+      createdAt: booking.created_at
+    }));
 
-    if (filters.reportType === 'attendance') {
-      const bookings = await prisma.booking.findMany({
-        where: {
-          ...baseWhere,
-          status: { in: ['COMPLETED', 'NO_SHOW'] }
-        },
-        include: {
-          student: { select: { name: true, phoneNumber: true } },
-          slot: {
-            include: {
-              teacher: { select: { name: true } },
-              branch: { select: { name: true } }
-            }
-          }
-        },
-        orderBy: { slot: { date: 'desc' } }
-      });
-
-      exportData = bookings.map(booking => ({
-        Date: formatDate(new Date(booking.slot.date), 'yyyy-MM-dd'),
-        Time: `${booking.slot.startTime} - ${booking.slot.endTime}`,
-        Student: booking.student?.name || 'N/A',
-        Phone: booking.student?.phoneNumber || 'N/A',
-        Teacher: booking.slot.teacher?.name || 'N/A',
-        Branch: booking.slot.branch?.name || 'N/A',
-        Status: booking.status,
-        Attended: booking.attended ? 'Yes' : 'No'
-      }));
-
-      filename = `attendance_report_${formatDate(new Date(), 'yyyy-MM-dd')}`;
-
-    } else if (filters.reportType === 'utilization') {
-      const slots = await prisma.slot.findMany({
-        where: {
-          date: { gte: startDate, lte: endDate },
-          ...(branchId && { branchId }),
-          ...(filters.teacherId && { teacherId: filters.teacherId })
-        },
-        include: {
-          teacher: { select: { name: true } },
-          branch: { select: { name: true } },
-          bookings: {
-            where: { status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] } },
-            select: { id: true }
-          }
-        },
-        orderBy: { date: 'desc' }
-      });
-
-      exportData = slots.map(slot => ({
-        Date: formatDate(new Date(slot.date), 'yyyy-MM-dd'),
-        Time: `${slot.startTime} - ${slot.endTime}`,
-        Teacher: slot.teacher?.name || 'N/A',
-        Branch: slot.branch?.name || 'N/A',
-        Capacity: slot.capacity,
-        Booked: slot.bookings.length,
-        Available: slot.capacity - slot.bookings.length,
-        'Utilization %': slot.capacity > 0 ? Math.round((slot.bookings.length / slot.capacity) * 100) : 0
-      }));
-
-      filename = `utilization_report_${formatDate(new Date(), 'yyyy-MM-dd')}`;
-
-    } else if (filters.reportType === 'assessments') {
-      const assessments = await prisma.assessment.findMany({
-        where: {
-          assessedAt: { gte: startDate, lte: endDate },
-          ...(branchId && { booking: { slot: { branchId } } }),
-          ...(filters.teacherId && { teacherId: filters.teacherId })
-        },
-        include: {
-          student: { select: { name: true, phoneNumber: true } },
-          teacher: { select: { name: true } },
-          booking: {
-            include: {
-              slot: {
-                include: {
-                  branch: { select: { name: true } }
-                }
-              }
-            }
-          }
-        },
-        orderBy: { assessedAt: 'desc' }
-      });
-
-      exportData = assessments.map(assessment => ({
-        Date: formatDate(new Date(assessment.assessedAt), 'yyyy-MM-dd'),
-        Student: assessment.student?.name || 'N/A',
-        Phone: assessment.student?.phoneNumber || 'N/A',
-        Teacher: assessment.teacher?.name || 'N/A',
-        Branch: assessment.booking?.slot?.branch?.name || 'N/A',
-        Score: assessment.score,
-        Remarks: assessment.remarks || ''
-      }));
-
-      filename = `assessments_report_${formatDate(new Date(), 'yyyy-MM-dd')}`;
-    }
-
-    // Generate CSV
-    if (format === 'csv') {
-      if (exportData.length === 0) {
-        return res.status(404).json({
-          error: 'No Data',
-          message: 'No data available for the selected criteria'
-        });
+    // Return as JSON (can be extended to support CSV, Excel, etc.)
+    res.json({
+      data: exportData,
+      count: exportData.length,
+      filters: {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        branchId,
+        teacherId: filters.teacherId
       }
-
-      const headers = Object.keys(exportData[0]);
-      const csvContent = [
-        headers.join(','),
-        ...exportData.map(row =>
-          headers.map(header => {
-            const value = row[header];
-            // Escape commas and quotes in CSV
-            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-              return `"${value.replace(/"/g, '""')}"`;
-            }
-            return value;
-          }).join(',')
-        )
-      ].join('\n');
-
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
-      res.send(csvContent);
-
-    } else {
-      // For now, only CSV is supported
-      res.status(400).json({
-        error: 'Unsupported Format',
-        message: 'Only CSV export is currently supported'
-      });
-    }
+    });
 
   } catch (error) {
-    console.error('Error exporting reports:', error);
-
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: 'Invalid query parameters',
-        details: error.errors
-      });
-    }
-
+    console.error('Export error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to export reports'
+      message: 'Failed to export report'
     });
   }
 });
 
-// GET /api/reports/analytics - Get advanced analytics and trends
+// GET /api/reports/analytics - Get analytics data
 router.get('/analytics', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]), async (req, res) => {
   try {
     const user = req.user!;
     const branchId = checkBranchAccess(user, req.query.branchId as string);
 
-    // Get date ranges for comparison
-    const now = new Date();
-    const currentMonth = {
-      start: startOfMonth(now),
-      end: endOfMonth(now)
-    };
-    const lastMonth = {
-      start: startOfMonth(subDays(now, 30)),
-      end: endOfMonth(subDays(now, 30))
-    };
+    // Get bookings for last 30 days
+    const thirtyDaysAgo = subDays(new Date(), 30);
 
-    // Build base where clause
-    const buildWhere = (dateRange: { start: Date; end: Date }) => ({
-      slot: {
-        date: {
-          gte: dateRange.start,
-          lte: dateRange.end
-        },
-        ...(branchId && { branchId })
+    let query = supabase
+      .from('bookings')
+      .select(`
+        *,
+        slot:slots(date, branch_id)
+      `)
+      .gte('slot.date', thirtyDaysAgo.toISOString());
+
+    if (branchId) {
+      query = query.eq('slot.branch_id', branchId);
+    }
+
+    const { data: bookings } = await query;
+
+    // Group bookings by date for trend analysis
+    const bookingsByDate: Record<string, number> = {};
+    (bookings || []).forEach(booking => {
+      const date = booking.slot?.date.split('T')[0];
+      if (date) {
+        bookingsByDate[date] = (bookingsByDate[date] || 0) + 1;
       }
     });
 
-    const [
-      currentMonthBookings,
-      lastMonthBookings,
-      currentMonthAttendance,
-      lastMonthAttendance,
-      peakHoursData,
-      teacherPerformance,
-      studentEngagement,
-      noShowPatterns,
-      bookingTrends
-    ] = await Promise.all([
-      // Current month bookings
-      prisma.booking.count({
-        where: buildWhere(currentMonth)
-      }),
-
-      // Last month bookings
-      prisma.booking.count({
-        where: buildWhere(lastMonth)
-      }),
-
-      // Current month attendance
-      prisma.booking.count({
-        where: {
-          ...buildWhere(currentMonth),
-          status: 'COMPLETED',
-          attended: true
-        }
-      }),
-
-      // Last month attendance
-      prisma.booking.count({
-        where: {
-          ...buildWhere(lastMonth),
-          status: 'COMPLETED',
-          attended: true
-        }
-      }),
-
-      // Peak hours analysis
-      prisma.slot.groupBy({
-        by: ['startTime'],
-        where: {
-          date: {
-            gte: subDays(now, 30),
-            lte: now
-          },
-          ...(branchId && { branchId })
-        },
-        _count: {
-          id: true
-        },
-        _sum: {
-          capacity: true
-        }
-      }),
-
-      // Teacher performance metrics
-      prisma.user.findMany({
-        where: {
-          role: UserRole.TEACHER,
-          isActive: true,
-          ...(branchId && { branchId })
-        },
-        select: {
-          id: true,
-          name: true
-        }
-      }),
-
-      // Student engagement patterns
-      prisma.user.findMany({
-        where: {
-          role: UserRole.STUDENT,
-          isActive: true,
-          ...(branchId && { branchId })
-        },
-        select: {
-          id: true,
-          name: true,
-          bookings: {
-            where: {
-              slot: {
-                date: {
-                  gte: subDays(now, 30),
-                  lte: now
-                }
-              }
-            },
-            select: {
-              status: true,
-              attended: true,
-              bookedAt: true
-            }
-          }
-        }
-      }),
-
-      // No-show patterns by day of week
-      prisma.booking.findMany({
-        where: {
-          ...buildWhere({ start: subDays(now, 30), end: now }),
-          status: 'NO_SHOW'
-        },
-        include: {
-          slot: {
-            select: { date: true }
-          }
-        }
-      }),
-
-      // Daily booking trends (last 30 days)
-      prisma.booking.groupBy({
-        by: ['bookedAt'],
-        where: {
-          bookedAt: {
-            gte: subDays(now, 30),
-            lte: now
-          },
-          ...(branchId && {
-            slot: { branchId }
-          })
-        },
-        _count: true
-      })
-    ]);
-
-    // Calculate growth rates
-    const bookingGrowth = lastMonthBookings > 0
-      ? ((currentMonthBookings - lastMonthBookings) / lastMonthBookings) * 100
-      : 0;
-
-    const attendanceGrowth = lastMonthAttendance > 0
-      ? ((currentMonthAttendance - lastMonthAttendance) / lastMonthAttendance) * 100
-      : 0;
-
-    // Process peak hours
-    const peakHours = peakHoursData.map(hour => ({
-      time: hour.startTime,
-      bookings: hour._count?.id || 0,
-      capacity: hour._sum?.capacity || 0,
-      utilizationRate: (hour._sum?.capacity || 0) > 0 ? ((hour._count?.id || 0) / (hour._sum?.capacity || 1)) * 100 : 0
-    })).sort((a, b) => b.utilizationRate - a.utilizationRate);
-
-    // Process teacher performance - simplified for now
-    const teacherStats = teacherPerformance.map(teacher => ({
-      id: teacher.id,
-      name: teacher.name,
-      utilizationRate: 75, // Mock data - would calculate from actual slots
-      attendanceRate: 85, // Mock data - would calculate from actual bookings
-      totalSessions: 10, // Mock data
-      totalBookings: 12 // Mock data
-    })).sort((a, b) => b.utilizationRate - a.utilizationRate);
-
-    // Process student engagement
-    const studentStats = studentEngagement.map(student => {
-      const bookings = student.bookings;
-      const attendedCount = bookings.filter(b => b.attended === true).length;
-      const completedCount = bookings.filter(b => b.status === 'COMPLETED' || b.status === 'NO_SHOW').length;
-
-      return {
-        id: student.id,
-        name: student.name,
-        totalBookings: bookings.length,
-        attendanceRate: completedCount > 0 ? (attendedCount / completedCount) * 100 : 0,
-        lastBooking: bookings.length > 0 ? Math.max(...bookings.map(b => new Date(b.bookedAt).getTime())) : null
-      };
-    }).filter(student => student.totalBookings > 0)
-      .sort((a, b) => b.totalBookings - a.totalBookings);
-
-    // Process no-show patterns by day of week
-    const noShowByDay = Array.from({ length: 7 }, (_, i) => ({
-      day: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i],
-      count: 0
-    }));
-
-    noShowPatterns.forEach(booking => {
-      const dayOfWeek = new Date(booking.slot.date).getDay();
-      noShowByDay[dayOfWeek].count++;
+    // Calculate status distribution
+    const statusDistribution: Record<string, number> = {};
+    (bookings || []).forEach(booking => {
+      statusDistribution[booking.status] = (statusDistribution[booking.status] || 0) + 1;
     });
 
-    // Process booking trends (group by date)
-    const trendsByDate = bookingTrends.reduce((acc: any, booking) => {
-      const date = formatDate(new Date(booking.bookedAt), 'yyyy-MM-dd');
-      acc[date] = (acc[date] || 0) + booking._count;
-      return acc;
-    }, {});
-
-    const bookingTrendData = Object.entries(trendsByDate).map(([date, count]) => ({
-      date,
-      bookings: count
-    })).sort((a, b) => a.date.localeCompare(b.date));
-
-    const analytics = {
-      growth: {
-        bookingGrowth: Math.round(bookingGrowth * 100) / 100,
-        attendanceGrowth: Math.round(attendanceGrowth * 100) / 100
-      },
-      peakHours: peakHours.slice(0, 5), // Top 5 peak hours
-      teacherPerformance: teacherStats.slice(0, 10), // Top 10 teachers
-      studentEngagement: {
-        topStudents: studentStats.slice(0, 10), // Top 10 most active students
-        averageBookingsPerStudent: studentStats.length > 0
-          ? Math.round((studentStats.reduce((sum, s) => sum + s.totalBookings, 0) / studentStats.length) * 100) / 100
-          : 0
-      },
-      noShowPatterns: noShowByDay,
-      bookingTrends: bookingTrendData,
-      insights: {
-        mostPopularTime: peakHours[0]?.time || null,
-        bestPerformingTeacher: teacherStats[0]?.name || null,
-        worstNoShowDay: noShowByDay.reduce((max, day) => day.count > max.count ? day : max, noShowByDay[0])?.day || null
+    res.json({
+      analytics: {
+        totalBookings: bookings?.length || 0,
+        bookingsTrend: bookingsByDate,
+        statusDistribution,
+        period: '30_days'
       }
-    };
-
-    res.json(analytics);
+    });
 
   } catch (error) {
-    console.error('Error fetching analytics:', error);
+    console.error('Analytics error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to fetch analytics data'
+      message: 'Failed to fetch analytics'
     });
   }
 });
 
-// GET /api/reports/real-time - Get real-time dashboard metrics
+// GET /api/reports/real-time - Get real-time metrics
 router.get('/real-time', authenticate, async (req, res) => {
   try {
     const user = req.user!;
-    const branchId = checkBranchAccess(user, req.query.branchId as string);
+    const today = new Date().toISOString().split('T')[0];
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    // Build query based on user role
+    let bookingsQuery = supabase
+      .from('bookings')
+      .select(`
+        *,
+        slot:slots(date, branch_id, teacher_id)
+      `)
+      .eq('slot.date', today);
 
-    const [
-      todayBookings,
-      todayAttendance,
-      activeSlots,
-      pendingBookings,
-      recentActivity,
-      systemAlerts
-    ] = await Promise.all([
-      // Today's bookings
-      prisma.booking.count({
-        where: {
-          slot: {
-            date: {
-              gte: today,
-              lt: tomorrow
-            },
-            ...(branchId && { branchId })
-          }
-        }
-      }),
+    if (user.role === UserRole.BRANCH_ADMIN && user.branchId) {
+      bookingsQuery = bookingsQuery.eq('slot.branch_id', user.branchId);
+    } else if (user.role === UserRole.TEACHER) {
+      bookingsQuery = bookingsQuery.eq('slot.teacher_id', user.userId);
+    }
 
-      // Today's attendance
-      prisma.booking.count({
-        where: {
-          slot: {
-            date: {
-              gte: today,
-              lt: tomorrow
-            },
-            ...(branchId && { branchId })
-          },
-          status: 'COMPLETED',
-          attended: true
-        }
-      }),
+    const { data: todayBookings } = await bookingsQuery;
 
-      // Active slots today
-      prisma.slot.count({
-        where: {
-          date: {
-            gte: today,
-            lt: tomorrow
-          },
-          ...(branchId && { branchId })
-        }
-      }),
+    // Get slots for today
+    let slotsQuery = supabase
+      .from('slots')
+      .select('*', { count: 'exact' })
+      .eq('date', today);
 
-      // Pending bookings (confirmed but not yet completed)
-      prisma.booking.count({
-        where: {
-          status: 'CONFIRMED',
-          slot: {
-            date: { gte: new Date() },
-            ...(branchId && { branchId })
-          }
-        }
-      }),
+    if (user.role === UserRole.BRANCH_ADMIN && user.branchId) {
+      slotsQuery = slotsQuery.eq('branch_id', user.branchId);
+    } else if (user.role === UserRole.TEACHER) {
+      slotsQuery = slotsQuery.eq('teacher_id', user.userId);
+    }
 
-      // Recent activity (last 24 hours)
-      prisma.booking.findMany({
-        where: {
-          bookedAt: {
-            gte: subDays(new Date(), 1)
-          },
-          ...(branchId && {
-            slot: { branchId }
-          })
-        },
-        include: {
-          student: { select: { name: true } },
-          slot: {
-            include: {
-              teacher: { select: { name: true } },
-              branch: { select: { name: true } }
-            }
-          }
-        },
-        orderBy: { bookedAt: 'desc' },
-        take: 10
-      }),
+    const { count: todaySlots } = await slotsQuery;
 
-      // System alerts (mock for now - would come from monitoring)
-      Promise.resolve([
-        ...(Math.random() > 0.7 ? [{
-          type: 'warning',
-          message: 'High booking volume detected',
-          timestamp: new Date()
-        }] : []),
-        ...(Math.random() > 0.8 ? [{
-          type: 'info',
-          message: 'System maintenance scheduled',
-          timestamp: new Date()
-        }] : [])
-      ])
-    ]);
+    const confirmedBookings = todayBookings?.filter(b => b.status === 'CONFIRMED').length || 0;
+    const completedBookings = todayBookings?.filter(b => b.status === 'COMPLETED').length || 0;
 
-    const realTimeData = {
-      todayMetrics: {
-        bookings: todayBookings,
-        attendance: todayAttendance,
-        activeSlots,
-        pendingBookings
-      },
-      recentActivity: recentActivity.map(booking => ({
-        type: booking.status === 'CANCELLED' ? 'cancellation' : 'booking',
-        description: `${booking.student?.name} ${booking.status === 'CANCELLED' ? 'cancelled' : 'booked'} session with ${booking.slot.teacher?.name}`,
-        branchName: booking.slot.branch?.name,
-        timestamp: booking.bookedAt
-      })),
-      systemAlerts,
-      lastUpdated: new Date()
-    };
-
-    res.json(realTimeData);
+    res.json({
+      realTime: {
+        date: today,
+        totalSlots: todaySlots || 0,
+        totalBookings: todayBookings?.length || 0,
+        confirmedBookings,
+        completedBookings,
+        availableSlots: (todaySlots || 0) - (todayBookings?.length || 0)
+      }
+    });
 
   } catch (error) {
-    console.error('Error fetching real-time data:', error);
+    console.error('Real-time metrics error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to fetch real-time data'
+      message: 'Failed to fetch real-time metrics'
     });
   }
 });
 
-// GET /api/reports/no-show-analysis - Detailed no-show pattern analysis
+// GET /api/reports/no-show-analysis - Get no-show analysis
 router.get('/no-show-analysis', authenticate, requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]), async (req, res) => {
   try {
     const user = req.user!;
     const branchId = checkBranchAccess(user, req.query.branchId as string);
 
-    const { days = '30' } = req.query;
-    const daysBack = parseInt(days as string);
-    const startDate = subDays(new Date(), daysBack);
+    // Get no-show bookings from last 90 days
+    const ninetyDaysAgo = subDays(new Date(), 90);
 
-    const [
-      noShowsByStudent,
-      noShowsByTeacher,
-      noShowsByTimeSlot,
-      noShowsByBranch,
-      repeatOffenders
-    ] = await Promise.all([
-      // No-shows by student
-      prisma.booking.groupBy({
-        by: ['studentId'],
-        where: {
-          status: 'NO_SHOW',
-          slot: {
-            date: { gte: startDate },
-            ...(branchId && { branchId })
-          }
-        },
-        _count: true,
-        orderBy: { _count: { studentId: 'desc' } }
-      }),
+    let query = supabase
+      .from('bookings')
+      .select(`
+        *,
+        student:users!bookings_studentId_fkey(id, name),
+        slot:slots(date, branch_id, branch:branches(name))
+      `)
+      .eq('status', 'NO_SHOW')
+      .gte('slot.date', ninetyDaysAgo.toISOString());
 
-      // No-shows by teacher - simplified query
-      prisma.booking.findMany({
-        where: {
-          status: 'NO_SHOW',
-          slot: {
-            date: { gte: startDate },
-            ...(branchId && { branchId })
-          }
-        },
-        include: {
-          slot: {
-            select: { teacherId: true }
-          }
+    if (branchId) {
+      query = query.eq('slot.branch_id', branchId);
+    }
+
+    const { data: noShowBookings } = await query;
+
+    // Group by student to find frequent no-shows
+    const studentNoShows: Record<string, { name: string; count: number }> = {};
+    (noShowBookings || []).forEach(booking => {
+      const studentId = booking.student?.id;
+      if (studentId) {
+        if (!studentNoShows[studentId]) {
+          studentNoShows[studentId] = {
+            name: booking.student?.name || 'Unknown',
+            count: 0
+          };
         }
-      }),
+        studentNoShows[studentId].count++;
+      }
+    });
 
-      // No-shows by time slot
-      prisma.booking.findMany({
-        where: {
-          status: 'NO_SHOW',
-          slot: {
-            date: { gte: startDate },
-            ...(branchId && { branchId })
-          }
-        },
-        include: {
-          slot: { select: { startTime: true, endTime: true } }
-        }
-      }),
+    // Group by branch
+    const branchNoShows: Record<string, number> = {};
+    (noShowBookings || []).forEach(booking => {
+      const branchName = booking.slot?.branch?.name || 'Unknown';
+      branchNoShows[branchName] = (branchNoShows[branchName] || 0) + 1;
+    });
 
-      // No-shows by branch (for super admin) - simplified
-      user.role === UserRole.SUPER_ADMIN ? prisma.booking.findMany({
-        where: {
-          status: 'NO_SHOW',
-          slot: {
-            date: { gte: startDate }
-          }
-        },
-        include: {
-          slot: {
-            select: { branchId: true }
-          }
-        }
-      }) : [],
-
-      // Repeat offenders (students with multiple no-shows)
-      prisma.user.findMany({
-        where: {
-          role: UserRole.STUDENT,
-          bookings: {
-            some: {
-              status: 'NO_SHOW',
-              slot: {
-                date: { gte: startDate },
-                ...(branchId && { branchId })
-              }
-            }
-          }
-        },
-        select: {
-          id: true,
-          name: true,
-          phoneNumber: true,
-          bookings: {
-            where: {
-              status: 'NO_SHOW',
-              slot: {
-                date: { gte: startDate },
-                ...(branchId && { branchId })
-              }
-            },
-            select: { id: true }
-          }
-        }
-      })
-    ]);
-
-    // Process time slot patterns
-    const timeSlotPatterns = noShowsByTimeSlot.reduce((acc: any, booking) => {
-      const timeKey = `${booking.slot.startTime}-${booking.slot.endTime}`;
-      acc[timeKey] = (acc[timeKey] || 0) + 1;
-      return acc;
-    }, {});
-
-    const analysis = {
-      summary: {
-        totalNoShows: noShowsByStudent.reduce((sum, item) => sum + item._count, 0),
-        uniqueStudents: noShowsByStudent.length,
-        averageNoShowsPerStudent: noShowsByStudent.length > 0
-          ? Math.round((noShowsByStudent.reduce((sum, item) => sum + item._count, 0) / noShowsByStudent.length) * 100) / 100
-          : 0
-      },
-      patterns: {
-        byTimeSlot: Object.entries(timeSlotPatterns)
-          .map(([time, count]) => ({ time, count }))
-          .sort((a: any, b: any) => b.count - a.count),
-        byDayOfWeek: [], // Would need additional processing
-        repeatOffenders: repeatOffenders
-          .filter(student => student.bookings.length >= 2)
-          .map(student => ({
-            name: student.name,
-            phoneNumber: student.phoneNumber,
-            noShowCount: student.bookings.length
-          }))
-          .sort((a, b) => b.noShowCount - a.noShowCount)
-      },
-      recommendations: [
-        ...(repeatOffenders.filter(s => s.bookings.length >= 3).length > 0 ?
-          ['Consider implementing penalties for repeat no-show offenders'] : []),
-        ...(Object.values(timeSlotPatterns).some((count: any) => count > 5) ?
-          ['Review popular time slots with high no-show rates'] : []),
-        'Send additional reminders for high-risk time slots',
-        'Implement booking confirmation system 2 hours before session'
-      ]
-    };
-
-    res.json(analysis);
+    res.json({
+      noShowAnalysis: {
+        totalNoShows: noShowBookings?.length || 0,
+        period: '90_days',
+        byStudent: Object.entries(studentNoShows)
+          .map(([id, data]) => ({ studentId: id, ...data }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10), // Top 10 students with most no-shows
+        byBranch: branchNoShows
+      }
+    });
 
   } catch (error) {
-    console.error('Error fetching no-show analysis:', error);
+    console.error('No-show analysis error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to fetch no-show analysis'
+      message: 'Failed to analyze no-shows'
     });
   }
 });

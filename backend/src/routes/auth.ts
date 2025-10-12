@@ -275,7 +275,7 @@ router.post('/student/request-otp', async (req, res) => {
     }
 
     // For now, just return success (in production, you'd send real OTP)
-    // You can integrate with SMS service like Twilio, AWS SNS, etc.
+    // You can integrate with SMS service like AWS SNS, etc.
     res.json({
       message: 'OTP sent successfully',
       phoneNumber: phoneNumber

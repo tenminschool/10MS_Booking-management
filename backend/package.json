@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "build:prod": "tsc -p tsconfig.prod.json",
     "start": "node dist/index.js",
     "start:prod": "NODE_ENV=production node dist/index.js",
     "db:backup": "../deployment/database-maintenance.sh backup",
@@ -25,7 +26,8 @@
     "logs:error": "tail -f /var/log/speaking-test-booking/error.log",
     "validate:schema": "node validate-schema.js",
     "precommit": "npm run validate:schema && npm run lint",
-    "lint": "echo 'Linting not configured yet'"
+    "lint": "echo 'Linting not configured yet'",
+    "deploy": "./scripts/deploy.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",

@@ -166,49 +166,56 @@ export const globalErrorHandler = (
     return;
   }
 
-  // Handle Prisma errors
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    switch (error.code) {
-      case 'P2002':
+  // Handle Supabase/PostgreSQL errors
+  if (error && typeof error === 'object' && 'code' in error) {
+    const dbError = error as any;
+    
+    // Handle common PostgreSQL error codes
+    switch (dbError.code) {
+      case '23505': // unique_violation
         res.status(409).json({
           error: 'Conflict Error',
           message: 'A record with this data already exists',
           code: 'DUPLICATE_RECORD',
-          field: error.meta?.target,
+          details: dbError.details,
         });
         return;
 
-      case 'P2025':
-        res.status(404).json({
-          error: 'Not Found',
-          message: 'The requested record was not found',
-          code: 'RECORD_NOT_FOUND',
-        });
-        return;
-
-      case 'P2003':
+      case '23503': // foreign_key_violation
         res.status(400).json({
           error: 'Foreign Key Error',
           message: 'Referenced record does not exist',
           code: 'FOREIGN_KEY_CONSTRAINT',
+          details: dbError.details,
         });
         return;
 
-      case 'P2014':
+      case '23502': // not_null_violation
         res.status(400).json({
-          error: 'Relation Error',
-          message: 'The change would violate a relation constraint',
-          code: 'RELATION_CONSTRAINT',
+          error: 'Validation Error',
+          message: 'Required field is missing',
+          code: 'NOT_NULL_VIOLATION',
+          details: dbError.details,
+        });
+        return;
+
+      case '42P01': // undefined_table
+        res.status(500).json({
+          error: 'Database Error',
+          message: 'Database table not found',
+          code: 'UNDEFINED_TABLE',
         });
         return;
 
       default:
-        res.status(500).json({
-          error: 'Database Error',
-          message: 'A database error occurred',
-          code: 'DATABASE_ERROR',
-        });
-        return;
+        if (dbError.code && dbError.code.startsWith('23')) {
+          res.status(400).json({
+            error: 'Database Constraint Error',
+            message: dbError.message || 'A database constraint was violated',
+            code: 'DATABASE_CONSTRAINT',
+          });
+          return;
+        }
     }
   }
 
