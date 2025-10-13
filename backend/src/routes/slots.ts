@@ -7,6 +7,75 @@ import { z } from 'zod';
 
 const router = express.Router();
 
+// GET /api/slots/available - Get only available slots for booking
+router.get('/available', authenticate, async (req, res) => {
+  try {
+    const { branchId, serviceTypeId, date } = req.query;
+    
+    let query = supabase
+      .from('slots')
+      .select(`
+        *,
+        branch:branches(id, name),
+        teacher:users!slots_teacherId_fkey(id, name),
+        serviceType:service_types(id, name, code, description, category, duration_minutes),
+        room:rooms(id, room_number, room_name, room_type, capacity),
+        bookings:bookings(id, status)
+      `)
+      .eq('isBlocked', false)
+      .gte('date', new Date().toISOString().split('T')[0])
+      .order('date', { ascending: true })
+      .order('startTime', { ascending: true });
+
+    // Apply filters
+    if (branchId) {
+      query = query.eq('branchId', branchId);
+    }
+    if (serviceTypeId) {
+      query = query.eq('service_type_id', serviceTypeId);
+    }
+    if (date) {
+      query = query.eq('date', date);
+    }
+
+    const { data: slots, error } = await query;
+
+    if (error) {
+      console.error('Error fetching available slots:', error);
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch available slots'
+      });
+    }
+
+    // Filter only slots with available spots
+    const availableSlots = slots?.filter(slot => {
+      const bookedCount = slot.bookings?.filter((booking: any) => 
+        booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+      ).length || 0;
+      return slot.capacity > bookedCount;
+    }).map(slot => {
+      const bookedCount = slot.bookings?.filter((booking: any) => 
+        booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+      ).length || 0;
+      
+      return {
+        ...slot,
+        availableSpots: slot.capacity - bookedCount,
+        isAvailable: true
+      };
+    }) || [];
+
+    res.json(availableSlots);
+  } catch (error) {
+    console.error('Error fetching available slots:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch available slots'
+    });
+  }
+});
+
 // GET /api/slots - Get available slots (role-based)
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -149,6 +218,17 @@ router.post('/',
   async (req, res) => {
     try {
       const slotData = req.body;
+      const currentUser = req.user!;
+
+      // Branch admin can only create slots for their own branch
+      if (currentUser.role === UserRole.BRANCH_ADMIN && currentUser.branchId) {
+        if (slotData.branchId !== currentUser.branchId) {
+          return res.status(403).json({
+            error: 'Access denied',
+            message: 'You can only create slots for your own branch'
+          });
+        }
+      }
 
       // Validate time slot
       const start = new Date(`2000-01-01T${slotData.startTime}:00`);
@@ -373,5 +453,62 @@ router.delete('/:id',
     }
   }
 );
+
+// GET /api/slots/:id/bookings - Get bookings for a specific slot
+router.get('/:id/bookings', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    // Check if slot exists
+    const { data: slot, error: slotError } = await supabase
+      .from('slots')
+      .select('*, teacher:users!slots_teacherId_fkey(id, name)')
+      .eq('id', id)
+      .single();
+
+    if (slotError || !slot) {
+      return res.status(404).json({
+        error: 'Slot not found',
+        message: 'The requested slot does not exist'
+      });
+    }
+
+    // Check if user has access to view these bookings
+    // Use snake_case for database fields, camelCase for API responses
+    const slotTeacherId = slot.teacher_id || slot.teacherId;
+    if (user.role === 'TEACHER' && slotTeacherId !== user.userId) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You can only view bookings for your own slots'
+      });
+    }
+
+    // Get bookings for the slot
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        student:users!bookings_studentId_fkey(id, name, phoneNumber, email)
+      `)
+      .eq('slotId', id)
+      .order('bookedAt', { ascending: true });
+
+    if (bookingsError) {
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch bookings'
+      });
+    }
+
+    res.json(bookings || []);
+  } catch (error) {
+    console.error('Error fetching slot bookings:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch slot bookings'
+    });
+  }
+});
 
 export default router;

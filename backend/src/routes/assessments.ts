@@ -5,6 +5,106 @@ import { UserRole } from '../types/auth';
 
 const router = express.Router();
 
+// GET /api/assessments/my-assessments - Alias for /my (for compatibility)
+router.get('/my-assessments', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+    
+    let query = supabase
+      .from('assessments')
+      .select(`
+        *,
+        booking:bookings(
+          *,
+          slot:slots(
+            *,
+            branch:branches(id, name),
+            teacher:users!slots_teacherId_fkey(id, name)
+          )
+        ),
+        teacher:users!assessments_teacherId_fkey(id, name)
+      `)
+      .order('assessedAt', { ascending: false });
+
+    if (user.role === 'STUDENT') {
+      query = query.eq('studentId', user.userId);
+    }
+
+    const { data: assessments, error } = await query;
+
+    if (error) {
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch assessments'
+      });
+    }
+
+    res.json(assessments || []);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch assessments'
+    });
+  }
+});
+
+// GET /api/assessments/my-scores - Get user's assessment scores summary
+router.get('/my-scores', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+    
+    if (user.role !== 'STUDENT') {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Only students can view their scores'
+      });
+    }
+
+    const { data: assessments, error } = await supabase
+      .from('assessments')
+      .select(`
+        *,
+        booking:bookings(
+          *,
+          slot:slots(date, startTime)
+        )
+      `)
+      .eq('studentId', user.userId)
+      .order('assessedAt', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch scores'
+      });
+    }
+
+    // Calculate averages
+    const scores = assessments || [];
+    const avgOverallBand = scores.length > 0
+      ? scores.reduce((sum, a) => sum + (a.overallBand || 0), 0) / scores.length
+      : 0;
+
+    res.json({
+      totalAssessments: scores.length,
+      averageOverallBand: avgOverallBand.toFixed(1),
+      assessments: scores.map(a => ({
+        id: a.id,
+        date: a.booking?.slot?.date,
+        overallBand: a.overallBand,
+        scores: a.scores,
+        feedback: a.feedback,
+        assessedAt: a.assessedAt
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch scores'
+    });
+  }
+});
+
 // GET /api/assessments/my - Get user's assessments (role-based)
 router.get('/my', authenticate, async (req, res) => {
   try {

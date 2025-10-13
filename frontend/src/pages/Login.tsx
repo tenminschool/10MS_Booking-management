@@ -77,6 +77,7 @@ const Login: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [otp, setOtp] = useState('')
   const [isOtpSent, setIsOtpSent] = useState(false)
+  const [studentLoginType, setStudentLoginType] = useState<'phone' | 'email'>('phone')
   
   // Staff login state
   const [email, setEmail] = useState('')
@@ -120,6 +121,37 @@ const Login: React.FC = () => {
     },
     onError: (error) => {
       console.error('Student login error:', error)
+    }
+  })
+
+  // Student email login mutation
+  const studentEmailLoginMutation = useMutation({
+    mutationFn: (data: { email: string; password: string }) => 
+      authAPI.loginStudentEmail(data.email, data.password),
+    onSuccess: (response: any) => {
+      console.log('Student email login response:', response)
+      console.log('Student email response data:', response.data)
+      
+      if (!response.data || !response.data.data) {
+        console.error('Invalid student email response format:', response)
+        return
+      }
+      
+      const { token, user } = response.data.data
+      console.log('Student email token:', token)
+      console.log('Student email user:', user)
+      
+      if (!token || !user) {
+        console.error('Missing student email token or user data')
+        return
+      }
+      
+      login(token, user)
+      console.log('Navigating to dashboard...')
+      navigate('/dashboard')
+    },
+    onError: (error) => {
+      console.error('Student email login error:', error)
     }
   })
 
@@ -171,6 +203,13 @@ const Login: React.FC = () => {
     }
   }
 
+  const handleStudentEmailLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (email && password) {
+      studentEmailLoginMutation.mutate({ email, password })
+    }
+  }
+
   const handleStaffLogin = (e: React.FormEvent) => {
     e.preventDefault()
     if (email && password) {
@@ -213,7 +252,7 @@ const Login: React.FC = () => {
               <div className="text-sm text-orange-700 space-y-1">
                 <p><strong>Email:</strong> demo.student@example.com</p>
                 <p><strong>Password:</strong> password</p>
-                <p><strong>Phone:</strong> +8801712345998</p>
+                <p><strong>Phone:</strong> +8801712345678</p>
                 <p><strong>OTP:</strong> 123456</p>
               </div>
             </div>
@@ -226,7 +265,34 @@ const Login: React.FC = () => {
               
               {/* Student Login */}
               <TabsContent value="student" className="space-y-4">
-                {!isOtpSent ? (
+                {/* Login Type Toggle */}
+                <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setStudentLoginType('phone')}
+                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                      studentLoginType === 'phone'
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Phone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudentLoginType('email')}
+                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                      studentLoginType === 'email'
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Email
+                  </button>
+                </div>
+
+                {studentLoginType === 'phone' ? (
+                  !isOtpSent ? (
                   <form onSubmit={handleSendOtp} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
@@ -299,6 +365,58 @@ const Login: React.FC = () => {
                         {studentLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
                       </Button>
                     </div>
+                  </form>
+                  )
+                ) : (
+                  <form onSubmit={handleStudentEmailLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-email" className="text-sm font-medium flex items-center gap-2">
+                        Email
+                        <Mail className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                      </Label>
+                      <Input
+                        id="student-email"
+                        type="email"
+                        placeholder="student@10minuteschool.com"
+                        value={email}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                        className="px-3 h-10 sm:h-11 text-sm sm:text-base"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="student-password" className="text-sm font-medium flex items-center gap-2">
+                        Password
+                        <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="student-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Enter your password"
+                          value={password}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                          className="px-3 pr-10 h-10 sm:h-11 text-sm sm:text-base"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
+                      disabled={studentEmailLoginMutation.isPending}
+                    >
+                      {studentEmailLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
+                    </Button>
                   </form>
                 )}
               </TabsContent>

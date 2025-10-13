@@ -68,13 +68,16 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   loginStudent: (phoneNumber: string, otp: string) =>
-    toPromise(api.post('/api/auth/student/verify-otp', { phoneNumber, otp })),
+    toPromise(api.post('/api/mock-auth/student/verify-otp', { phoneNumber, otp })),
+
+  loginStudentEmail: (email: string, password: string) =>
+    toPromise(api.post('/api/mock-auth/student/login', { email, password })),
 
   loginStaff: (email: string, password: string) =>
     toPromise(api.post('/api/auth/staff/login', { email, password })),
 
   sendOTP: (phoneNumber: string) =>
-    toPromise(api.post('/api/auth/student/request-otp', { phoneNumber })),
+    toPromise(api.post('/api/mock-auth/student/request-otp', { phoneNumber })),
 
   getCurrentUser: () =>
     toPromise(api.get<User>('/api/auth/me')),
@@ -153,7 +156,7 @@ export const bookingsAPI = {
     toPromise(api.put<Booking>(`/api/bookings/${id}`, data)),
 
   cancel: (id: string, reason?: string) =>
-    toPromise(api.put(`/api/bookings/${id}/cancel`, { reason })),
+    toPromise(api.post(`/api/bookings/${id}/cancel`, { reason })),
 
   reschedule: (id: string, newSlotId: string) =>
     toPromise(api.put(`/api/bookings/${id}/reschedule`, { newSlotId })),

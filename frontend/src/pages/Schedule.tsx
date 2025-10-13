@@ -529,9 +529,9 @@ const Schedule: React.FC = () => {
       </div>
 
       {/* Two-Column Layout: Filters + Date Navigation */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-4 ${showMobileFilters ? 'block' : 'hidden lg:grid'}`}>
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 ${showMobileFilters ? 'block' : 'hidden lg:grid'}`}>
         {/* Filters Card */}
-        <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+        <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 lg:col-span-2">
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <div className="hidden sm:flex items-center space-x-2 flex-shrink-0">
@@ -541,7 +541,7 @@ const Schedule: React.FC = () => {
                 <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Filters</span>
               </div>
               
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 overflow-x-auto">
                 {/* Branch filter - different behavior for different roles */}
                 {user?.role !== UserRole.TEACHER && (
                   <select
@@ -579,14 +579,14 @@ const Schedule: React.FC = () => {
                   ))}
                 </select>
 
-                {/* View toggle */}
+                {/* View toggle - ensure it's always visible */}
                 <select
                   value={view}
                   onChange={(e) => setView(e.target.value as 'weekly' | 'monthly')}
-                  className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[120px] flex-shrink-0"
+                  className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[140px] flex-shrink-0"
                 >
-                  <option value="weekly">Weekly View</option>
-                  <option value="monthly">Monthly View</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
                 </select>
               </div>
             </div>

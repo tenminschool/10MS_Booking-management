@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import authRoutes from './routes/auth';
+import mockAuthRoutes from './routes/mock-auth';
 import userRoutes from './routes/users';
 import branchRoutes from './routes/branches';
 import importRoutes from './routes/import';
@@ -17,10 +18,12 @@ import reportRoutes from './routes/reports';
 import systemRoutes from './routes/system';
 import healthRoutes from './routes/health';
 import serviceTypeRoutes from './routes/service-types';
+import roomRoutes from './routes/rooms';
 import { supabase } from './lib/supabase';
 import { schedulerService } from './services/scheduler';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { validateRateLimit } from './middleware/validation';
+import { authenticate } from './middleware/auth';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -68,6 +71,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/mock-auth', mockAuthRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/import', importRoutes);
@@ -80,8 +84,19 @@ app.use('/api/assessments', assessmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 app.use('/api/service-types', serviceTypeRoutes);
+app.use('/api/rooms', roomRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/system', systemRoutes);
+
+// Aliases for backward compatibility
+app.get('/api/audit-logs', authenticate, async (req, res, next) => {
+  req.url = '/audit-logs';
+  systemRoutes(req, res, next);
+});
+app.get('/api/system-settings', authenticate, async (req, res, next) => {
+  req.url = '/settings';
+  systemRoutes(req, res, next);
+});
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -5,6 +5,124 @@ import { UserRole } from '../types/auth';
 
 const router = express.Router();
 
+// GET /api/dashboard/metrics - Alias for / (for compatibility)
+router.get('/metrics', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+    
+    // Get role-specific metrics
+    if (user.role === UserRole.STUDENT) {
+      const [
+        { count: totalBookings },
+        { count: upcomingBookings },
+        { count: completedBookings },
+        { count: totalAssessments }
+      ] = await Promise.all([
+        supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('studentId', user.userId),
+        supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('studentId', user.userId)
+          .eq('status', 'CONFIRMED'),
+        supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('studentId', user.userId)
+          .eq('status', 'COMPLETED'),
+        supabase
+          .from('assessments')
+          .select('*', { count: 'exact', head: true })
+          .eq('studentId', user.userId)
+      ]);
+
+      res.json({
+        role: user.role,
+        metrics: {
+          totalBookings: totalBookings || 0,
+          upcomingBookings: upcomingBookings || 0,
+          completedBookings: completedBookings || 0,
+          totalAssessments: totalAssessments || 0
+        }
+      });
+    } else if (user.role === UserRole.TEACHER) {
+      const [
+        { count: totalSlots },
+        { count: upcomingSlots },
+        { count: totalBookings },
+        { count: totalAssessments }
+      ] = await Promise.all([
+        supabase
+          .from('slots')
+          .select('*', { count: 'exact', head: true })
+          .eq('teacherId', user.userId),
+        supabase
+          .from('slots')
+          .select('*', { count: 'exact', head: true })
+          .eq('teacherId', user.userId)
+          .gte('date', new Date().toISOString().split('T')[0]),
+        supabase
+          .from('bookings')
+          .select('*, slot:slots!inner(*)', { count: 'exact', head: true })
+          .eq('slot.teacherId', user.userId),
+        supabase
+          .from('assessments')
+          .select('*', { count: 'exact', head: true })
+          .eq('teacherId', user.userId)
+      ]);
+
+      res.json({
+        role: user.role,
+        metrics: {
+          totalSlots: totalSlots || 0,
+          upcomingSlots: upcomingSlots || 0,
+          totalBookings: totalBookings || 0,
+          totalAssessments: totalAssessments || 0
+        }
+      });
+    } else {
+      // For admins
+      const [
+        { count: totalBranches },
+        { count: totalUsers },
+        { count: totalSlots },
+        { count: totalBookings }
+      ] = await Promise.all([
+        supabase
+          .from('branches')
+          .select('*', { count: 'exact', head: true }),
+        supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true }),
+        supabase
+          .from('slots')
+          .select('*', { count: 'exact', head: true }),
+        supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+      ]);
+
+      res.json({
+        role: user.role,
+        metrics: {
+          totalBranches: totalBranches || 0,
+          totalUsers: totalUsers || 0,
+          totalSlots: totalSlots || 0,
+          totalBookings: totalBookings || 0
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error('Error fetching dashboard metrics:', error);
+    res.status(500).json({
+      error: 'Failed to fetch dashboard metrics',
+      message: error.message
+    });
+  }
+});
+
 // GET /api/dashboard - Get user's dashboard data
 router.get('/', authenticate, async (req, res) => {
   try {

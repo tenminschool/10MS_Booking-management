@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -11,11 +11,7 @@ import {
   CheckCircle, 
   Clock,
   ExternalLink,
-  Filter,
   Search,
-  MarkAsRead,
-  MarkAsUnread,
-  Archive,
   Tag,
   Calendar
 } from 'lucide-react';
@@ -140,54 +136,6 @@ const Notifications: React.FC = () => {
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'ANNOUNCEMENT':
-        return <Bell className="w-4 h-4 text-blue-500" />;
-      case 'URGENT':
-        return <BellRing className="w-4 h-4 text-red-500" />;
-      case 'MAINTENANCE':
-        return <Clock className="w-4 h-4 text-orange-500" />;
-      case 'REMINDER':
-        return <Calendar className="w-4 h-4 text-yellow-500" />;
-      case 'SYSTEM_ALERT':
-        return <Bell className="w-4 h-4 text-purple-500" />;
-      default:
-        return <Bell className="w-4 h-4 text-gray-500" />;
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'ANNOUNCEMENT':
-        return 'bg-blue-100 text-blue-800';
-      case 'URGENT':
-        return 'bg-red-100 text-red-800';
-      case 'MAINTENANCE':
-        return 'bg-orange-100 text-orange-800';
-      case 'REMINDER':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'SYSTEM_ALERT':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatNotificationDate = (dateString: string) => {
-    const date = new Date(dateString);
-    
-    if (isToday(date)) {
-      return `Today at ${format(date, 'HH:mm')}`;
-    } else if (isYesterday(date)) {
-      return `Yesterday at ${format(date, 'HH:mm')}`;
-    } else if (isThisWeek(date)) {
-      return format(date, 'EEEE \'at\' HH:mm');
-    } else {
-      return format(date, 'MMM dd, yyyy \'at\' HH:mm');
-    }
-  };
-
   const filteredNotifications = notifications.filter(notification => {
     const matchesSearch = notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          notification.message.toLowerCase().includes(searchTerm.toLowerCase());
@@ -234,7 +182,7 @@ const Notifications: React.FC = () => {
 
         {unreadCount > 0 && (
           <Button onClick={handleMarkAllAsRead} variant="outline" size="sm">
-            <MarkAsRead className="w-4 h-4 mr-2" />
+            <CheckCircle className="w-4 h-4 mr-2" />
             Mark All as Read
           </Button>
         )}

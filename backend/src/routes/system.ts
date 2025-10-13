@@ -392,7 +392,18 @@ router.get('/audit-logs',
       const { data: auditLogs, error: auditError, count: total } = await query;
 
       if (auditError) {
-        throw auditError;
+        console.error('Audit log query error:', auditError);
+        // If table doesn't exist or other error, return empty array
+        return res.json({
+          auditLogs: [],
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total: 0,
+            pages: 0
+          },
+          warning: 'Audit log table may not be configured'
+        });
       }
 
       res.json({
@@ -407,9 +418,16 @@ router.get('/audit-logs',
 
     } catch (error) {
       console.error('Get audit logs error:', error);
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Failed to fetch audit logs'
+      // Return empty array instead of error
+      res.json({
+        auditLogs: [],
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 0,
+          pages: 0
+        },
+        warning: 'Audit logs unavailable'
       });
     }
   }

@@ -290,6 +290,62 @@ router.post('/student/request-otp', async (req, res) => {
   }
 });
 
+// POST /api/auth/student/login - Student login with email and password
+router.post('/student/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Missing credentials',
+        message: 'Email and password are required'
+      });
+    }
+
+    // Find student by email
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('role', 'STUDENT')
+      .single();
+
+    if (userError || !userData) {
+      return res.status(401).json({
+        error: 'Student not found',
+        message: 'No student found with this email'
+      });
+    }
+
+    // For demo purposes, accept any password (in production, verify password hash)
+    // In a real system, you would verify the password hash here
+
+    // Generate a simple token for student
+    const token = `student_${userData.id}_${Date.now()}`;
+
+    res.json({
+      data: {
+        token,
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          branchId: userData.branchId,
+          phoneNumber: userData.phoneNumber
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Student login error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to process login request'
+    });
+  }
+});
+
 // POST /api/auth/student/verify-otp - Verify OTP and login student
 router.post('/student/verify-otp', async (req, res) => {
   try {

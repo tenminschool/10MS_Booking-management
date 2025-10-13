@@ -73,7 +73,7 @@ class FrontendUITestSuite {
     try {
       await this.testMobileResponsiveness();
       await this.testUserInteractions();
-      await this.testFormValidation();
+      await this.testAllFormValidation();
       await this.testNavigationRouting();
       await this.testAccessibility();
       await this.testPerformance();
@@ -119,8 +119,8 @@ private async testMobileResponsiveness(): Promise<void> {
         console.log(`   ❌ ${component}: Issues - ${issues.join(', ')}`);
       }
     } catch (error) {
-      this.addUIResult(component, `Responsive Design (${viewport.name})`, 'FAIL', viewport.name, error.message);
-      console.log(`   ❌ ${component}: Error - ${error.message}`);
+      this.addUIResult(component, `Responsive Design (${viewport.name})`, 'FAIL', viewport.name, (error as Error).message);
+      console.log(`   ❌ ${component}: Error - ${(error as Error).message}`);
     }
   }
 
@@ -225,18 +225,18 @@ private async testMobileResponsiveness(): Promise<void> {
         console.log(`   ${interaction.critical ? '❌' : '⚠️'} ${interaction.component} - ${interaction.action}`);
       }
     } catch (error) {
-      this.addUIResult(interaction.component, interaction.action, 'FAIL', undefined, error.message);
-      console.log(`   ❌ ${interaction.component} - ${interaction.action}: ${error.message}`);
+      this.addUIResult(interaction.component, interaction.action, 'FAIL', undefined, (error as Error).message);
+      console.log(`   ❌ ${interaction.component} - ${interaction.action}: ${(error as Error).message}`);
     }
   }
 
-  private simulateUserInteraction(component: string, action: string): boolean {
+  private simulateUserInteraction(_component: string, _action: string): boolean {
     // In real implementation, this would use browser automation
     // For now, simulate successful interactions
     return true;
   }
 
-  private async testFormValidation(): Promise<void> {
+  private async testAllFormValidation(): Promise<void> {
     console.log('\n✅ Testing form validation...');
     
     const forms = [
@@ -284,22 +284,22 @@ private async testMobileResponsiveness(): Promise<void> {
         console.log(`   ❌ ${form.name} - Error display failed`);
       }
     } catch (error) {
-      this.addUIResult(form.name, 'Form Validation', 'FAIL', undefined, error.message);
-      console.log(`   ❌ ${form.name} - Validation error: ${error.message}`);
+      this.addUIResult(form.name, 'Form Validation', 'FAIL', undefined, (error as Error).message);
+      console.log(`   ❌ ${form.name} - Validation error: ${(error as Error).message}`);
     }
   }
 
-  private simulateRequiredFieldValidation(fields: string[]): boolean {
+  private simulateRequiredFieldValidation(_fields: string[]): boolean {
     // In real implementation, this would test actual form validation
     return true;
   }
 
-  private simulateFormatValidation(fields: string[]): boolean {
+  private simulateFormatValidation(_fields: string[]): boolean {
     // In real implementation, this would test format validation (email, phone, etc.)
     return true;
   }
 
-  private simulateErrorDisplay(formName: string): boolean {
+  private simulateErrorDisplay(_formName: string): boolean {
     // In real implementation, this would test error message display
     return true;
   }
@@ -348,17 +348,17 @@ private async testMobileResponsiveness(): Promise<void> {
         }
       }
     } catch (error) {
-      this.addUIResult('Navigation', `Route: ${route.path}`, 'FAIL', undefined, error.message);
-      console.log(`   ❌ ${route.description} - Error: ${error.message}`);
+      this.addUIResult('Navigation', `Route: ${route.path}`, 'FAIL', undefined, (error as Error).message);
+      console.log(`   ❌ ${route.description} - Error: ${(error as Error).message}`);
     }
   }
 
-  private simulateRouteAccess(path: string, isProtected: boolean): boolean {
+  private simulateRouteAccess(_path: string, _isProtected: boolean): boolean {
     // In real implementation, this would test actual routing
     return true;
   }
 
-  private simulateRouteProtection(path: string): boolean {
+  private simulateRouteProtection(_path: string): boolean {
     // In real implementation, this would test route protection
     return true;
   }
@@ -391,12 +391,12 @@ private async testMobileResponsiveness(): Promise<void> {
         console.log(`   ❌ ${feature} - Issue found`);
       }
     } catch (error) {
-      this.addUIResult('Accessibility', feature, 'FAIL', undefined, error.message);
-      console.log(`   ❌ ${feature} - Error: ${error.message}`);
+      this.addUIResult('Accessibility', feature, 'FAIL', undefined, (error as Error).message);
+      console.log(`   ❌ ${feature} - Error: ${(error as Error).message}`);
     }
   }
 
-  private simulateAccessibilityCheck(feature: string): boolean {
+  private simulateAccessibilityCheck(_feature: string): boolean {
     // In real implementation, this would use accessibility testing tools
     return true;
   }
@@ -429,12 +429,12 @@ private async testMobileResponsiveness(): Promise<void> {
         console.log(`   ❌ ${metric} - Performance issue detected`);
       }
     } catch (error) {
-      this.addUIResult('Performance', metric, 'FAIL', undefined, error.message);
-      console.log(`   ❌ ${metric} - Error: ${error.message}`);
+      this.addUIResult('Performance', metric, 'FAIL', undefined, (error as Error).message);
+      console.log(`   ❌ ${metric} - Error: ${(error as Error).message}`);
     }
   }
 
-  private simulatePerformanceCheck(metric: string): boolean {
+  private simulatePerformanceCheck(_metric: string): boolean {
     // In real implementation, this would measure actual performance metrics
     return true;
   }

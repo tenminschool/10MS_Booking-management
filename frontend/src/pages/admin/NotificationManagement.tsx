@@ -4,23 +4,18 @@ import { UserRole } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { 
   Bell, 
   Plus, 
   Search, 
-  Filter, 
   Send, 
   Clock, 
   CheckCircle, 
   XCircle,
-  Users,
   Tag,
-  Calendar,
   Eye,
   Edit,
-  Trash2,
-  BarChart3
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -62,11 +57,9 @@ const NotificationManagement: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Check if user has admin access
   const isAdmin = user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.BRANCH_ADMIN;
@@ -229,7 +222,7 @@ const NotificationManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Notification Management</h1>
           <p className="text-gray-600">Create, schedule, and manage notifications for students and teachers</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)} className="flex items-center space-x-2">
+        <Button onClick={() => {}} className="flex items-center space-x-2">
           <Plus className="w-4 h-4" />
           <span>Create Notification</span>
         </Button>

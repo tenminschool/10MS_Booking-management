@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { dashboardAPI, notificationsAPI, slotsAPI, bookingsAPI } from '@/lib/api'
+import NotificationsCarousel from '@/components/NotificationsCarousel'
 // Mock UI components - replace with actual shadcn/ui components when available
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>{children}</div>
@@ -47,7 +48,6 @@ import {
   Clock, 
   MapPin, 
   User, 
-  Bell, 
   BookOpen, 
   GraduationCap,
   Plus,
@@ -63,10 +63,11 @@ import {
   AlertTriangle,
   Star,
   X,
-  RotateCcw
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { format, isToday, isTomorrow } from 'date-fns'
-import { UserRole, BookingStatus, type SlotFilters, type Notification, type Booking } from '@/types'
+import { UserRole, BookingStatus, type SlotFilters, type Booking } from '@/types'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -77,19 +78,23 @@ const Dashboard: React.FC = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [isTodayCollapsed, setIsTodayCollapsed] = useState(false)
+  const [isTomorrowCollapsed, setIsTomorrowCollapsed] = useState(false)
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: () => dashboardAPI.getMetrics(),
-    retry: false,
-    refetchOnWindowFocus: false,
+    enabled: !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
   const { data: notifications } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => notificationsAPI.getMy(),
-    retry: false,
-    refetchOnWindowFocus: false,
+    enabled: !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
   // Teacher-specific data queries
@@ -101,7 +106,9 @@ const Dashboard: React.FC = () => {
   const { data: teacherSlots } = useQuery({
     queryKey: ['teacher-slots', teacherFilters],
     queryFn: () => slotsAPI.getAvailable(teacherFilters),
-    enabled: user?.role === UserRole.TEACHER
+    enabled: user?.role === UserRole.TEACHER && !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
 
@@ -112,7 +119,9 @@ const Dashboard: React.FC = () => {
       const response = await bookingsAPI.getMyBookings()
       return (response as any).data
     },
-    enabled: user?.role === UserRole.STUDENT
+    enabled: user?.role === UserRole.STUDENT && !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
   // Cancel booking mutation
@@ -134,16 +143,45 @@ const Dashboard: React.FC = () => {
   const filterBookings = (bookings: any) => {
     const bookingsArray = Array.isArray(bookings) ? bookings : []
     const now = new Date()
+    
+    console.log('🔍 Filtering bookings:', {
+      totalBookings: bookingsArray.length,
+      activeTab: activeBookingTab,
+      now: now.toISOString(),
+      sampleBookings: bookingsArray.slice(0, 3).map(b => ({
+        id: b.id,
+        status: b.status,
+        slotDate: b.slot?.date,
+        slotExists: !!b.slot,
+        isConfirmed: b.status === BookingStatus.CONFIRMED || b.status === 'CONFIRMED',
+        isUpcoming: b.slot && new Date(b.slot.date) >= now
+      }))
+    })
+    
     switch (activeBookingTab) {
       case 'upcoming':
-        return bookingsArray.filter(booking =>
-          booking.status === BookingStatus.CONFIRMED &&
-          booking.slot && new Date(booking.slot.date) >= now
-        )
+        return bookingsArray.filter(booking => {
+          const isConfirmed = booking.status === BookingStatus.CONFIRMED
+          const hasSlot = !!booking.slot
+          const isUpcoming = hasSlot && new Date(booking.slot.date) >= now
+          
+          console.log('🔍 Upcoming filter check:', {
+            bookingId: booking.id,
+            status: booking.status,
+            isConfirmed,
+            hasSlot,
+            isUpcoming,
+            slotDate: booking.slot?.date
+          })
+          
+          return isConfirmed && isUpcoming
+        })
       case 'past':
-        return bookingsArray.filter(booking =>
-          booking.slot && new Date(booking.slot.date) < now
-        )
+        return bookingsArray.filter(booking => {
+          const hasSlot = !!booking.slot
+          const isPast = hasSlot && new Date(booking.slot.date) < now
+          return isPast
+        })
       default:
         return bookingsArray
     }
@@ -213,7 +251,19 @@ const Dashboard: React.FC = () => {
   // Student booking data
   const allStudentBookings = Array.isArray(studentBookings) ? studentBookings : []
   const filteredStudentBookings = filterBookings(allStudentBookings)
-  const upcomingStudentBookings = (dashboardData as any)?.upcomingBookings || []
+  
+  // Debug logging
+  console.log('🔍 Dashboard Debug - Student Bookings:', {
+    allStudentBookings: allStudentBookings.length,
+    filteredStudentBookings: filteredStudentBookings.length,
+    activeBookingTab,
+    sampleBooking: allStudentBookings[0] ? {
+      id: allStudentBookings[0].id,
+      status: allStudentBookings[0].status,
+      slotDate: allStudentBookings[0].slot?.date,
+      slotExists: !!allStudentBookings[0].slot
+    } : null
+  })
 
   // Render branch admin dashboard
   if (user?.role === UserRole.BRANCH_ADMIN) {
@@ -435,69 +485,10 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Recent Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="w-5 h-5" />
-                  <span>Notifications</span>
-                  {unreadNotifications.length > 0 && (
-                    <Badge variant="destructive" className="ml-2">
-                      {unreadNotifications.length}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {notificationsData?.length ? (
-                  <div className="space-y-3">
-                    {notificationsData.slice(0, 3).map((notification: Notification) => (
-                      <div 
-                        key={notification.id} 
-                        className={`p-3 rounded-lg border text-sm ${
-                          !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700'
-                        }`}
-                      >
-                        <div className="flex items-start space-x-2">
-                          <div className={`p-1 rounded-full ${
-                            notification.type === 'booking_confirmed' ? 'bg-green-100 dark:bg-green-900/20' :
-                            notification.type === 'booking_reminder' ? 'bg-yellow-100' :
-                            notification.type === 'booking_cancelled' ? 'bg-red-100 dark:bg-red-900/20' :
-                            'bg-blue-100 dark:bg-blue-900/20'
-                          }`}>
-                            {notification.type === 'booking_confirmed' ? (
-                              <CheckCircle className="w-3 h-3 text-green-600" />
-                            ) : notification.type === 'booking_reminder' ? (
-                              <Clock className="w-3 h-3 text-yellow-600" />
-                            ) : notification.type === 'booking_cancelled' ? (
-                              <AlertCircle className="w-3 h-3 text-red-600" />
-                            ) : (
-                              <Bell className="w-3 h-3 text-blue-600" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium">{notification.title}</p>
-                            <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <Link to="/notifications">
-                      <Button variant="outline" size="sm" className="w-full">
-                        View All
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No notifications</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <NotificationsCarousel 
+              notifications={notificationsData || []}
+              unreadCount={unreadNotifications.length}
+            />
           </div>
         </div>
       </div>
@@ -792,66 +783,10 @@ const Dashboard: React.FC = () => {
             </Card>
 
             {/* Recent Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="w-5 h-5" />
-                  <span>Notifications</span>
-                  {unreadNotifications.length > 0 && (
-                    <Badge variant="destructive" className="ml-2">
-                      {unreadNotifications.length}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {notificationsData?.length ? (
-                  <div className="space-y-3">
-                    {notificationsData.slice(0, 3).map((notification: Notification) => (
-                      <div 
-                        key={notification.id} 
-                        className={`p-3 rounded-lg border text-sm ${
-                          !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700'
-                        }`}
-                      >
-                        <div className="flex items-start space-x-2">
-                          <div className={`p-1 rounded-full ${
-                            notification.type === 'system_alert' ? 'bg-red-100 dark:bg-red-900/20' :
-                            notification.type === 'booking_confirmed' ? 'bg-green-100 dark:bg-green-900/20' :
-                            'bg-blue-100 dark:bg-blue-900/20'
-                          }`}>
-                            {notification.type === 'system_alert' ? (
-                              <AlertTriangle className="w-3 h-3 text-red-600" />
-                            ) : notification.type === 'booking_confirmed' ? (
-                              <CheckCircle className="w-3 h-3 text-green-600" />
-                            ) : (
-                              <Bell className="w-3 h-3 text-blue-600" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium">{notification.title}</p>
-                            <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <Link to="/notifications">
-                      <Button variant="outline" size="sm" className="w-full">
-                        View All
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No notifications</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <NotificationsCarousel 
+              notifications={notificationsData || []}
+              unreadCount={unreadNotifications.length}
+            />
           </div>
         </div>
       </div>
@@ -886,6 +821,50 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Stats Cards - Moved below welcome section */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-semibold text-orange-800 dark:text-orange-200">Today's Sessions</CardTitle>
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-900 dark:text-orange-100">{todaySlots.length}</div>
+              <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Speaking tests scheduled</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-semibold text-blue-800 dark:text-blue-200">Students Today</CardTitle>
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+                {todaySlots.reduce((sum: number, slot: any) => sum + (slot.bookedCount || 0), 0)}
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Students to assess</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-semibold text-purple-800 dark:text-purple-200">This Week</CardTitle>
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">{(teacherSlots as any)?.data?.length || 0}</div>
+              <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Total sessions scheduled</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* PRIMARY CONTENT - 2/3 width */}
@@ -893,116 +872,140 @@ const Dashboard: React.FC = () => {
             {/* Today's Sessions */}
             <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700">
               <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-b border-orange-100 dark:border-orange-800/30">
-                <CardTitle className="flex items-center space-x-3">
-                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                    <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                      <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <span className="text-xl font-bold text-gray-900 dark:text-white">Today's Speaking Tests</span>
+                      <p className="text-sm text-orange-600 dark:text-orange-400 font-medium mt-1">
+                        Your scheduled assessment sessions for today
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xl font-bold text-gray-900 dark:text-white">Today's Speaking Tests</span>
-                    <p className="text-sm text-orange-600 dark:text-orange-400 font-medium mt-1">
-                      Your scheduled assessment sessions for today
-                    </p>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsTodayCollapsed(!isTodayCollapsed)}
+                    className="text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    {isTodayCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                  </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {todaySlots.length > 0 ? (
-                  <div className="space-y-4">
-                    {todaySlots.map((slot: any) => (
-                      <div key={slot.id} className="group relative overflow-hidden bg-gradient-to-r from-white to-gray-50 dark:from-gray-700 dark:to-gray-600 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-3">
-                            <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                                <Clock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              {!isTodayCollapsed && (
+                <CardContent>
+                  {todaySlots.length > 0 ? (
+                    <div className="space-y-4">
+                      {todaySlots.map((slot: any) => (
+                        <div key={slot.id} className="group relative overflow-hidden bg-gradient-to-r from-white to-gray-50 dark:from-gray-700 dark:to-gray-600 rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-3">
+                              <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                                  <Clock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div>
+                                  <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    {slot.startTime} - {slot.endTime}
+                                  </span>
+                                  <Badge className="ml-3 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700">
+                                    {slot.bookedCount}/{slot.capacity} students enrolled
+                                  </Badge>
+                                </div>
                               </div>
-                              <div>
-                                <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                                  {slot.startTime} - {slot.endTime}
-                                </span>
-                                <Badge className="ml-3 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700">
-                                  {slot.bookedCount}/{slot.capacity} students enrolled
-                                </Badge>
+                              <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
+                                <MapPin className="w-4 h-4" />
+                                <span className="font-medium">{slot.branch?.name}</span>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
-                              <MapPin className="w-4 h-4" />
-                              <span className="font-medium">{slot.branch?.name}</span>
+                            <div className="flex space-x-2">
+                              <Link to={`/bookings?slot=${slot.id}`}>
+                                <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md hover:shadow-lg transition-all duration-200">
+                                  <Users className="w-4 h-4 mr-2" />
+                                  Manage Students
+                                </Button>
+                              </Link>
                             </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Link to={`/bookings?slot=${slot.id}`}>
-                              <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md hover:shadow-lg transition-all duration-200">
-                                <Users className="w-4 h-4 mr-2" />
-                                Manage Students
-                              </Button>
-                            </Link>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-16">
-                    <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Calendar className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                      ))}
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Sessions Today</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                      You have a free day! Take some time to relax or prepare for upcoming sessions.
-                    </p>
-                    <Link to="/schedule">
-                      <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all duration-200">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        View Full Schedule
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-              </CardContent>
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Calendar className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Sessions Today</h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                        You have a free day! Take some time to relax or prepare for upcoming sessions.
+                      </p>
+                      <Link to="/schedule">
+                        <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all duration-200">
+                          <Calendar className="w-4 h-4 mr-2" />
+                          View Full Schedule
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </CardContent>
+              )}
             </Card>
 
             {/* Tomorrow's Preview */}
             {tomorrowSlots.length > 0 && (
               <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-green-100 dark:border-green-800/30">
-                  <CardTitle className="flex items-center space-x-3">
-                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <Calendar className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <Calendar className="w-6 h-6 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <span className="text-xl font-bold text-gray-900 dark:text-white">Tomorrow's Schedule</span>
+                        <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1">
+                          Preview of your upcoming assessment sessions
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xl font-bold text-gray-900 dark:text-white">Tomorrow's Schedule</span>
-                      <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1">
-                        Preview of your upcoming assessment sessions
-                      </p>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsTomorrowCollapsed(!isTomorrowCollapsed)}
+                      className="text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      {isTomorrowCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                    </Button>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {tomorrowSlots.slice(0, 3).map((slot: any) => (
-                      <div key={slot.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                            <span className="font-medium text-gray-900 dark:text-gray-100">
-                              {slot.startTime} - {slot.endTime}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                            <Users className="w-4 h-4" />
-                            <span>{slot.bookedCount || 0} students booked</span>
+                {!isTomorrowCollapsed && (
+                  <CardContent>
+                    <div className="space-y-3">
+                      {tomorrowSlots.slice(0, 3).map((slot: any) => (
+                        <div key={slot.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2 text-sm">
+                              <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                {slot.startTime} - {slot.endTime}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                              <Users className="w-4 h-4" />
+                              <span>{slot.bookedCount || 0} students booked</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    {tomorrowSlots.length > 3 && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                        +{tomorrowSlots.length - 3} more sessions
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
+                      ))}
+                      {tomorrowSlots.length > 3 && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                          +{tomorrowSlots.length - 3} more sessions
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             )}
 
@@ -1010,114 +1013,11 @@ const Dashboard: React.FC = () => {
 
           {/* SECONDARY CONTENT - 1/3 width */}
           <div className="space-y-6">
-            {/* Quick Stats */}
-            <div className="space-y-4">
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 hover:shadow-xl transition-all duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-semibold text-orange-800 dark:text-orange-200">Today's Sessions</CardTitle>
-                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                    <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-orange-900 dark:text-orange-100">{todaySlots.length}</div>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Speaking tests scheduled</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:shadow-xl transition-all duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-semibold text-blue-800 dark:text-blue-200">Students Today</CardTitle>
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
-                    {todaySlots.reduce((sum: number, slot: any) => sum + (slot.bookedCount || 0), 0)}
-                  </div>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Students to assess</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:shadow-xl transition-all duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-semibold text-purple-800 dark:text-purple-200">This Week</CardTitle>
-                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                    <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">{(teacherSlots as any)?.data?.length || 0}</div>
-                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Total sessions scheduled</p>
-                </CardContent>
-              </Card>
-            </div>
-
             {/* Recent Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="w-5 h-5" />
-                  <span>Notifications</span>
-                  {unreadNotifications.length > 0 && (
-                    <Badge variant="destructive" className="ml-2">
-                      {unreadNotifications.length}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {notificationsData?.length ? (
-                  <div className="space-y-3">
-                    {notificationsData.slice(0, 3).map((notification: Notification) => (
-                      <div 
-                        key={notification.id} 
-                        className={`p-3 rounded-lg border text-sm ${
-                          !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700'
-                        }`}
-                      >
-                        <div className="flex items-start space-x-2">
-                          <div className={`p-1 rounded-full ${
-                            notification.type === 'booking_confirmed' ? 'bg-green-100 dark:bg-green-900/20' :
-                            notification.type === 'booking_reminder' ? 'bg-yellow-100' :
-                            notification.type === 'booking_cancelled' ? 'bg-red-100 dark:bg-red-900/20' :
-                            'bg-blue-100 dark:bg-blue-900/20'
-                          }`}>
-                            {notification.type === 'booking_confirmed' ? (
-                              <CheckCircle className="w-3 h-3 text-green-600" />
-                            ) : notification.type === 'booking_reminder' ? (
-                              <Clock className="w-3 h-3 text-yellow-600" />
-                            ) : notification.type === 'booking_cancelled' ? (
-                              <AlertCircle className="w-3 h-3 text-red-600" />
-                            ) : (
-                              <Bell className="w-3 h-3 text-blue-600" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium">{notification.title}</p>
-                            <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <Link to="/notifications">
-                      <Button variant="outline" size="sm" className="w-full">
-                        View All
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No notifications</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <NotificationsCarousel 
+              notifications={notificationsData || []}
+              unreadCount={unreadNotifications.length}
+            />
           </div>
         </div>
       </div>
@@ -1125,75 +1025,108 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 bg-background dark:bg-gray-900">
-      {/* Welcome Header - Simplified */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Welcome back, {user?.name}!
-        </h1>
-        {user?.role === UserRole.STUDENT && (
-          <Link to="/schedule">
-            <Button className="bg-red-600 hover:bg-red-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Book Now
-            </Button>
-          </Link>
-        )}
+    <div className="space-y-6">
+      {/* Welcome Header - Beautiful Gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 dark:from-blue-800 dark:via-purple-800 dark:to-indigo-900 rounded-2xl p-8 shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Welcome back, {user?.name}! 👋
+              </h1>
+              <p className="text-blue-100 text-lg">
+                Ready to ace your IELTS speaking test? Let's check your progress!
+              </p>
+            </div>
+            {user?.role === UserRole.STUDENT && (
+              <Link to="/schedule">
+                <Button className="bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-semibold">
+                  <Plus className="w-5 h-5 mr-2" />
+                  Book Now
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Stats Cards - Horizontal Layout */}
+      {/* Stats Cards - Beautiful Design */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{allStudentBookings.length}</div>
-            <p className="text-xs text-muted-foreground">All time</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
+          <CardContent className="p-6 pt-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-3">Total Bookings</p>
+                <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{allStudentBookings.length}</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">All time</p>
+              </div>
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {allStudentBookings.filter((b: Booking) => b.status === BookingStatus.COMPLETED).length}
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-700">
+          <CardContent className="p-6 pt-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-3">Completed</p>
+                <p className="text-3xl font-bold text-green-900 dark:text-green-100">
+                  {allStudentBookings.filter((b: Booking) => 
+                    b.status === BookingStatus.COMPLETED
+                  ).length}
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium">Tests taken</p>
+              </div>
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">Tests taken</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {allStudentBookings.filter((b: Booking) => b.status === BookingStatus.CONFIRMED).length}
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-700">
+          <CardContent className="p-6 pt-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-3">Upcoming</p>
+                <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">
+                  {allStudentBookings.filter((b: Booking) => 
+                    b.status === BookingStatus.CONFIRMED &&
+                    b.slot && new Date(b.slot.date) >= new Date()
+                  ).length}
+                </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Scheduled</p>
+              </div>
+              <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">Scheduled</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(() => {
-                const completedBookings = allStudentBookings.filter((b: Booking) => b.status === BookingStatus.COMPLETED);
-                const attendedBookings = completedBookings.filter((b: Booking) => b.attended === true);
-                return completedBookings.length > 0 ? `${Math.round((attendedBookings.length / completedBookings.length) * 100)}%` : '0%';
-              })()}
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700">
+          <CardContent className="p-6 pt-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600 dark:text-purple-400 mb-3">Attendance Rate</p>
+                <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">
+                  {(() => {
+                    const completedBookings = allStudentBookings.filter((b: Booking) => 
+                      b.status === BookingStatus.COMPLETED
+                    );
+                    const attendedBookings = completedBookings.filter((b: Booking) => b.attended === true);
+                    return completedBookings.length > 0 ? `${Math.round((attendedBookings.length / completedBookings.length) * 100)}%` : '0%';
+                  })()}
+                </p>
+                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Overall</p>
+              </div>
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <GraduationCap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">Overall</p>
           </CardContent>
         </Card>
       </div>
@@ -1228,68 +1161,97 @@ const Dashboard: React.FC = () => {
             </Button>
           </div>
 
-          {/* Bookings List */}
+          {/* Bookings List - Beautiful Design */}
           {filteredStudentBookings.length > 0 ? (
             filteredStudentBookings.map((booking) => (
-              <Card key={booking.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-3 flex-1">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="font-medium">
-                            {booking.slot?.date && format(new Date(booking.slot.date), 'EEEE, MMMM dd, yyyy')}
-                          </span>
-                        </div>
-                        <Badge variant={getStatusColor(booking.status)} className="flex items-center space-x-1">
-                          {getStatusIcon(booking.status)}
-                          <span>{booking.status}</span>
-                        </Badge>
+              <Card key={booking.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-700">
+                <CardContent className="p-0">
+                  {/* Header with Status */}
+                  <div className="flex items-center justify-between p-4 pb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4" />
-                          <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <User className="w-4 h-4" />
-                          <span>{booking.slot?.teacher?.name || 'TBD'}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="w-4 h-4" />
-                          <span>{booking.slot?.branch?.name || 'TBD'}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Building className="w-4 h-4" />
-                          <span>Room {booking.slot?.roomNumber || 'TBD'}</span>
-                        </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                          {booking.slot?.date && format(new Date(booking.slot.date), 'EEEE, MMMM dd, yyyy')}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {booking.slot?.startTime} - {booking.slot?.endTime}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Action Buttons */}
-                    {booking.status === BookingStatus.CONFIRMED && (
-                      <div className="flex space-x-2 ml-4">
+                    <div className="flex flex-col items-end space-y-2">
+                      <Badge variant={getStatusColor(booking.status)} className="flex items-center space-x-1 text-xs px-2 py-1">
+                        {getStatusIcon(booking.status)}
+                        <span>{booking.status}</span>
+                      </Badge>
+                      {/* Cancel Button - Positioned below status */}
+                      {booking.status === BookingStatus.CONFIRMED && (
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
                           onClick={() => {
                             setSelectedBooking(booking)
                             setIsCancelDialogOpen(true)
                           }}
+                          className="flex items-center space-x-1 text-xs px-2 py-1 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                         >
-                          <X className="w-4 h-4 mr-2" />
-                          Cancel
+                          <X className="w-3 h-3" />
+                          <span>Cancel</span>
                         </Button>
-                        <Link to={`/schedule?reschedule=${booking.id}`}>
-                          <Button variant="outline" size="sm">
-                            <RotateCcw className="w-4 h-4 mr-2" />
-                            Reschedule
-                          </Button>
-                        </Link>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Main Content - More Compact */}
+                  <div className="px-4 pb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Teacher Info */}
+                      <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div className="p-1 bg-green-100 dark:bg-green-900/30 rounded">
+                          <User className="w-3 h-3 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Instructor
+                          </p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {booking.slot?.teacher?.name || 'TBD'}
+                          </p>
+                        </div>
                       </div>
-                    )}
+
+                      {/* Location Info */}
+                      <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div className="p-1 bg-purple-100 dark:bg-purple-900/30 rounded">
+                          <MapPin className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Location
+                          </p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {booking.slot?.branch?.name || 'TBD'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Room Info */}
+                      <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div className="p-1 bg-orange-100 dark:bg-orange-900/30 rounded">
+                          <Building className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Room
+                          </p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {booking.slot?.roomNumber || 'TBD'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1319,98 +1281,11 @@ const Dashboard: React.FC = () => {
 
         {/* SECONDARY CONTENT - 1/3 width */}
         <div className="space-y-6">
-
-
-          {/* Upcoming Reminders */}
-          {upcomingStudentBookings.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Upcoming Reminders</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {upcomingStudentBookings.slice(0, 3).map((booking: any) => (
-                    <div key={booking.id} className="p-3 bg-blue-50 rounded-lg">
-                      <div className="text-sm space-y-1">
-                        <div className="font-medium">
-                          {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd')}
-                        </div>
-                        <div className="text-gray-600">
-                          {booking.slot?.startTime} - {booking.slot?.teacher?.name}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Recent Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Bell className="w-5 h-5" />
-                <span>Notifications</span>
-                {unreadNotifications.length > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {unreadNotifications.length}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {notificationsData?.length ? (
-                <div className="space-y-3">
-                  {notificationsData.slice(0, 3).map((notification: Notification) => (
-                    <div 
-                      key={notification.id} 
-                      className={`p-3 rounded-lg border text-sm ${
-                        !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start space-x-2">
-                        <div className={`p-1 rounded-full ${
-                          notification.type === 'booking_confirmed' ? 'bg-green-100' :
-                          notification.type === 'booking_reminder' ? 'bg-yellow-100' :
-                          notification.type === 'booking_cancelled' ? 'bg-red-100' :
-                          'bg-blue-100'
-                        }`}>
-                          {notification.type === 'booking_confirmed' ? (
-                            <BookOpen className="w-3 h-3 text-green-600" />
-                          ) : notification.type === 'booking_reminder' ? (
-                            <Clock className="w-3 h-3 text-yellow-600" />
-                          ) : notification.type === 'booking_cancelled' ? (
-                            <AlertCircle className="w-3 h-3 text-red-600" />
-                          ) : (
-                            <Bell className="w-3 h-3 text-blue-600" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium">{notification.title}</p>
-                          <p className="text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{notification.message}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {format(new Date(notification.createdAt), 'MMM dd, h:mm a')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <Link to="/notifications">
-                    <Button variant="outline" size="sm" className="w-full">
-                      View All
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No notifications</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
+          <NotificationsCarousel 
+            notifications={notificationsData || []}
+            unreadCount={unreadNotifications.length}
+          />
         </div>
       </div>
 

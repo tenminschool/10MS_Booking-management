@@ -384,4 +384,106 @@ router.get('/no-show-analysis', authenticate, requireRole([UserRole.SUPER_ADMIN,
   }
 });
 
+// GET /api/reports/admin - Alias for admin-specific reports
+router.get('/admin', authenticate, requireRole([UserRole.SUPER_ADMIN]), async (req, res) => {
+  try {
+    // Return system-wide reports
+    const [
+      { count: totalBranches },
+      { count: totalUsers },
+      { count: totalSlots },
+      { count: totalBookings }
+    ] = await Promise.all([
+      supabase.from('branches').select('*', { count: 'exact', head: true }),
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('slots').select('*', { count: 'exact', head: true }),
+      supabase.from('bookings').select('*', { count: 'exact', head: true })
+    ]);
+
+    res.json({
+      totalBranches: totalBranches || 0,
+      totalUsers: totalUsers || 0,
+      totalSlots: totalSlots || 0,
+      totalBookings: totalBookings || 0
+    });
+  } catch (error) {
+    console.error('Admin reports error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch admin reports'
+    });
+  }
+});
+
+// GET /api/reports/branch - Alias for branch-specific reports
+router.get('/branch', authenticate, requireRole([UserRole.BRANCH_ADMIN]), async (req, res) => {
+  try {
+    const user = req.user!;
+    const branchId = user.branchId;
+
+    if (!branchId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Branch admin must have a branch assigned'
+      });
+    }
+
+    // Return branch-specific reports
+    const [
+      { count: totalSlots },
+      { count: totalBookings },
+      { count: totalUsers }
+    ] = await Promise.all([
+      supabase.from('slots').select('*', { count: 'exact', head: true }).eq('branchId', branchId),
+      supabase.from('bookings').select('*, slot:slots!inner(*)', { count: 'exact', head: true }).eq('slot.branchId', branchId),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('branchId', branchId)
+    ]);
+
+    res.json({
+      branchId,
+      totalSlots: totalSlots || 0,
+      totalBookings: totalBookings || 0,
+      totalUsers: totalUsers || 0
+    });
+  } catch (error) {
+    console.error('Branch reports error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch branch reports'
+    });
+  }
+});
+
+// GET /api/reports/teacher - Alias for teacher-specific reports
+router.get('/teacher', authenticate, requireRole([UserRole.TEACHER]), async (req, res) => {
+  try {
+    const user = req.user!;
+    const teacherId = user.userId;
+
+    // Return teacher-specific reports
+    const [
+      { count: totalSlots },
+      { count: totalBookings },
+      { count: totalAssessments }
+    ] = await Promise.all([
+      supabase.from('slots').select('*', { count: 'exact', head: true }).eq('teacherId', teacherId),
+      supabase.from('bookings').select('*, slot:slots!inner(*)', { count: 'exact', head: true }).eq('slot.teacherId', teacherId),
+      supabase.from('assessments').select('*', { count: 'exact', head: true }).eq('teacherId', teacherId)
+    ]);
+
+    res.json({
+      teacherId,
+      totalSlots: totalSlots || 0,
+      totalBookings: totalBookings || 0,
+      totalAssessments: totalAssessments || 0
+    });
+  } catch (error) {
+    console.error('Teacher reports error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch teacher reports'
+    });
+  }
+});
+
 export default router;

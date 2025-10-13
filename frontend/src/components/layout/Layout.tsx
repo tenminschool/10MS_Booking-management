@@ -27,7 +27,6 @@ import {
   Home,
   Crown,
   Shield,
-  Layers
 } from 'lucide-react'
 import { UserRole } from '@/types'
 import { useState } from 'react'

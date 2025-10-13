@@ -7,12 +7,8 @@ import {
   Building,
   Calendar,
   Bell,
-  BarChart3,
   TrendingUp,
-  Shield,
-  Crown,
-  GraduationCap,
-  UserCog
+  Shield
 } from 'lucide-react'
 
 // Mock UI components

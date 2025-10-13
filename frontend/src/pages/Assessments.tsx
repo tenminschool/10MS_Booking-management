@@ -14,15 +14,15 @@ import {
   Award,
   Plus,
   FileText,
-  Clock,
   Play,
   CheckCircle,
   AlertCircle,
   Users,
-  Eye
+  Eye,
+  Filter
 } from 'lucide-react'
 import { format } from 'date-fns'
-import type { Booking, Assessment } from '@/types'
+import type { Booking } from '@/types'
 import { BookingStatus, UserRole } from '@/types'
 
 // Mock UI components - replace with actual shadcn/ui components when available
@@ -38,8 +38,8 @@ const CardTitle = ({ children, className = '' }: { children: React.ReactNode; cl
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{children}</p>
 )
-const CardContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pt-0">{children}</div>
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>{children}</div>
 )
 const Button = ({ children, className = '', variant = 'default', size = 'default', disabled = false, onClick, ...props }: any) => (
   <button 
@@ -93,6 +93,7 @@ const Assessments: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>('')
   const [timeFilter, setTimeFilter] = useState<string>('')
   const [branchFilter, setBranchFilter] = useState<string>('')
+  const [scoreFilter, setScoreFilter] = useState<string>('')
   
   // Refs for scrolling to sections
   const pendingSectionRef = useRef<HTMLDivElement>(null)
@@ -109,7 +110,9 @@ const Assessments: React.FC = () => {
       const response = await assessmentsAPI.getMyAssessments()
       return (response as any).data || []
     },
-    enabled: isStudent,
+    enabled: isStudent && !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
   // Fetch teacher's assigned students and bookings (for teachers)
@@ -126,7 +129,9 @@ const Assessments: React.FC = () => {
       console.log('🔍 Actual bookings array:', actualBookingsArray);
       return Array.isArray(actualBookingsArray) ? actualBookingsArray : []
     },
-    enabled: isTeacher,
+    enabled: isTeacher && !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
   // Fetch all assessments (for admins)
@@ -136,7 +141,9 @@ const Assessments: React.FC = () => {
       const response = await assessmentsAPI.getAll()
       return (response as any).data?.assessments || []
     },
-    enabled: isAdmin,
+    enabled: isAdmin && !!user,
+    retry: 2,
+    refetchOnWindowFocus: true,
   })
 
   // Create assessment mutation
@@ -521,15 +528,67 @@ const Assessments: React.FC = () => {
 
   // STUDENT VIEW - Show their assessment results
   if (isStudent) {
-    const assessments = (studentAssessments as any[]) || []
-    const averageScore = assessments.length > 0
-      ? assessments.reduce((sum: number, assessment: any) => sum + (assessment.overallBand || 0), 0) / assessments.length
+    const allAssessments = (studentAssessments as any[]) || []
+    
+    // Apply filters
+    const assessments = allAssessments.filter((assessment: any) => {
+      // Date filter
+      if (dateFilter === 'latest') {
+        // Already sorted by latest first in the display
+      } else if (dateFilter === 'oldest') {
+        // Will be sorted by oldest first in the display
+      } else if (dateFilter === 'this-week') {
+        const assessmentDate = new Date(assessment.assessedAt)
+        const now = new Date()
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        if (assessmentDate < weekAgo) return false
+      } else if (dateFilter === 'this-month') {
+        const assessmentDate = new Date(assessment.assessedAt)
+        const now = new Date()
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        if (assessmentDate < monthAgo) return false
+      } else if (dateFilter === 'last-month') {
+        const assessmentDate = new Date(assessment.assessedAt)
+        const now = new Date()
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        const twoMonthsAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+        if (assessmentDate < twoMonthsAgo || assessmentDate > monthAgo) return false
+      }
+      
+      // Branch filter
+      if (branchFilter && !assessment.booking?.slot?.branch?.name?.toLowerCase().includes(branchFilter.toLowerCase())) {
+        return false
+      }
+      
+      // Score filter
+      if (scoreFilter === 'high' && (assessment.overallBand || 0) < 7) {
+        return false
+      } else if (scoreFilter === 'medium' && ((assessment.overallBand || 0) < 5 || (assessment.overallBand || 0) >= 7)) {
+        return false
+      } else if (scoreFilter === 'low' && (assessment.overallBand || 0) >= 5) {
+        return false
+      }
+      
+      return true
+    })
+    
+    // Sort assessments based on date filter
+    const sortedAssessments = [...assessments]
+    if (dateFilter === 'oldest') {
+      sortedAssessments.sort((a: any, b: any) => new Date(a.assessedAt).getTime() - new Date(b.assessedAt).getTime())
+    } else {
+      // Default: latest first
+      sortedAssessments.sort((a: any, b: any) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())
+    }
+    
+    const averageScore = sortedAssessments.length > 0
+      ? sortedAssessments.reduce((sum: number, assessment: any) => sum + (assessment.overallBand || 0), 0) / sortedAssessments.length
       : 0
-    const highestScore = assessments.length > 0
-      ? Math.max(...assessments.map((a: any) => a.overallBand || 0))
+    const highestScore = sortedAssessments.length > 0
+      ? Math.max(...sortedAssessments.map((a: any) => a.overallBand || 0))
       : 0
-    const latestScore = assessments.length > 0
-      ? assessments.sort((a: any, b: any) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0].overallBand || 0
+    const latestScore = sortedAssessments.length > 0
+      ? sortedAssessments[0].overallBand || 0
       : 0
 
   return (
@@ -552,6 +611,60 @@ const Assessments: React.FC = () => {
           </Link>
       </div>
 
+      {/* Filters for Students */}
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            <div className="hidden sm:flex items-center space-x-2 flex-shrink-0">
+              <div className="p-1.5 bg-blue-100 dark:bg-gray-600 rounded-lg">
+                <Filter className="w-4 h-4 text-blue-600 dark:text-gray-300" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Filters</span>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 overflow-x-auto">
+              {/* Date Filter */}
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[140px] flex-shrink-0"
+              >
+                <option value="">All Dates</option>
+                <option value="latest">Latest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="this-week">This Week</option>
+                <option value="this-month">This Month</option>
+                <option value="last-month">Last Month</option>
+              </select>
+
+              {/* Branch Filter */}
+              <select
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[140px] flex-shrink-0"
+              >
+                <option value="">All Branches</option>
+                <option value="Dhanmondi">Dhanmondi Branch</option>
+                <option value="Gulshan">Gulshan Branch</option>
+                <option value="Uttara">Uttara Branch</option>
+              </select>
+
+              {/* Score Range Filter */}
+              <select
+                value={scoreFilter}
+                onChange={(e) => setScoreFilter(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 sm:min-w-[140px] flex-shrink-0"
+              >
+                <option value="">All Scores</option>
+                <option value="high">High (7-9)</option>
+                <option value="medium">Medium (5-6.9)</option>
+                <option value="low">Low (0-4.9)</option>
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Two-Column Layout: 2/3 Primary + 1/3 Secondary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* PRIMARY CONTENT - 2/3 width */}
@@ -568,53 +681,50 @@ const Assessments: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-                {assessments.length > 0 ? (
+                {sortedAssessments.length > 0 ? (
                 <div className="space-y-4">
-                    {assessments
-                    .sort((a: Assessment, b: Assessment) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())
-                    .map((assessment: any) => (
-                      <div key={assessment.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-3 flex-1">
-                            <div className="flex items-center space-x-3">
+                    {sortedAssessments.map((assessment: any) => (
+                      <div key={assessment.id} className="p-3 sm:p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                          <div className="space-y-3 flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                               <div className="flex items-center space-x-2">
-                                <Calendar className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium">
+                                <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                <span className="font-medium text-sm sm:text-base truncate">
                                   {format(new Date(assessment.assessedAt), 'EEEE, MMMM dd, yyyy')}
                                 </span>
                               </div>
-                                <Badge variant={getScoreBadgeVariant(assessment.overallBand)}>
-                                  Score: {assessment.overallBand}/9
+                              <Badge variant={getScoreBadgeVariant(assessment.overallBand)} className="w-fit">
+                                Score: {assessment.overallBand}/9
                               </Badge>
                             </div>
 
-                            <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600 dark:text-gray-400">
                               <div className="flex items-center space-x-1">
-                                <User className="w-4 h-4" />
-                                <span>{assessment.teacher?.name}</span>
+                                <User className="w-4 h-4 flex-shrink-0" />
+                                <span className="truncate">{assessment.teacher?.name}</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <MapPin className="w-4 h-4" />
-                                <span>{assessment.booking?.slot?.branch?.name}</span>
+                                <MapPin className="w-4 h-4 flex-shrink-0" />
+                                <span className="truncate">{assessment.booking?.slot?.branch?.name}</span>
                               </div>
                             </div>
 
                             {assessment.remarks && (
                               <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 break-words">
                                   <strong>Teacher's feedback:</strong> {assessment.remarks}
                                 </p>
                               </div>
                             )}
                           </div>
 
-                          <div className="ml-4">
-                              <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(assessment.overallBand)}`}>
-                                {assessment.overallBand}
+                          <div className="flex-shrink-0 self-center sm:self-start">
+                            <div className={`text-xl sm:text-2xl font-bold p-2 sm:p-3 rounded-lg text-center min-w-[60px] ${getScoreColor(assessment.overallBand)}`}>
+                              {assessment.overallBand}
                             </div>
                           </div>
                         </div>
-
                       </div>
                     ))}
                 </div>
@@ -832,55 +942,58 @@ const Assessments: React.FC = () => {
             {filteredPendingAssessments.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
                     <AlertCircle className="w-5 h-5" />
-                    <span>Pending Assessments</span>
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">Pending Assessments</span>
                     <Badge variant="destructive">{filteredPendingAssessments.length}</Badge>
-                </CardTitle>
+                    </div>
+                  </div>
                   <CardDescription>
                     Completed sessions that need assessment scores
                   </CardDescription>
               </CardHeader>
               <CardContent>
-                  <div className="space-y-4">
-                    {filteredPendingAssessments.map((booking: any) => (
-                      <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2 flex-1">
-                            <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-2">
-                                <Calendar className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium">
-                                  {booking.slot?.date && format(new Date(booking.slot.date), 'EEEE, MMMM dd, yyyy')}
-                        </span>
-                      </div>
-                    </div>
-
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="w-4 h-4" />
-                                <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
-                        </div>
-                              <div className="flex items-center space-x-1">
+                    <div className="space-y-2">
+                      {filteredPendingAssessments.map((booking: any) => (
+                        <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                          <div className="flex items-center space-x-4 flex-1">
+                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-4">
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd, yyyy')}
+                                  </p>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {booking.slot?.startTime} - {booking.slot?.endTime}
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                                 <User className="w-4 h-4" />
                                 <span>{booking.student?.name}</span>
                         </div>
-                              <div className="flex items-center space-x-1">
+                                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                                 <MapPin className="w-4 h-4" />
                                 <span>{booking.slot?.branch?.name}</span>
                       </div>
                   </div>
                 </div>
-
-                          <div className="flex justify-end">
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Badge variant="destructive" className="text-xs px-2 py-1">
+                              Pending
+                            </Badge>
                           <Button
                             onClick={() => handleStartAssessment(booking)}
-                            className="bg-red-500 hover:bg-red-600"
+                              size="sm"
+                              className="bg-red-500 hover:bg-red-600 text-white"
                           >
-                            <Play className="w-4 h-4 mr-2" />
-                            Start Assessment
+                              <Play className="w-4 h-4 mr-1" />
+                              Start
                           </Button>
-                          </div>
                         </div>
                       </div>
                     ))}
@@ -894,61 +1007,65 @@ const Assessments: React.FC = () => {
             <div ref={completedSectionRef}>
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
                   <CheckCircle className="w-5 h-5" />
-                  <span>Completed Assessments</span>
-              </CardTitle>
+                    <span className="text-lg font-semibold text-gray-900 dark:text-white">Completed Assessments</span>
+                  </div>
+                </div>
                 <CardDescription>
                   Recently completed assessments
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 {filteredCompletedAssessments.length > 0 ? (
-                  <div className="space-y-4">
-                    {filteredCompletedAssessments
-                      .sort((a: any, b: any) => new Date(b.assessment?.[0]?.assessedAt).getTime() - new Date(a.assessment?.[0]?.assessedAt).getTime())
-                      .slice(0, 5)
-                      .map((booking: any) => (
-                        <div key={booking.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-2 flex-1">
-                              <div className="flex items-center space-x-3">
-                                <div className="flex items-center space-x-2">
-                                  <Calendar className="w-4 h-4 text-gray-500" />
-                                  <span className="font-medium">
-                                    {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd, yyyy')}
-                                  </span>
-                </div>
-                                <Badge variant={getScoreBadgeVariant(booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand)}>
-                                  Score: {booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand}/9
-                                </Badge>
-                </div>
-
-                              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                                <div className="flex items-center space-x-1">
+                    <div className="space-y-2">
+                      {filteredCompletedAssessments
+                        .sort((a: any, b: any) => new Date(b.assessment?.[0]?.assessedAt).getTime() - new Date(a.assessment?.[0]?.assessedAt).getTime())
+                        .slice(0, 5)
+                        .map((booking: any) => (
+                          <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                            <div className="flex items-center space-x-4 flex-1">
+                              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-4">
+                                  <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {booking.slot?.date && format(new Date(booking.slot.date), 'MMM dd, yyyy')}
+                                    </p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                      {booking.slot?.startTime} - {booking.slot?.endTime}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                                   <User className="w-4 h-4" />
                                   <span>{booking.student?.name}</span>
                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <Clock className="w-4 h-4" />
-                                  <span>{booking.slot?.startTime} - {booking.slot?.endTime}</span>
+                                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>{booking.slot?.branch?.name}</span>
                 </div>
                 </div>
                 </div>
-
+                            </div>
                             <div className="flex items-center space-x-3">
-                              <div className={`text-2xl font-bold p-3 rounded-lg ${getScoreColor(booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand)}`}>
+                              <div className="text-center">
+                                <div className={`text-2xl font-bold ${getScoreColor(booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand)}`}>
                                 {booking.assessment?.[0]?.score || booking.assessment?.[0]?.overallBand}
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">out of 9</p>
               </div>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleViewCompletedDetails(booking)}
+                                className="text-blue-600 hover:text-blue-700"
                               >
                                 <Eye className="w-4 h-4 mr-1" />
-                                View Details
+                                View
                               </Button>
-                            </div>
                                           </div>
                                         </div>
                                       ))}
@@ -966,6 +1083,7 @@ const Assessments: React.FC = () => {
             </CardContent>
           </Card>
               </div>
+        </div>
 
         {/* Assessment Workflow Overlay */}
         {isAssessmentInProgress && (
@@ -1389,7 +1507,7 @@ const Assessments: React.FC = () => {
             </div>
           </div>
         )}
-        </div>
+        {/* Close teacher main wrapper */}
       </div>
     )
   }

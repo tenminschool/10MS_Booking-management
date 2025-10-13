@@ -5,13 +5,14 @@ import { validateRequest, createUserSchema, updateUserSchema, paginationSchema }
 import { hashPassword } from '../utils/password';
 import { supabase } from '../lib/supabase';
 import { UserRole } from '../types/auth';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
-// Get all users (Super-Admin only)
+// Get all users (Super-Admin and Branch-Admin)
 router.get('/', 
   authenticate, 
-  requireRole(['SUPER_ADMIN']), 
+  requireRole(['SUPER_ADMIN', 'BRANCH_ADMIN']), 
   async (req, res) => {
     try {
       let page = 1, limit = 10, sortBy, sortOrder = 'desc';
@@ -49,6 +50,12 @@ router.get('/',
         query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phoneNumber.ilike.%${search}%`);
       }
 
+      // Branch admin can only see users from their branch
+      const currentUser = req.user!;
+      if (currentUser.role === UserRole.BRANCH_ADMIN && currentUser.branchId) {
+        query = query.eq('branchId', currentUser.branchId);
+      }
+
       // Apply sorting
       if (sortBy) {
         query = query.order(sortBy, { ascending: sortOrder === 'asc' });
@@ -71,6 +78,11 @@ router.get('/',
       if (role) countQuery = countQuery.eq('role', role as string);
       if (search) {
         countQuery = countQuery.or(`name.ilike.%${search}%,email.ilike.%${search}%,phoneNumber.ilike.%${search}%`);
+      }
+
+      // Branch admin can only see users from their branch
+      if (currentUser.role === UserRole.BRANCH_ADMIN && currentUser.branchId) {
+        countQuery = countQuery.eq('branchId', currentUser.branchId);
       }
 
       const { count: total, error: countError } = await countQuery;
@@ -496,5 +508,66 @@ router.delete('/:id',
     }
   }
 );
+
+// POST /api/users/change-password - Change user password
+router.post('/change-password', authenticate, async (req, res) => {
+  try {
+    const user = req.user!;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Current password and new password are required'
+      });
+    }
+
+    // Verify current password first with a sign-in attempt
+    if (!user.email) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'User email not found'
+      });
+    }
+
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword
+    });
+
+    if (verifyError) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Update password using Supabase Auth API
+    // This requires using the service key to update another user's password
+    // For now, let's use the simpler auth.updateUser which updates current user
+    const { error: changeError } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (changeError) {
+      console.error('Supabase auth password change error:', changeError);
+      return res.status(500).json({
+        error: 'Password change failed',
+        message: changeError.message
+      });
+    }
+
+    res.json({
+      message: 'Password changed successfully'
+    });
+
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to change password'
+    });
+  }
+});
 
 export default router;

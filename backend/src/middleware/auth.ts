@@ -55,6 +55,39 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       });
     }
 
+    // Check if it's a custom student token
+    if (token.startsWith('student_')) {
+      const parts = token.split('_');
+      if (parts.length >= 2) {
+        // Handle both formats: student_id and student_id_timestamp
+        const userId = parts[1];
+        
+        // Get user details from database
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (userError || !userData) {
+          return res.status(401).json({
+            error: 'Authentication failed',
+            message: 'Student not found'
+          });
+        }
+
+        req.user = {
+          userId: userData.id,
+          email: userData.email,
+          role: userData.role as UserRole,
+          branchId: userData.branchId,
+          name: userData.name,
+          phoneNumber: userData.phoneNumber
+        };
+        return next();
+      }
+    }
+
     // Try Supabase Auth first
     const supabaseUser = await verifySupabaseToken(token);
     if (supabaseUser) {

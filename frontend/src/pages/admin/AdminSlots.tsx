@@ -879,8 +879,6 @@ const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   selectedDate,
   slots,
   onEditSlot,
-  onDeleteSlot,
-  onCopySlots,
   user
 }) => {
   const monthStart = startOfMonth(selectedDate)
