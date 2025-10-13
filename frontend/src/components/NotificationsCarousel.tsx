@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { 
   Bell, 
@@ -58,8 +57,7 @@ interface NotificationsCarouselProps {
 const NotificationsCarousel: React.FC<NotificationsCarouselProps> = ({
   notifications,
   unreadCount,
-  title = "Notifications",
-  showViewAll = true
+  title = "Notifications"
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0)
 
