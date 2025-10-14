@@ -183,7 +183,7 @@ steps:
 
 ## 🔐 Environment Variables
 
-Ensure these are set before building:
+**CRITICAL**: Environment variables must be configured correctly before building for production!
 
 ### Backend (.env)
 ```bash
@@ -199,10 +199,38 @@ PORT=3001
 NODE_ENV=production
 ```
 
-### Frontend (.env.production)
+### Frontend Environment Configuration
+
+#### For Development:
+1. Copy `env.development` to `.env`:
 ```bash
-VITE_API_URL=https://your-api-domain.com
+cd frontend
+cp env.development .env
 ```
+
+#### For Production:
+1. Copy `env.production` to `.env.production`:
+```bash
+cd frontend
+cp env.production .env.production
+```
+
+2. **IMPORTANT**: Edit `.env.production` and set your actual backend URL:
+```bash
+# Replace with your actual backend server URL
+VITE_API_URL=https://your-backend-domain.com
+```
+
+**Examples of valid production URLs:**
+- `https://api.10minuteschool.com`
+- `https://backend.yourdomain.com`
+- `https://your-backend-server.com`
+
+#### ⚠️ Common Production URL Mistakes:
+- ❌ `http://localhost:3001` (won't work in production)
+- ❌ `http://127.0.0.1:3001` (won't work in production)
+- ✅ `https://your-backend-domain.com`
+- ✅ `https://api.yourdomain.com`
 
 ## 📝 Package Version Management
 
@@ -218,8 +246,7 @@ VITE_API_URL=https://your-api-domain.com
 
 ## 🆘 Troubleshooting Checklist
 
-If build fails:
-
+### If Build Fails:
 - [ ] Is Node.js version >= 18.0.0?
 - [ ] Did you run clean install?
 - [ ] Are all `package-lock.json` files committed?
@@ -228,6 +255,49 @@ If build fails:
 - [ ] Are environment variables set?
 - [ ] Did you pull latest changes?
 - [ ] Are there uncommitted `node_modules`?
+
+### If Frontend Shows "Network Error" or "ERR_CONNECTION_REFUSED":
+
+**Symptom**: Login page shows "Network Error" and console shows:
+```
+Failed to load resource: net::ERR_CONNECTION_REFUSED
+localhost:3001/api/auth/staff/login:1
+```
+
+**Root Cause**: Frontend is trying to connect to `localhost:3001` instead of production backend.
+
+**Solution**:
+1. **Check environment configuration**:
+```bash
+cd frontend
+ls -la | grep env
+# Should see: env.development, env.production
+```
+
+2. **Create production environment file**:
+```bash
+cd frontend
+cp env.production .env.production
+```
+
+3. **Edit `.env.production` with correct backend URL**:
+```bash
+# Replace with your actual backend server URL
+VITE_API_URL=https://your-backend-domain.com
+```
+
+4. **Rebuild for production**:
+```bash
+npm run build:prod
+# or
+NODE_ENV=production npm run build
+```
+
+5. **Verify the build includes correct URL**:
+```bash
+# Check the built files contain your production URL, not localhost
+grep -r "your-backend-domain.com" dist/ || echo "URL not found - check configuration"
+```
 
 ## 📞 Support
 
