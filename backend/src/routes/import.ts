@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import multer from 'multer';
 import csvParser from 'csv-parser';
 import { authenticate, requireRole, requireBranchAccess } from '../middleware/auth';
@@ -214,7 +214,7 @@ router.post('/preview',
   authenticate, 
   requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
   auditLog('import_preview'),
-  upload.single('file'),
+  upload.single('file') as RequestHandler,
   async (req, res) => {
     try {
       if (!req.file) {
@@ -291,7 +291,7 @@ router.post('/students',
   authenticate, 
   requireRole([UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]),
   requireBranchAccess,
-  upload.single('file'),
+  upload.single('file') as RequestHandler,
   auditLog('student_bulk_import'),
   async (req, res) => {
     try {
