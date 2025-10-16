@@ -1,0 +1,27 @@
+name: Restarting Application
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  restart-pm2:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      # Step 2: Set up SSH
+      - name: Add SSH key
+        run: |
+          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGjF3ZZhwHy6rVQpKGzEOdYKn2lZM3og3mZvNr7PyOMo arnobxtreme@gmail.com" > ssh_key
+          chmod 600 ssh_key
+
+      # Step 3: Restart Stage Postal Server application on EC2
+      - name: Restart Application
+        run: |
+          ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+          "cd /root/10MS_Booking-management && sudo git pull && pm2 reload all"
