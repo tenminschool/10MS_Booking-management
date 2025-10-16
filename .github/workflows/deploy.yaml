@@ -16,8 +16,7 @@ jobs:
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
-          mkdir -p /root/.ssh
-          chmod 700 /root/.ssh
+          chmod 700 ~/.ssh
           echo "-----BEGIN OPENSSH PRIVATE KEY-----
               b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
               QyNTUxOQAAACBoxd2WYcB8uq1UKShsxDnWCp9pWTN6IN5mbza+z8jjKAAAAJjnafE852nx
@@ -26,7 +25,7 @@ jobs:
               n2lZM3og3mZvNr7PyOMoAAAAFWFybm9ieHRyZW1lQGdtYWlsLmNvbQ==
           -----END OPENSSH PRIVATE KEY-----" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          chmod 600 /root/.ssh/authorized_keys
+          chmod 600 ~/.ssh/authorized_keys
           ssh-keyscan -H 143.198.204.83 >> ~/.ssh/known_hosts
 
       - name: Deploy to Server
