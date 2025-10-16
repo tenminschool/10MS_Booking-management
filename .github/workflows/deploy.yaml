@@ -23,5 +23,5 @@ jobs:
       # Step 3: Restart Stage Postal Server application on EC2
       - name: Restart Application
         run: |
-          ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+          ssh -i ssh_key -o StrictHostKeyChecking=no root@143.198.204.83 \
           "cd /root/10MS_Booking-management && sudo git pull && pm2 reload all"
