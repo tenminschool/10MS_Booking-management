@@ -13,15 +13,24 @@ jobs:
       # Step 1: Check out the repository
       - name: Checkout repository
         uses: actions/checkout@v3
-        
+      
       # Step 2: Set up SSH
       - name: Add SSH key
         run: |
           echo "${{ secrets.SSH_KEY }}" > ssh_key
           chmod 600 ssh_key
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: Build the project
+        run: npm install pm2 -g
+
       # Step 3: Restart 10MS_Booking-management application on DO
       - name: Restart Application
         run: |
           ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} \
-          "cd /root/10MS_Booking-management && sudo git pull && sudo ./bash.sh "
+          "cd /root/10MS_Booking-management && sudo git pull && pm2 reload all "
