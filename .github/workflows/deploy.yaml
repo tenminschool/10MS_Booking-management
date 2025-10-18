@@ -1,33 +1,27 @@
-name: Deploy to Production
+name: Restart Server Application
 
 on:
   push:
     branches:
-      - main
+    - main
 
 jobs:
-  deploy:
+  restart-pm2:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up SSH key
+      # Step 1: Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      # Step 2: Set up SSH
+      - name: Add SSH key
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "-----BEGIN OPENSSH PRIVATE KEY-----
-              b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-              QyNTUxOQAAACBoxd2WYcB8uq1UKShsxDnWCp9pWTN6IN5mbza+z8jjKAAAAJjnafE852nx
-              PAAAAAtzc2gtZWQyNTUxOQAAACBoxd2WYcB8uq1UKShsxDnWCp9pWTN6IN5mbza+z8jjKA
-              AAAECz72XIz/evdTpIA0cFFSiaAh2G5PTkm2SRhiM7h9RybmjF3ZZhwHy6rVQpKGzEOdYK
-              n2lZM3og3mZvNr7PyOMoAAAAFWFybm9ieHRyZW1lQGdtYWlsLmNvbQ==
-          -----END OPENSSH PRIVATE KEY-----" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 143.198.204.83 >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_KEY }}" > ssh_key
+          chmod 600 ssh_key
 
-      - name: Deploy to Server
+      # Step 3: Restart Stage Postal Server application on EC2
+      - name: Restart Stage Postal Server Application
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@143.198.204.83 \
-            'cd /root/10MS_Booking-management && git pull && pm2 reload all'
+          ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} \
+          "cd /root/10MS_Booking-management && sudo git pull && pm2 reload all"
