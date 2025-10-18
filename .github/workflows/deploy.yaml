@@ -25,6 +25,12 @@ jobs:
         with:
           node-version: 22
       
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install PM2 globally
+        run: sudo npm install -g pm2
+      
       # - name: Build the project
       #   run: npm install -g pm2
 
