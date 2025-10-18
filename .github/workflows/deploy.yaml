@@ -24,5 +24,4 @@ jobs:
       - name: Restart Application
         run: |
           ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} \
-          "cd /root/10MS_Booking-management && sudo git pull \
-            sudo pm2 reload all"
+          "cd /root/10MS_Booking-management && sudo git pull && sudo pm2 reload all"
