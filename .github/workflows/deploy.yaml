@@ -32,5 +32,4 @@ jobs:
       - name: Restart Application
         run: |
           ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} \
-          "npm install -g pm2" \
-          "cd /root/10MS_Booking-management && sudo git pull && pm2 reload all "
+          "npm install -g pm2 && cd /root/10MS_Booking-management && sudo git pull && pm2 reload all "
