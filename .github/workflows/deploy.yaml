@@ -25,12 +25,12 @@ jobs:
         with:
           node-version: 22
       
-      - name: Build the project
-        run: npm install -g pm2
+      # - name: Build the project
+      #   run: npm install -g pm2
 
       # Step 3: Restart 10MS_Booking-management application on DO
       - name: Restart Application
         run: |
-          npm install -g pm2 \
           ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} \
+          "npm install -g pm2" \
           "cd /root/10MS_Booking-management && sudo git pull && pm2 reload all "
