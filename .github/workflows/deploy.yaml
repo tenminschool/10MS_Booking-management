@@ -24,22 +24,15 @@ jobs:
       #   run: npm install -g pm2
 
       # Step 3: Restart 10MS_Booking-management application on DO
-      # - name: Restart Application
-      #   run: |
-      #     ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
-      #       source /etc/profile
-      #       export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
-      #       cd /root/10MS_Booking-management
-      #       git pull
-      #       npm install --omit=dev
-      #       pm2 reload all
-      #     EOF
-      - name: Deploy via SSH
+      - name: Restart Application
         run: |
-          ssh -i ssh_key -t -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} "
-            bash -lc '
-              cd /root/10MS_Booking-management &&
-              git pull &&
-              pm2 reload all || pm2 restart all
-            '
-          "
+          ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+            source /etc/profile
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
+            source /etc/profile
+            cd /root/10MS_Booking-management
+            git pull
+            npm install --omit=dev
+            pm2 reload all
+          EOF
+
