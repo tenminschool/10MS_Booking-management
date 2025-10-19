@@ -19,9 +19,6 @@ jobs:
         run: |
           echo "${{ secrets.SSH_KEY }}" > ssh_key
           chmod 600 ssh_key
-      
-      # - name: Build the project
-      #   run: npm install -g pm2
 
       # Step 3: Restart 10MS_Booking-management application on DO
       - name: Restart Application
