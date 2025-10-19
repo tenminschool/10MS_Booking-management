@@ -27,6 +27,7 @@ jobs:
       - name: Restart Application
         run: |
           ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+            sudo su
             cd /root/10MS_Booking-management
             git pull
             npm install --omit=dev
