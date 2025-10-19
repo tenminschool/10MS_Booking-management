@@ -27,16 +27,18 @@ jobs:
       - name: Restart Application
         run: |
           ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+            
+            # nvm add
              export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
             [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
             
             cd /root/10MS_Booking-management
-            which node
-            which npm
-            which pm2
+            
+            # pull the updated code
             git pull
-            npm install --omit=dev
+
+            # Restart the pm2
             pm2 reload all
           EOF
 
