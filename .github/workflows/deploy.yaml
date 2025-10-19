@@ -31,6 +31,9 @@ jobs:
             export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
             source /etc/profile
             cd /root/10MS_Booking-management
+            which node
+            which npm
+            which pm2
             git pull
             npm install --omit=dev
             pm2 reload all
