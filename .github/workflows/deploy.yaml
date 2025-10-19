@@ -36,7 +36,7 @@ jobs:
       #     EOF
       - name: Deploy via SSH
         run: |
-          ssh -i ssh_key -t -o StrictHostKeyChecking=no root@${{ secrets.DROPLET_HOST }} "
+          ssh -i ssh_key -t -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} "
             bash -lc '
               cd /root/10MS_Booking-management &&
               git pull &&
