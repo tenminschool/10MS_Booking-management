@@ -37,7 +37,7 @@ jobs:
       # Step 3: Restart 10MS_Booking-management application on DO
       - name: Restart Application
         run: |
-          ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} \
+          ssh -i ssh_key ${{ secrets.USER }}@${{ secrets.HOST }} \
           "cd /root/10MS_Booking-management &&
             sudo git pull &&
             npm install &&
