@@ -35,6 +35,9 @@ jobs:
             # pull the updated code
             git pull
 
+            cd /root/10MS_Booking-management/frontend
+            npm run build:vite
+
             # Restart the pm2
             pm2 reload all
           EOF
