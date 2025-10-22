@@ -27,15 +27,27 @@ const api = axios.create({
   },
 })
 
+// Debug logging for requests
+api.interceptors.request.use((config) => {
+  console.log('🌐 Making API request:', {
+    method: config.method?.toUpperCase(),
+    url: config.url,
+    baseURL: config.baseURL,
+    fullURL: `${config.baseURL}${config.url}`,
+    data: config.data
+  })
+  return config
+})
+
 // Utility function to convert axios IPromise to Promise
 const toPromise = <T>(axiosPromise: any): Promise<T> => {
   return Promise.resolve(axiosPromise) as Promise<T>
 }
 
-// Add auth token to requests
+// Add auth token to requests (but not to login endpoints)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
-  if (token) {
+  if (token && !config.url?.includes('/login') && !config.url?.includes('/request-otp') && !config.url?.includes('/verify-otp')) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -48,6 +60,13 @@ api.interceptors.response.use(
   (error) => {
     // Parse and log the error
     const apiError = parseApiError(error)
+    console.error('🔴 API Error Details:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      data: error.config?.data,
+      status: error.response?.status,
+      responseData: error.response?.data
+    })
     logError(apiError, { 
       url: error.config?.url,
       method: error.config?.method,
@@ -55,7 +74,7 @@ api.interceptors.response.use(
     })
 
     // Handle authentication errors
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.url?.includes('/login')) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
@@ -67,23 +86,35 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  loginStudent: (phoneNumber: string, otp: string) =>
-    toPromise(api.post('/api/mock-auth/student/verify-otp', { phoneNumber, otp })),
+  loginStudent: (phoneNumber: string, otp: string) => {
+    console.log('🔐 API Call: loginStudent', { phoneNumber, otp })
+    return toPromise(api.post('/api/mock-auth/student/verify-otp', { phoneNumber, otp }))
+  },
 
-  loginStudentEmail: (email: string, password: string) =>
-    toPromise(api.post('/api/mock-auth/student/login', { email, password })),
+  loginStudentEmail: (email: string, password: string) => {
+    console.log('🔐 API Call: loginStudentEmail', { email, password: '***' })
+    return toPromise(api.post('/api/mock-auth/student/login', { email, password }))
+  },
 
-  loginStaff: (email: string, password: string) =>
-    toPromise(api.post('/api/auth/staff/login', { email, password })),
+  loginStaff: (email: string, password: string) => {
+    console.log('🔐 API Call: loginStaff', { email, password: '***' })
+    return toPromise(api.post('/api/mock-auth/staff/login', { email, password }))
+  },
 
-  sendOTP: (phoneNumber: string) =>
-    toPromise(api.post('/api/mock-auth/student/request-otp', { phoneNumber })),
+  sendOTP: (phoneNumber: string) => {
+    console.log('🔐 API Call: sendOTP', { phoneNumber })
+    return toPromise(api.post('/api/mock-auth/student/request-otp', { phoneNumber }))
+  },
 
-  getCurrentUser: () =>
-    toPromise(api.get<User>('/api/auth/me')),
+  getCurrentUser: () => {
+    console.log('🔐 API Call: getCurrentUser')
+    return toPromise(api.get<User>('/api/mock-auth/me'))
+  },
 
-  logout: () =>
-    toPromise(api.post('/api/auth/logout')),
+  logout: () => {
+    console.log('🔐 API Call: logout')
+    return toPromise(api.post('/api/mock-auth/logout'))
+  },
 }
 
 // Branches API

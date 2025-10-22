@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import type { User } from '@/types'
-import { authAPI } from '@/lib/api'
 
 interface AuthContextType {
   user: User | null
@@ -30,7 +29,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const initAuth = async () => {
+    const initAuth = () => {
       const token = localStorage.getItem('token')
       const savedUser = localStorage.getItem('user')
       
@@ -39,43 +38,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (token && savedUser) {
         try {
-          // Parse the stored user data first
+          // Parse the stored user data and use it directly for mock authentication
           const parsedUser = JSON.parse(savedUser)
-          
-          // For student tokens, use stored data directly (no server verification needed)
-          if (token.startsWith('student_')) {
-            console.log('Student token detected, using stored user data')
-            setUser(parsedUser)
-          } else {
-            // For staff tokens, verify with server
-            console.log('Staff token detected, verifying with server...')
-            const response = await authAPI.getCurrentUser()
-            console.log('Token verification successful:', response)
-            setUser((response as any).data)
-            console.log('User set from verified data:', (response as any).data)
-          }
+          console.log('Using stored user data for mock authentication:', parsedUser)
+          setUser(parsedUser)
         } catch (error) {
-          console.log('Token verification failed:', error)
-          
-          // For student tokens, still try to use stored data
-          if (token.startsWith('student_')) {
-            try {
-              const parsedUser = JSON.parse(savedUser)
-              console.log('Student token verification failed, but using stored user data')
-              setUser(parsedUser)
-            } catch (parseError) {
-              console.log('Failed to parse stored user data, clearing auth')
-              localStorage.removeItem('token')
-              localStorage.removeItem('user')
-              setUser(null)
-            }
-          } else {
-            // For other tokens, clear auth data on verification failure
-            console.log('Non-student token verification failed, clearing auth data')
-            localStorage.removeItem('token')
-            localStorage.removeItem('user')
-            setUser(null)
-          }
+          console.log('Failed to parse stored user data, clearing auth:', error)
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          setUser(null)
         }
       } else {
         console.log('No stored auth data, setting user to null')

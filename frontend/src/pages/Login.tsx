@@ -38,7 +38,7 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 )
 const Input = ({ className = '', ...props }: any) => (
   <input 
-    className={`w-full py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${className}`}
+    className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${className}`}
     {...props}
   />
 )
@@ -47,39 +47,17 @@ const Label = ({ children, htmlFor, className = '' }: any) => (
     {children}
   </label>
 )
-const Tabs = ({ children, value, onValueChange }: any) => (
-  <div data-value={value} data-onvaluechange={onValueChange}>
-    {children}
-  </div>
-)
-const TabsList = ({ children, className = '' }: any) => (
-  <div className={`flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 ${className}`}>
-    {children}
-  </div>
-)
-const TabsTrigger = ({ children, value, className = '' }: any) => (
-  <button className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-white dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 ${className}`} data-value={value}>
-    {children}
-  </button>
-)
-const TabsContent = ({ children, value, className = '' }: any) => (
-  <div className={`mt-4 ${className}`} data-value={value}>
-    {children}
-  </div>
-)
 import { Phone, Mail, Lock, Send, Eye, EyeOff } from 'lucide-react'
 
 const Login: React.FC = () => {
   const navigate = useNavigate()
   const { login } = useAuth()
   
-  // Student login state
+  // Unified login state
+  const [loginType, setLoginType] = useState<'phone' | 'email'>('email')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [otp, setOtp] = useState('')
   const [isOtpSent, setIsOtpSent] = useState(false)
-  const [studentLoginType, setStudentLoginType] = useState<'phone' | 'email'>('phone')
-  
-  // Staff login state
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -115,7 +93,6 @@ const Login: React.FC = () => {
       }
       
       login(token, user)
-      // All users go to the same dashboard page, but dashboard renders differently based on role
       console.log('Navigating to dashboard...')
       navigate('/dashboard')
     },
@@ -124,43 +101,33 @@ const Login: React.FC = () => {
     }
   })
 
-  // Student email login mutation
-  const studentEmailLoginMutation = useMutation({
-    mutationFn: (data: { email: string; password: string }) => 
-      authAPI.loginStudentEmail(data.email, data.password),
-    onSuccess: (response: any) => {
-      console.log('Student email login response:', response)
-      console.log('Student email response data:', response.data)
+  // Unified login mutation that auto-detects user type
+  const unifiedLoginMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      console.log('🔐 Attempting unified login for:', data.email)
       
-      if (!response.data || !response.data.data) {
-        console.error('Invalid student email response format:', response)
-        return
+      // Try student login first
+      try {
+        console.log('🔄 Trying student login...')
+        const response = await authAPI.loginStudentEmail(data.email, data.password)
+        console.log('✅ Student login successful')
+        return { data: (response as any).data, userType: 'student' }
+      } catch (studentError) {
+        console.log('❌ Student login failed, trying staff login...')
+        
+        // If student login fails, try staff login
+        try {
+          const response = await authAPI.loginStaff(data.email, data.password)
+          console.log('✅ Staff login successful')
+          return { data: (response as any).data, userType: 'staff' }
+        } catch (staffError) {
+          console.log('❌ Both student and staff login failed')
+          throw studentError // Throw the original error
+        }
       }
-      
-      const { token, user } = response.data.data
-      console.log('Student email token:', token)
-      console.log('Student email user:', user)
-      
-      if (!token || !user) {
-        console.error('Missing student email token or user data')
-        return
-      }
-      
-      login(token, user)
-      console.log('Navigating to dashboard...')
-      navigate('/dashboard')
     },
-    onError: (error) => {
-      console.error('Student email login error:', error)
-    }
-  })
-
-  // Staff login mutation
-  const staffLoginMutation = useMutation({
-    mutationFn: (data: { email: string; password: string }) => 
-      authAPI.loginStaff(data.email, data.password),
     onSuccess: (response: any) => {
-      console.log('Login response:', response)
+      console.log('🎉 Unified login successful:', response.userType)
       console.log('Response data:', response.data)
       
       if (!response.data || !response.data.data) {
@@ -178,12 +145,11 @@ const Login: React.FC = () => {
       }
       
       login(token, user)
-      // All users go to the same dashboard page, but dashboard renders differently based on role
       console.log('Navigating to dashboard...')
       navigate('/dashboard')
     },
     onError: (error: any) => {
-      console.error('Login error:', error)
+      console.error('❌ Unified login error:', error)
       console.error('Error response:', error.response?.data)
       console.error('Error status:', error.response?.status)
     }
@@ -203,18 +169,23 @@ const Login: React.FC = () => {
     }
   }
 
-  const handleStudentEmailLogin = (e: React.FormEvent) => {
+  const handleEmailLogin = (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('handleEmailLogin - email:', email)
+    console.log('handleEmailLogin - password:', password)
+    console.log('handleEmailLogin - email length:', email.length)
     if (email && password) {
-      studentEmailLoginMutation.mutate({ email, password })
+      unifiedLoginMutation.mutate({ email, password })
     }
   }
 
-  const handleStaffLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (email && password) {
-      staffLoginMutation.mutate({ email, password })
-    }
+  const handleQuickLogin = (email: string, password: string) => {
+    console.log('handleQuickLogin called with:', { email, password })
+    setEmail(email)
+    setPassword(password)
+    setLoginType('email')
+    // Auto-login with the unified system
+    unifiedLoginMutation.mutate({ email, password })
   }
 
   return (
@@ -225,74 +196,58 @@ const Login: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center p-2 sm:p-4 relative" style={{ zIndex: 1 }}>
         {/* Theme Toggle - Top Right */}
         <div className="absolute top-4 right-4" style={{ zIndex: 10 }}>
-        <ThemeToggle />
-      </div>
-      
-      <div className="w-full max-w-md mx-auto relative" style={{ zIndex: 10 }}>
-        {/* Logo and Header */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-            <span className="text-white font-bold text-lg sm:text-xl">10MS</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">Sign in to your speaking test account</p>
+          <ThemeToggle />
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign In</CardTitle>
-            <CardDescription>
-              Choose your account type to continue
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Demo Credentials */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-              <h3 className="text-orange-800 font-semibold mb-2">🎯 Demo Student (Showcase)</h3>
-              <div className="text-sm text-orange-700 space-y-1">
-                <p><strong>Email:</strong> demo.student@example.com</p>
-                <p><strong>Password:</strong> password</p>
-                <p><strong>Phone:</strong> +8801712345678</p>
-                <p><strong>OTP:</strong> 123456</p>
-              </div>
+      
+        <div className="w-full max-w-md mx-auto relative" style={{ zIndex: 10 }}>
+          {/* Logo and Header */}
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <span className="text-white font-bold text-lg sm:text-xl">10MS</span>
             </div>
-            
-            <Tabs defaultValue="student" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 text-sm sm:text-base">
-                <TabsTrigger value="student" className="text-xs sm:text-sm">Student</TabsTrigger>
-                <TabsTrigger value="staff" className="text-xs sm:text-sm">Staff</TabsTrigger>
-              </TabsList>
-              
-              {/* Student Login */}
-              <TabsContent value="student" className="space-y-4">
-                {/* Login Type Toggle */}
-                <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setStudentLoginType('phone')}
-                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                      studentLoginType === 'phone'
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    Phone
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStudentLoginType('email')}
-                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                      studentLoginType === 'email'
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    Email
-                  </button>
-                </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white dark:text-white">Welcome Back</h1>
+            <p className="text-sm sm:text-base text-gray-200 dark:text-gray-300 mt-2">Sign in to your speaking test account</p>
+          </div>
 
-                {studentLoginType === 'phone' ? (
-                  !isOtpSent ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Sign In</CardTitle>
+              <CardDescription>
+                Enter your credentials to continue
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Login Type Toggle */}
+              <div className="flex space-x-1 bg-blue-50 dark:bg-blue-900/20 p-1 rounded-lg mb-4 border border-blue-200 dark:border-blue-800">
+                <button
+                  type="button"
+                  onClick={() => setLoginType('email')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all duration-200 ${
+                    loginType === 'email'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/30'
+                  }`}
+                >
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginType('phone')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all duration-200 ${
+                    loginType === 'phone'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/30'
+                  }`}
+                >
+                  <Phone className="w-4 h-4 inline mr-2" />
+                  Phone
+                </button>
+              </div>
+
+              {/* Login Forms */}
+              {loginType === 'phone' ? (
+                !isOtpSent ? (
                   <form onSubmit={handleSendOtp} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
@@ -312,7 +267,7 @@ const Login: React.FC = () => {
                     
                     <Button 
                       type="submit" 
-                      className="w-full bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
+                      className="w-full bg-blue-600 hover:bg-blue-700 h-10 sm:h-11 text-sm sm:text-base"
                       disabled={sendOtpMutation.isPending}
                     >
                       {sendOtpMutation.isPending ? (
@@ -359,71 +314,16 @@ const Login: React.FC = () => {
                       </Button>
                       <Button 
                         type="submit" 
-                        className="flex-1 bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 h-10 sm:h-11 text-sm sm:text-base"
                         disabled={studentLoginMutation.isPending}
                       >
                         {studentLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
                       </Button>
                     </div>
                   </form>
-                  )
-                ) : (
-                  <form onSubmit={handleStudentEmailLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="student-email" className="text-sm font-medium flex items-center gap-2">
-                        Email
-                        <Mail className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                      </Label>
-                      <Input
-                        id="student-email"
-                        type="email"
-                        placeholder="student@10minuteschool.com"
-                        value={email}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                        className="px-3 h-10 sm:h-11 text-sm sm:text-base"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="student-password" className="text-sm font-medium flex items-center gap-2">
-                        Password
-                        <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="student-password"
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Enter your password"
-                          value={password}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                          className="px-3 pr-10 h-10 sm:h-11 text-sm sm:text-base"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
-                      disabled={studentEmailLoginMutation.isPending}
-                    >
-                      {studentEmailLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
-                    </Button>
-                  </form>
-                )}
-              </TabsContent>
-              
-              {/* Staff Login */}
-              <TabsContent value="staff" className="space-y-4">
-                <form onSubmit={handleStaffLogin} className="space-y-4">
+                )
+              ) : (
+                <form onSubmit={handleEmailLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
                       Email
@@ -443,7 +343,7 @@ const Login: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-sm font-medium flex items-center gap-2">
                       Password
-                      <Lock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                     </Label>
                     <div className="relative">
                       <Input
@@ -458,7 +358,7 @@ const Login: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -467,85 +367,96 @@ const Login: React.FC = () => {
                   
                   <Button 
                     type="submit" 
-                    className="w-full bg-red-600 hover:bg-red-700 h-10 sm:h-11 text-sm sm:text-base"
-                    disabled={staffLoginMutation.isPending}
+                    className="w-full h-10 sm:h-11 text-sm sm:text-base bg-blue-600 hover:bg-blue-700"
+                    disabled={unifiedLoginMutation.isPending}
                   >
-                    {staffLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
+                    {unifiedLoginMutation.isPending ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
-              </TabsContent>
-            </Tabs>
+              )}
 
-            {/* Error Messages */}
-            {(sendOtpMutation.error || studentLoginMutation.error || staffLoginMutation.error) && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-xs sm:text-sm text-red-700">
-                  {sendOtpMutation.error?.message || 
-                   studentLoginMutation.error?.message || 
-                   staffLoginMutation.error?.message || 
-                   'An error occurred. Please try again.'}
-                </p>
+              {/* Error Messages */}
+              {(sendOtpMutation.error || studentLoginMutation.error || unifiedLoginMutation.error) && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs sm:text-sm text-red-700">
+                    {sendOtpMutation.error?.message || 
+                     studentLoginMutation.error?.message || 
+                     unifiedLoginMutation.error?.message || 
+                     'An error occurred. Please try again.'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Demo Credentials - Unified */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-sm text-gray-700 dark:text-gray-300">Demo Credentials</CardTitle>
+              <CardDescription className="text-xs">
+                Click to auto-login with demo accounts
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Super Admin */}
+              <div 
+                className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                onClick={() => handleQuickLogin('admin@10minuteschool.com', 'admin123')}
+              >
+                <div className="text-xs font-semibold text-red-800 dark:text-red-300 mb-1">Super Admin</div>
+                <div className="text-xs text-red-700 dark:text-red-400 space-y-1">
+                  <div><strong>Email:</strong> admin@10minuteschool.com</div>
+                  <div><strong>Password:</strong> admin123</div>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Dummy Credentials for Testing */}
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="text-sm text-gray-700">Test Credentials</CardTitle>
-            <CardDescription className="text-xs">
-              Use these credentials to test different user roles
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Super Admin */}
-            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-              <div className="text-xs font-semibold text-red-800 mb-1">Super Admin</div>
-              <div className="text-xs text-red-700 space-y-1">
-                <div><strong>Email:</strong> admin@10minuteschool.com</div>
-                <div><strong>Password:</strong> admin123</div>
+              {/* Branch Admin */}
+              <div 
+                className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                onClick={() => handleQuickLogin('dhanmondi@10minuteschool.com', 'admin123')}
+              >
+                <div className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">Branch Admin</div>
+                <div className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                  <div><strong>Email:</strong> dhanmondi@10minuteschool.com</div>
+                  <div><strong>Password:</strong> admin123</div>
+                </div>
               </div>
-            </div>
 
-            {/* Branch Admin */}
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-xs font-semibold text-blue-800 mb-1">Branch Admin</div>
-              <div className="text-xs text-blue-700 space-y-1">
-                <div><strong>Email:</strong> dhanmondi@10minuteschool.com</div>
-                <div><strong>Password:</strong> admin123</div>
+              {/* Teacher */}
+              <div 
+                className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                onClick={() => handleQuickLogin('sarah@10minuteschool.com', 'teacher123')}
+              >
+                <div className="text-xs font-semibold text-green-800 dark:text-green-300 mb-1">Teacher</div>
+                <div className="text-xs text-green-700 dark:text-green-400 space-y-1">
+                  <div><strong>Email:</strong> sarah@10minuteschool.com</div>
+                  <div><strong>Password:</strong> teacher123</div>
+                </div>
               </div>
-            </div>
 
-            {/* Teacher */}
-            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-xs font-semibold text-green-800 mb-1">Teacher</div>
-              <div className="text-xs text-green-700 space-y-1">
-                <div><strong>Email:</strong> sarah@10minuteschool.com</div>
-                <div><strong>Password:</strong> teacher123</div>
+              {/* Student */}
+              <div 
+                className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                onClick={() => handleQuickLogin('student@10minuteschool.com', 'student123')}
+              >
+                <div className="text-xs font-semibold text-purple-800 dark:text-purple-300 mb-1">Student</div>
+                <div className="text-xs text-purple-700 dark:text-purple-400 space-y-1">
+                  <div><strong>Email:</strong> student@10minuteschool.com</div>
+                  <div><strong>Password:</strong> student123</div>
+                  <div className="text-xs text-purple-600 dark:text-purple-500 mt-2">Or use phone/OTP:</div>
+                  <div><strong>Phone:</strong> +8801712345678</div>
+                  <div><strong>OTP:</strong> 123456 (any 6-digit number)</div>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Student */}
-            <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="text-xs font-semibold text-purple-800 mb-1">Student</div>
-              <div className="text-xs text-purple-700 space-y-1">
-                <div><strong>Email:</strong> student@10minuteschool.com</div>
-                <div><strong>Password:</strong> student123</div>
-                <div className="text-xs text-purple-600 mt-2">Or use phone/OTP:</div>
-                <div><strong>Phone:</strong> +8801712345678</div>
-                <div><strong>OTP:</strong> 123456 (any 6-digit number)</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <div className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-gray-600">
-          <p>Need help? Contact support at</p>
-          <p className="font-medium break-all sm:break-normal">support@10minuteschool.com</p>
+          {/* Footer */}
+          <div className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-gray-300 dark:text-gray-400">
+            <p>Need help? Contact support at</p>
+            <p className="font-medium break-all sm:break-normal">support@10minuteschool.com</p>
+          </div>
         </div>
-      </div>
       </div>
     </>
   )
