@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../lib/supabase';
+import { mockAuth } from '../lib/mock-auth';
 
 const router = express.Router();
 
@@ -92,10 +93,17 @@ router.post('/staff/login', async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: error.message
-      });
+      // Fallback to mock authentication for demo credentials
+      console.log('Supabase auth failed, trying mock auth for:', email);
+      try {
+        const mockResult = await mockAuth.loginStaff(email, password);
+        return res.json(mockResult);
+      } catch (mockError) {
+        return res.status(401).json({
+          error: 'Authentication failed',
+          message: error.message
+        });
+      }
     }
 
     if (!data.user) {
@@ -138,6 +146,38 @@ router.post('/staff/login', async (req, res) => {
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Login failed'
+    });
+  }
+});
+
+// POST /api/auth/student/login - Student login with mock fallback
+router.post('/student/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Missing credentials',
+        message: 'Email and password are required'
+      });
+    }
+
+    // Try mock authentication for demo credentials
+    try {
+      const mockResult = await mockAuth.loginStudent(email, password);
+      return res.json(mockResult);
+    } catch (mockError) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid credentials'
+      });
+    }
+
+  } catch (error) {
+    console.error('Student login error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Student login failed'
     });
   }
 });

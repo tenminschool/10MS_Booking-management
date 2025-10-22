@@ -130,12 +130,15 @@ const Login: React.FC = () => {
       console.log('🎉 Unified login successful:', response.userType)
       console.log('Response data:', response.data)
       
-      if (!response.data || !response.data.data) {
+      // Handle the response format from unified login
+      const responseData = response.data || response
+      
+      if (!responseData || !responseData.data) {
         console.error('Invalid response format:', response)
         return
       }
       
-      const { token, user } = response.data.data
+      const { token, user } = responseData.data
       console.log('Token:', token)
       console.log('User:', user)
       
