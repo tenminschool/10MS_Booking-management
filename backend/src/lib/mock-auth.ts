@@ -57,6 +57,19 @@ const mockStudents = {
   }
 };
 
+// Mock student email credentials
+const mockStudentEmails = {
+  'student@10minuteschool.com': {
+    id: 'mock-student-email-id',
+    name: 'Student User',
+    email: 'student@10minuteschool.com',
+    role: 'STUDENT',
+    branchId: null,
+    branch: null,
+    password: 'student123'
+  }
+};
+
 export const mockAuth = {
   // Mock staff login
   loginStaff: async (email: string, password: string) => {
@@ -74,16 +87,18 @@ export const mockAuth = {
     });
 
     return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        branchId: user.branchId,
-        branch: user.branch
-      },
-      token,
-      expiresIn: '24h'
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          branchId: user.branchId,
+          branch: user.branch
+        },
+        token,
+        expiresIn: '24h'
+      }
     };
   },
 
@@ -102,6 +117,36 @@ export const mockAuth = {
       message: 'OTP sent successfully',
       phoneNumber,
       expiresIn: '5 minutes'
+    };
+  },
+
+  // Mock student email login
+  loginStudent: async (email: string, password: string) => {
+    const user = mockStudentEmails[email as keyof typeof mockStudentEmails];
+    
+    if (!user || user.password !== password) {
+      throw new Error('Invalid email or password');
+    }
+
+    const token = generateToken({
+      userId: user.id,
+      role: user.role as any,
+      email: user.email,
+    });
+
+    return {
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          branchId: user.branchId,
+          branch: user.branch
+        },
+        token,
+        expiresIn: '24h'
+      }
     };
   },
 
@@ -125,16 +170,18 @@ export const mockAuth = {
     });
 
     return {
-      user: {
-        id: student.id,
-        name: student.name,
-        phoneNumber: student.phoneNumber,
-        role: student.role,
-        branchId: student.branchId,
-        branch: student.branch
-      },
-      token,
-      expiresIn: '24h'
+      data: {
+        user: {
+          id: student.id,
+          name: student.name,
+          phoneNumber: student.phoneNumber,
+          role: student.role,
+          branchId: student.branchId,
+          branch: student.branch
+        },
+        token,
+        expiresIn: '24h'
+      }
     };
   }
 };

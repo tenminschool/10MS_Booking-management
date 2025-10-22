@@ -34,98 +34,69 @@ const queryClient = new QueryClient({
   },
 })
 
-// AppRoutes component that contains all routes and is wrapped by AuthProvider
-const AppRoutes: React.FC = () => {
-  // Protected Route Component - defined inside AppRoutes to have access to AuthProvider context
-  const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { isAuthenticated, isLoading } = useAuth()
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth()
 
-    if (isLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-        </div>
-      )
-    }
-
-    if (!isAuthenticated) {
-      return <Navigate to="/login" replace />
-    }
-
-    return <>{children}</>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
   }
 
-  // Admin Route Component - requires admin role
-  const AdminRoute: React.FC<{ children: React.ReactNode; allowedRoles?: UserRole[] }> = ({
-    children,
-    allowedRoles = [UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]
-  }) => {
-    const { user, isAuthenticated, isLoading } = useAuth()
-
-    if (isLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-        </div>
-      )
-    }
-
-    if (!isAuthenticated) {
-      return <Navigate to="/login" replace />
-    }
-
-    if (!user || !allowedRoles.includes(user.role)) {
-      // Redirect to appropriate dashboard based on role
-      if (user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.BRANCH_ADMIN) {
-        return <Navigate to="/admin/dashboard" replace />
-      } else {
-        return <Navigate to="/dashboard" replace />
-      }
-    }
-
-    return <>{children}</>
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
   }
 
-  // Public Route Component (redirect if authenticated)
-  const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { isAuthenticated, isLoading, user } = useAuth()
+  return <>{children}</>
+}
 
-    if (isLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-        </div>
-      )
-    }
+// Admin Route Component - requires admin role
+const AdminRoute: React.FC<{ children: React.ReactNode; allowedRoles?: UserRole[] }> = ({
+  children,
+  allowedRoles = [UserRole.SUPER_ADMIN, UserRole.BRANCH_ADMIN]
+}) => {
+  const { user, isAuthenticated, isLoading } = useAuth()
 
-    if (isAuthenticated && user) {
-      // Role-based routing: Admins go to admin dashboard, others go to user dashboard
-      if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.BRANCH_ADMIN) {
-        return <Navigate to="/admin/dashboard" replace />
-      } else {
-        return <Navigate to="/dashboard" replace />
-      }
-    }
-
-    return <>{children}</>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
   }
 
-  // Redirect to dashboard component - Role-based routing
-  const RedirectToDashboard: React.FC = () => {
-    const { user, isLoading } = useAuth()
-    
-    if (isLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-        </div>
-      )
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user || !allowedRoles.includes(user.role)) {
+    // Redirect to appropriate dashboard based on role
+    if (user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.BRANCH_ADMIN) {
+      return <Navigate to="/admin/dashboard" replace />
+    } else {
+      return <Navigate to="/dashboard" replace />
     }
-    
-    if (!user) {
-      return <Navigate to="/login" replace />
-    }
-    
+  }
+
+  return <>{children}</>
+}
+
+// Public Route Component (redirect if authenticated)
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading, user } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+
+  if (isAuthenticated && user) {
     // Role-based routing: Admins go to admin dashboard, others go to user dashboard
     if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.BRANCH_ADMIN) {
       return <Navigate to="/admin/dashboard" replace />
@@ -133,6 +104,36 @@ const AppRoutes: React.FC = () => {
       return <Navigate to="/dashboard" replace />
     }
   }
+
+  return <>{children}</>
+}
+
+// Redirect to dashboard component - Role-based routing
+const RedirectToDashboard: React.FC = () => {
+  const { user, isLoading } = useAuth()
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+  
+  // Role-based routing: Admins go to admin dashboard, others go to user dashboard
+  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.BRANCH_ADMIN) {
+    return <Navigate to="/admin/dashboard" replace />
+  } else {
+    return <Navigate to="/dashboard" replace />
+  }
+}
+
+// AppRoutes component that contains all routes and is wrapped by AuthProvider
+const AppRoutes: React.FC = () => {
   return (
     <Router>
       <div className="min-h-screen bg-background text-foreground">

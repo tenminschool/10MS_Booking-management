@@ -30,7 +30,7 @@
     "deploy": "./scripts/deploy.sh"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.58.0",
+    "@supabase/supabase-js": "^2.76.1",
     "@types/pg": "^8.15.5",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
