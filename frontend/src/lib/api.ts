@@ -93,12 +93,12 @@ export const authAPI = {
 
   loginStudentEmail: (email: string, password: string) => {
     console.log('🔐 API Call: loginStudentEmail', { email, password: '***' })
-    return toPromise(api.post('/api/mock-auth/student/login', { email, password }))
+    return toPromise(api.post('/api/auth/student/login', { email, password }))
   },
 
   loginStaff: (email: string, password: string) => {
     console.log('🔐 API Call: loginStaff', { email, password: '***' })
-    return toPromise(api.post('/api/mock-auth/staff/login', { email, password }))
+    return toPromise(api.post('/api/auth/staff/login', { email, password }))
   },
 
   sendOTP: (phoneNumber: string) => {
@@ -108,7 +108,7 @@ export const authAPI = {
 
   getCurrentUser: () => {
     console.log('🔐 API Call: getCurrentUser')
-    return toPromise(api.get<User>('/api/mock-auth/me'))
+    return toPromise(api.get<User>('/api/auth/me'))
   },
 
   logout: () => {
